@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #F4F6F9;
+  color: #1E293B;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+.font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.tabular-price {
+  font-variant-numeric: tabular-nums;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.pb-safe {
+  padding-bottom: calc(0.55rem + env(safe-area-inset-bottom, 0px));
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.85);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-135px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.floating-heart {
+  position: absolute;
+  bottom: 8px;
+  animation: floatUp 1.6s ease-out forwards;
+  pointer-events: none;
+}
+

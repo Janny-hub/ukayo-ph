@@ -1,0 +1,6 @@
+{
+  "name": "UKAYO — Live Ukay & Thrift Marketplace",
+  "description": "Live ukay-ukay and thrift marketplace with real-time live selling rooms, community feed, seller storefronts, and instant Mine Na! locking.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

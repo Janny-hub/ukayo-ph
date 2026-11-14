@@ -1,0 +1,2783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>UKAYO — Live Ukay &amp; Thrift Marketplace</title>
+  <meta name="theme-color" content="#070D17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F4F6F9;
+      color: #1E293B;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    .font-display {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      letter-spacing: -0.02em;
+    }
+    .tabular-price {
+      font-variant-numeric: tabular-nums;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .pb-safe {
+      padding-bottom: calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(0.85); opacity: 1; }
+      100% { transform: translateY(-135px) scale(1.2); opacity: 0; }
+    }
+    .floating-heart {
+      position: absolute;
+      bottom: 8px;
+      animation: floatUp 1.6s ease-out forwards;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-[#F4F6F9] text-[#1E293B] antialiased selection:bg-[#10B981]/20">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-box" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm flex flex-col gap-1.5 pointer-events-none"></div>
+
+  <!-- Mobile App Shell -->
+  <div id="ukayo-app-shell" class="max-w-md mx-auto min-h-[100dvh] bg-[#F4F6F9] flex flex-col relative shadow-sm">
+
+    <!-- =================================================================== -->
+    <!-- TOP HEADER BAR (#070D17)                                            -->
+    <!-- =================================================================== -->
+    <header id="main-app-header" class="sticky top-0 z-30 bg-[#070D17] text-white px-3 py-2.5 border-b border-slate-800/80">
+      <div class="flex items-center gap-2">
+        <!-- Crisp High-Contrast UKAYO Hanger Wordmark -->
+        <button onclick="switchTab('home')" class="flex items-center shrink-0 cursor-pointer" title="UKAYO Home">
+          <svg class="w-[78px] h-10 text-white" viewBox="0 0 800 450" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="UKAYO">
+            <g stroke-width="20">
+              <path d="M 378 82 C 378 52, 422 52, 422 82 C 422 102, 400 110, 400 128 L 400 142" />
+              <path d="M 400 142 L 155 178 C 132 182, 118 196, 112 218 L 78 345 C 72 368, 86 385, 110 385 L 690 385 C 714 385, 728 368, 722 345 L 688 218 C 682 196, 668 182, 645 178 Z" />
+            </g>
+            <g stroke-width="24" stroke-linecap="butt" stroke-linejoin="miter">
+              <path d="M 155 202 L 155 282 C 155 322, 225 322, 225 282 L 225 202" />
+              <path d="M 262 202 L 262 315" />
+              <path d="M 332 202 L 264 268" />
+              <path d="M 294 240 L 336 315" />
+              <path d="M 358 315 L 402 204 L 446 315" />
+              <path d="M 374 282 L 430 282" />
+              <path d="M 465 202 L 504 262" />
+              <path d="M 542 202 L 504 262 L 504 334 C 504 358, 468 358, 468 334 C 468 312, 492 302, 520 294 C 546 286, 560 272, 568 256" />
+              <circle cx="614" cy="258" r="54" />
+            </g>
+          </svg>
+        </button>
+
+        <!-- Search Pill -->
+        <div class="flex-1 flex items-center bg-white rounded-full px-3 py-1.5 text-[#1E293B] min-w-0">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5"></i>
+          <input type="text" id="global-search-input" onkeyup="handleGlobalSearch(this.value)" placeholder="Search vintage hoodies, bales..." class="w-full text-xs bg-transparent focus:outline-none truncate" />
+        </div>
+
+        <!-- My Bayong Shortcut -->
+        <button onclick="switchTab('bag')" class="relative p-1.5 text-white hover:text-[#10B981] shrink-0 cursor-pointer" title="My Bayong">
+          <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+          <span id="header-bag-badge" class="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Direct Seller Chat Shortcut -->
+        <button onclick="switchTab('chat')" class="relative p-1.5 text-white hover:text-[#10B981] shrink-0 cursor-pointer" title="Seller Chat">
+          <i data-lucide="message-circle" class="w-5 h-5"></i>
+          <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981]"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- =================================================================== -->
+    <!-- MAIN CONTENT AREA                                                   -->
+    <!-- =================================================================== -->
+    <main class="flex-1 pb-20">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: "HOME" (SHOPEE-STYLE SUPER APP DASHBOARD)                  -->
+      <!-- ================================================================= -->
+      <section id="tab-home" class="space-y-3 pb-4">
+        <div class="bg-[#070D17] px-3.5 pt-1 pb-5 rounded-b-3xl">
+          <!-- 5 Uniform Brand-Palette Quick-Shortcut Icons Flush Below Search Bar -->
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-xs">
+            <div class="grid grid-cols-5 gap-1.5 text-center">
+              <button onclick="openPerksModal('referral')" class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[#070D17] flex items-center justify-center group-active:scale-95 transition">
+                  <i data-lucide="award" class="w-5 h-5 text-[#F59E0B]"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-[#1E293B] leading-tight">Referral<br/>Points</span>
+              </button>
+
+              <button onclick="openPerksModal('discounts')" class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/25 text-[#EF4444] flex items-center justify-center group-active:scale-95 transition">
+                  <i data-lucide="percent" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-[#1E293B] leading-tight">Ukay<br/>Discounts</span>
+              </button>
+
+              <button onclick="openPerksModal('vouchers')" class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 text-[#10B981] flex items-center justify-center group-active:scale-95 transition">
+                  <i data-lucide="ticket" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-[#1E293B] leading-tight">Free<br/>Vouchers</span>
+              </button>
+
+              <button onclick="handleBecomeSellerAction()" class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-[#070D17] text-[#F59E0B] flex items-center justify-center group-active:scale-95 transition shadow-2xs">
+                  <i data-lucide="store" class="w-5 h-5"></i>
+                </div>
+                <span id="home-become-seller-label" class="text-[10px] font-bold text-[#070D17] leading-tight">Become<br/>Ukayo Seller</span>
+              </button>
+
+              <button onclick="openAppReleaseModal()" class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div class="w-10 h-10 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-[#070D17] flex items-center justify-center group-active:scale-95 transition">
+                  <i data-lucide="smartphone" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-[#1E293B] leading-tight">Get<br/>Mobile App</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-3.5 space-y-3">
+          <!-- Side-by-Side UKAYO LIVE & UKAY FEED Preview Cards -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs space-y-2">
+              <button onclick="switchTab('mine')" class="w-full flex items-center justify-between text-left cursor-pointer">
+                <span class="text-xs font-display font-extrabold text-[#EF4444] tracking-tight">UKAYO LIVE</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="home-live-previews" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs space-y-2">
+              <button onclick="switchTab('feed')" class="w-full flex items-center justify-between text-left cursor-pointer">
+                <span class="text-xs font-display font-extrabold text-[#070D17] tracking-tight">UKAY FEED</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="home-feed-previews" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+          </div>
+
+          <!-- Ukay Paborito Picture-Icon Grid -->
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Ukay Paborito</h2>
+              <button onclick="switchTab('feed')" class="text-[11px] font-bold text-[#10B981] cursor-pointer">Browse All</button>
+            </div>
+            <div id="home-categories-grid" class="grid grid-cols-3 gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: "UKAY FEED" (FACEBOOK-GROUP-STYLE COMMUNITY POSTING WALL)   -->
+      <!-- ================================================================= -->
+      <section id="tab-feed" class="hidden px-3.5 pt-3 space-y-3 pb-4">
+        <!-- Compact Live Stories Strip -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">Live Bales &amp; Active Tindahan</span>
+            <button onclick="switchTab('mine')" class="text-[10px] font-bold text-[#EF4444] cursor-pointer">Watch All Live →</button>
+          </div>
+          <div id="feed-stories-strip" class="flex items-center gap-3 overflow-x-auto no-scrollbar pb-0.5"></div>
+        </div>
+
+        <!-- Facebook-Style Community Composer -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+              MS
+            </div>
+            <button onclick="openFeedComposerModal()" class="flex-1 text-left px-3.5 py-2 rounded-full bg-[#F4F6F9] hover:bg-slate-200/70 text-xs text-slate-500 font-medium cursor-pointer transition">
+              What's your ukay drop or looking-for today?
+            </button>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100 text-[11px] font-bold text-[#1E293B]">
+            <button onclick="openFeedComposerModal()" class="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="image" class="w-3.5 h-3.5 text-[#10B981]"></i>
+              <span>Photo / Bale</span>
+            </button>
+            <button onclick="openFeedComposerModal()" class="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="tag" class="w-3.5 h-3.5 text-[#F59E0B]"></i>
+              <span>Sell Item</span>
+            </button>
+            <button onclick="switchTab('mine')" class="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="radio" class="w-3.5 h-3.5 text-[#EF4444]"></i>
+              <span>Live Drops</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div id="feed-category-bar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar"></div>
+
+        <!-- Community Posts Feed -->
+        <div id="feed-posts-list" class="space-y-3"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: "MINE NA!" (TIKTOK LIVE SELLING ROOM)                      -->
+      <!-- ================================================================= -->
+      <section id="tab-mine" ontouchstart="handleLiveTouchStart(event)" ontouchend="handleLiveTouchEnd(event)" onwheel="handleLiveWheel(event)" class="hidden fixed inset-0 z-20 max-w-md mx-auto bg-[#070D17] text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none">
+        <!-- Video / Visual Backdrop -->
+        <img id="live-fallback-bg" src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80" alt="Live Ukay Stream" class="absolute inset-0 w-full h-full object-cover opacity-80" />
+        <video id="live-camera-video" autoplay playsinline muted class="hidden absolute inset-0 w-full h-full object-cover"></video>
+        <div class="absolute inset-0 bg-gradient-to-b from-black/65 via-transparent to-black/90 pointer-events-none"></div>
+
+        <!-- Top TikTok Live Overlay -->
+        <div class="relative z-10 p-3 pt-3.5 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full pl-1.5 pr-2 py-1 border border-white/15 min-w-0">
+            <button onclick="openSellerStore(state.activeLiveSellerId)" class="flex items-center gap-2 text-left min-w-0 cursor-pointer">
+              <div class="w-8 h-8 rounded-full bg-[#F59E0B] text-[#070D17] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                AJ
+              </div>
+              <div class="min-w-0">
+                <div id="live-host-name" class="text-[11px] font-extrabold text-white truncate">Ate Joy's Bale Closet</div>
+                <div id="live-host-category" class="text-[9px] text-[#10B981] font-bold truncate">Jackets &amp; Hoodies</div>
+              </div>
+            </button>
+            <button onclick="toggleFollowCurrentLiveSeller()" id="live-follow-btn" class="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold shrink-0 cursor-pointer">
+              Follow
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <div class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping"></span>
+              <span>342</span>
+            </div>
+            <button onclick="switchTab('home')" class="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer" title="Exit Live">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Swipe-Up Related Live Indicator -->
+        <div class="relative z-10 flex justify-center">
+          <button onclick="switchToNextRelatedLive()" class="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-bold text-slate-200 inline-flex items-center gap-1 cursor-pointer">
+            <i data-lucide="chevrons-up" class="w-3.5 h-3.5 text-[#10B981]"></i>
+            <span>Swipe up for next related live</span>
+          </button>
+        </div>
+
+        <!-- Bottom TikTok Live HUD (Zero-Overlap Side-by-Side Chat + Right Action Rail + Pinned Card) -->
+        <div class="relative z-10 px-3 pb-20 space-y-2.5">
+          <div id="floating-hearts-container" class="relative h-0"></div>
+
+          <div class="flex items-end justify-between gap-2">
+            <!-- Bottom-Left Live Comments -->
+            <div id="live-chat-messages" class="flex-1 max-h-36 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1.5 pr-1"></div>
+
+            <!-- Right Vertical Action Rail -->
+            <div class="flex flex-col items-center gap-2.5 shrink-0">
+              <button onclick="toggleCameraLive()" id="tiktok-cam-btn" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer" title="Go Live Camera">
+                <i data-lucide="video" class="w-4 h-4"></i>
+              </button>
+              <button onclick="flipLiveCamera()" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer" title="Flip Camera">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              </button>
+              <button onclick="openSellerDropModal()" id="tiktok-seller-drop-btn" class="hidden w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer" title="Seller Flash Drop">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+              </button>
+              <button onclick="openAgoraModal()" class="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer" title="Agora Live Settings">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+              </button>
+              <button onclick="triggerLiveReaction()" class="w-10 h-10 rounded-full bg-[#EF4444] text-white flex items-center justify-center shadow-lg active:scale-90 transition cursor-pointer" title="Send Love">
+                <i data-lucide="heart" class="w-5 h-5 fill-current"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pinned Item Card with Unique MINE NA! Button -->
+          <div id="live-pinned-item-card"></div>
+
+          <!-- Live Comment Input Bar -->
+          <form onsubmit="sendLiveChat(event)" class="flex items-center gap-2">
+            <button type="button" onclick="switchTab('bag')" class="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0 cursor-pointer shadow-sm" title="My Bayong">
+              <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+            </button>
+            <input type="text" id="live-chat-input" placeholder="Say something or ask measurements..." class="flex-1 px-3.5 py-2 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-xs text-white placeholder-slate-300 focus:outline-none" />
+            <button type="submit" class="px-3.5 py-2 rounded-full bg-[#10B981] text-white text-xs font-extrabold shrink-0 cursor-pointer">
+              Send
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: "NASA TINDAHAN" (SELLER STOREFRONT PORTAL)                 -->
+      <!-- ================================================================= -->
+      <section id="tab-store" class="hidden px-3.5 pt-3 space-y-3 pb-4">
+        <div class="flex items-center justify-between">
+          <button onclick="switchTab('feed')" class="inline-flex items-center gap-1 text-xs font-bold text-[#070D17] cursor-pointer">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Back to Feed</span>
+          </button>
+          <span class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Nasa Tindahan</span>
+          <button onclick="openSellerDropModal()" id="store-add-product-btn" class="hidden px-2.5 py-1 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer">
+            + Add Item
+          </button>
+        </div>
+
+        <div id="storefront-hero"></div>
+        <div id="storefront-products-grid" class="grid grid-cols-2 gap-2.5"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 5: "MY BAYONG" (CART, +/- QUANTITY, DELETE & CHECKOUT)        -->
+      <!-- ================================================================= -->
+      <section id="tab-bag" class="hidden px-3.5 pt-3 space-y-3 pb-24">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">My Bayong</h2>
+            <p class="text-[11px] text-slate-500">Review your mined pieces before checkout</p>
+          </div>
+          <span id="bayong-item-count" class="px-2.5 py-1 rounded-full bg-[#070D17] text-white text-[10px] font-extrabold">0 items</span>
+        </div>
+
+        <div id="bayong-items-list" class="space-y-2.5"></div>
+
+        <!-- Sticky Proceed to Checkout Bar -->
+        <div id="bayong-checkout-bar" class="hidden bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-md flex items-center justify-between gap-3">
+          <div>
+            <div class="text-[10px] font-bold uppercase text-slate-400">Bayong Total</div>
+            <div id="bayong-grand-total" class="text-lg font-display font-extrabold text-[#070D17] tabular-price">₱0</div>
+          </div>
+          <button onclick="openCheckoutModal()" class="px-5 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm cursor-pointer">
+            Proceed to Checkout
+          </button>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 6: "CHAT" (DIRECT MESSAGING WITH SELLERS)                     -->
+      <!-- ================================================================= -->
+      <section id="tab-chat" class="hidden px-3.5 pt-3 space-y-3 pb-4">
+        <div>
+          <h2 class="text-base font-display font-extrabold text-[#070D17]">Seller Messages</h2>
+          <p class="text-[11px] text-slate-500">Coordinate shipping, measurements &amp; payment proofs</p>
+        </div>
+
+        <div id="chat-sellers-strip" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar"></div>
+
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col h-[58dvh]">
+          <div class="px-3.5 py-2.5 bg-[#070D17] text-white flex items-center justify-between">
+            <span id="chat-active-seller-name" class="text-xs font-extrabold">Ate Joy's Bale Closet</span>
+            <span class="text-[10px] text-[#10B981] font-bold">● Online</span>
+          </div>
+          <div id="chat-messages-box" class="flex-1 p-3 overflow-y-auto space-y-2 bg-[#F4F6F9]"></div>
+          <form onsubmit="sendDirectChatMessage(event)" class="p-2.5 bg-white border-t border-[#E2E8F0] flex items-center gap-2">
+            <input type="text" id="direct-chat-input" placeholder="Message seller..." class="flex-1 px-3.5 py-2 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none" />
+            <button type="submit" class="px-4 py-2 rounded-full bg-[#070D17] text-white text-xs font-extrabold cursor-pointer">Send</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 7: "MY ACCOUNT" (PROFILE, SELLER MODE, PURCHASES & ID)        -->
+      <!-- ================================================================= -->
+      <section id="tab-account" class="hidden px-3.5 pt-3 space-y-3.5 pb-6">
+        <!-- Profile Header Card -->
+        <div class="bg-white rounded-3xl border border-[#E2E8F0] p-4 shadow-2xs">
+          <div class="flex items-center gap-3.5">
+            <div class="relative shrink-0">
+              <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-[#F59E0B] to-[#10B981] p-[2.5px]">
+                <div id="account-avatar-initials" class="w-full h-full rounded-full bg-[#070D17] text-white font-display font-extrabold text-lg flex items-center justify-center">
+                  MS
+                </div>
+              </div>
+              <span id="account-role-pill" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full bg-[#F59E0B] text-[#070D17] text-[8px] font-extrabold uppercase tracking-wider shadow-2xs">
+                MINER
+              </span>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <h3 id="account-display-name" class="text-base font-display font-extrabold text-[#070D17] truncate">Hello, Mika!</h3>
+              <p id="account-email-line" class="text-xs text-slate-500 truncate">mika.santos@ukayo.ph</p>
+              <button onclick="openIdVerifyModal()" id="account-verified-badge" class="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer">
+                <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                <span>Not Verified • Submit Primary ID</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Become a Ukayo Seller / Active Seller Mode Switcher Card -->
+        <div class="rounded-2xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-4 shadow-2xs space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="space-y-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <h3 id="account-seller-banner-title" class="text-sm font-display font-extrabold text-[#070D17] truncate">Become a Ukayo Seller</h3>
+                <span id="account-seller-status-badge" class="hidden px-2 py-0.5 rounded-full bg-[#10B981] text-white text-[9px] font-extrabold uppercase tracking-wider shrink-0">Active Shop</span>
+              </div>
+              <p id="account-seller-banner-desc" class="text-[11px] text-[#1E293B] leading-snug">Apply to open your own Nasa Tindahan &amp; go live on Mine Na!</p>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-white border border-[#E2E8F0] flex items-center justify-center text-[#070D17] shrink-0">
+              <i data-lucide="store" class="w-5 h-5 text-[#F59E0B]"></i>
+            </div>
+          </div>
+
+          <div id="account-buyer-apply-actions">
+            <button onclick="handleBecomeSellerAction()" id="account-seller-banner-btn" class="px-3.5 py-2 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-[11px] font-bold shadow-2xs cursor-pointer">
+              Apply Now
+            </button>
+          </div>
+
+          <!-- Seller Mode Toggle & Quick Live/Post Actions (Shown once approved/activated) -->
+          <div id="account-seller-active-controls" class="hidden space-y-2.5 pt-2 border-t border-[#F59E0B]/30">
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white border border-[#E2E8F0]">
+              <button type="button" onclick="setMarketplaceMode('buyer')" id="mode-btn-buyer" class="py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#070D17] text-white cursor-pointer transition">
+                Miner Mode (Shop)
+              </button>
+              <button type="button" onclick="setMarketplaceMode('seller')" id="mode-btn-seller" class="py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#1E293B] hover:bg-[#F4F6F9] cursor-pointer transition">
+                Seller Mode (Live/Post)
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="launchSellerLiveInApp()" class="py-2 px-3 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer">
+                <i data-lucide="radio" class="w-3.5 h-3.5"></i>
+                <span>Go LIVE Now</span>
+              </button>
+              <button type="button" onclick="launchSellerPostInApp()" class="py-2 px-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-[#10B981]"></i>
+                <span>Post on Feed</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Purchases Summary (To Pay, To Ship, To Receive, To Rate) -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-display font-extrabold text-[#070D17]">My Purchases</h3>
+            <button onclick="setPurchaseFilter('ALL')" class="text-[10px] font-bold text-[#10B981] cursor-pointer">View All</button>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 text-center">
+            <button onclick="setPurchaseFilter('TO_PAY')" id="purchase-tab-TO_PAY" class="relative p-2 rounded-xl bg-[#F4F6F9] text-[#1E293B] flex flex-col items-center gap-1 cursor-pointer transition">
+              <span id="count-TO_PAY" class="hidden absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+              <i data-lucide="wallet" class="w-4 h-4"></i>
+              <span class="text-[10px] font-bold">To Pay</span>
+            </button>
+            <button onclick="setPurchaseFilter('TO_SHIP')" id="purchase-tab-TO_SHIP" class="relative p-2 rounded-xl bg-[#F4F6F9] text-[#1E293B] flex flex-col items-center gap-1 cursor-pointer transition">
+              <span id="count-TO_SHIP" class="hidden absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+              <i data-lucide="package" class="w-4 h-4"></i>
+              <span class="text-[10px] font-bold">To Ship</span>
+            </button>
+            <button onclick="setPurchaseFilter('TO_RECEIVE')" id="purchase-tab-TO_RECEIVE" class="relative p-2 rounded-xl bg-[#F4F6F9] text-[#1E293B] flex flex-col items-center gap-1 cursor-pointer transition">
+              <span id="count-TO_RECEIVE" class="hidden absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+              <i data-lucide="truck" class="w-4 h-4"></i>
+              <span class="text-[10px] font-bold">To Receive</span>
+            </button>
+            <button onclick="setPurchaseFilter('TO_RATE')" id="purchase-tab-TO_RATE" class="relative p-2 rounded-xl bg-[#F4F6F9] text-[#1E293B] flex flex-col items-center gap-1 cursor-pointer transition">
+              <span id="count-TO_RATE" class="hidden absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full bg-[#F59E0B] text-[#070D17] text-[9px] font-bold flex items-center justify-center">0</span>
+              <i data-lucide="star" class="w-4 h-4"></i>
+              <span class="text-[10px] font-bold">To Rate</span>
+            </button>
+          </div>
+          <div id="account-orders-list" class="space-y-2.5 pt-1"></div>
+        </div>
+
+        <!-- Account Settings List -->
+        <div class="space-y-2">
+          <h3 class="text-xs font-display font-extrabold text-[#070D17] px-0.5">Account Settings</h3>
+
+          <button onclick="openSellerStore(state.user.ownSellerId)" class="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
+                <i data-lucide="store" class="w-4 h-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-[#070D17]">My Nasa Tindahan Shop</div>
+                <div class="text-[10px] text-slate-500 truncate">Manage your ukay listings &amp; live storefront</div>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0"></i>
+          </button>
+
+          <button type="button" onclick="openSellerCenterPortal()" class="w-full bg-[#070D17] text-white rounded-2xl border border-[#070D17] p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#111827] transition cursor-pointer text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-extrabold text-white">UKAYO Seller Center (Web Portal)</div>
+                <div class="text-[10px] text-slate-300 truncate">Manage BIR docs, bulk rack, orders &amp; A6 waybills</div>
+              </div>
+            </div>
+            <i data-lucide="external-link" class="w-4 h-4 text-[#F59E0B] shrink-0"></i>
+          </button>
+
+          <button onclick="openProfileModal()" class="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full bg-[#070D17]/10 text-[#070D17] flex items-center justify-center shrink-0">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-[#070D17]">Personal Information</div>
+                <div class="text-[10px] text-slate-500 truncate">Manage your profile, city &amp; GCash/Maya details</div>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 shrink-0"></i>
+          </button>
+
+          <button onclick="openIdVerifyModal()" class="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] flex items-center justify-center shrink-0">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-bold text-[#070D17]">Identity Verification (Philippine Primary ID)</div>
+                <div id="settings-verify-subtext" class="text-[10px] text-slate-500 truncate">Upload valid PH Government ID &amp; selfie</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span id="settings-verify-dot" class="w-4 h-4 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">!</span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </div>
+          </button>
+
+          <!-- Log Out Button -->
+          <button onclick="handleAccountLogout()" id="account-logout-btn" class="w-full bg-white rounded-2xl border border-[#EF4444]/30 p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#EF4444]/5 transition cursor-pointer text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-full bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+              </div>
+              <div class="min-w-0">
+                <div id="account-logout-title" class="text-xs font-extrabold text-[#EF4444]">Log Out</div>
+                <div id="account-logout-sub" class="text-[10px] text-slate-500 truncate">Sign out of your UKAYO buyer &amp; seller session</div>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-[#EF4444] shrink-0"></i>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- DOCKED 5-TAB MOBILE BOTTOM NAVIGATION BAR                           -->
+    <!-- =================================================================== -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] px-2 pt-1.5 pb-safe">
+      <div class="grid grid-cols-5 items-center text-center">
+        <button onclick="switchTab('home')" data-tab="home" class="bottom-nav-btn flex flex-col items-center gap-0.5 py-1 text-[#070D17] font-extrabold cursor-pointer">
+          <i data-lucide="home" class="w-5 h-5"></i>
+          <span class="text-[10px]">Home</span>
+        </button>
+
+        <button onclick="switchTab('feed')" data-tab="feed" class="bottom-nav-btn flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <i data-lucide="layout-grid" class="w-5 h-5"></i>
+          <span class="text-[10px]">Ukay Feed</span>
+        </button>
+
+        <button onclick="switchTab('mine')" data-tab="mine" class="bottom-nav-btn flex flex-col items-center gap-0.5 py-0.5 text-slate-400 font-semibold cursor-pointer">
+          <div class="w-10 h-10 -mt-4 rounded-2xl bg-[#EF4444] text-white flex items-center justify-center shadow-md border-2 border-white">
+            <i data-lucide="radio" class="w-5 h-5"></i>
+          </div>
+          <span class="text-[10px]">Mine Na!</span>
+        </button>
+
+        <button onclick="switchTab('bag')" data-tab="bag" class="bottom-nav-btn relative flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <span id="nav-bag-badge" class="hidden absolute top-0.5 right-3 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+          <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+          <span class="text-[10px]">My Bayong</span>
+        </button>
+
+        <button onclick="switchTab('account')" data-tab="account" class="bottom-nav-btn flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <i data-lucide="user" class="w-5 h-5"></i>
+          <span class="text-[10px]">My Account</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- =================================================================== -->
+    <!-- MODALS                                                              -->
+    <!-- =================================================================== -->
+
+    <!-- Become Ukayo Seller Application Modal -->
+    <div id="become-seller-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitSellerApplication(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <div>
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Become a Ukayo Seller</h3>
+            <p class="text-[10px] text-slate-500">Activate your Nasa Tindahan &amp; go live on Mine Na!</p>
+          </div>
+          <button type="button" onclick="closeBecomeSellerModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tindahan / Shop Name</label>
+          <input type="text" id="apply-shop-name" value="Mika's Ukay Closet" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">City / Location</label>
+            <input type="text" id="apply-shop-city" value="Cebu City" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">GCash / Maya Number</label>
+            <input type="text" id="apply-shop-gcash" value="0917-555-0192" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+          Activate My Seller Tindahan
+        </button>
+      </form>
+    </div>
+
+    <!-- Community Feed Composer Modal -->
+    <div id="feed-composer-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitNewFeedPost(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Post to Ukay Feed</h3>
+          <button type="button" onclick="closeFeedComposerModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Item / Bale Name</label>
+            <input type="text" id="post-item-title" placeholder="e.g. Vintage 90s Tee" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Price (PHP)</label>
+            <input type="number" id="post-item-price" value="220" min="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Category</label>
+          <select id="post-item-category" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+            <option value="Tops">Tops &amp; Tees</option>
+            <option value="Jackets">Jackets &amp; Hoodies</option>
+            <option value="Denim">Denim &amp; Pants</option>
+            <option value="Bags">Bags &amp; Wallets</option>
+            <option value="Shoes">Ukay Kicks</option>
+            <option value="Bundle Bales">Bundle Bales</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Caption &amp; Measurements</label>
+          <textarea id="post-item-caption" rows="2" placeholder="Chest/Length dimensions, condition, and shipping note..." required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs"></textarea>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer">
+          Publish Post
+        </button>
+      </form>
+    </div>
+
+    <!-- My Bayong Checkout Modal (COD vs Bayad Agad + E-Wallet Selector) -->
+    <div id="checkout-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitBayongCheckout(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[92dvh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <div>
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Bayong Checkout</h3>
+            <p class="text-[10px] text-slate-500">Choose courier &amp; payment option</p>
+          </div>
+          <button type="button" onclick="closeCheckoutModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Delivery Address</label>
+          <input type="text" id="checkout-address" value="Lahug, Cebu City, Central Visayas" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Courier Option</label>
+          <select id="checkout-courier" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+            <option value="J&T Express">J&amp;T Express (Nationwide)</option>
+            <option value="LBC Express">LBC Express</option>
+            <option value="Lalamove">Lalamove Same-Day</option>
+            <option value="Maxim">Maxim Rider</option>
+          </select>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-[10px] font-bold uppercase text-slate-500">Payment Method</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F4F6F9] flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="checkout-pay-method" value="COD" checked onchange="updateCheckoutPaymentHint('COD')" class="accent-[#070D17]" />
+              <div>
+                <div class="text-xs font-extrabold text-[#070D17]">COD</div>
+                <div class="text-[9px] text-slate-500">Cash on Delivery</div>
+              </div>
+            </label>
+            <label class="p-2.5 rounded-xl border border-[#10B981]/40 bg-[#10B981]/10 flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="checkout-pay-method" value="BAYAD_AGAD" onchange="updateCheckoutPaymentHint('BAYAD_AGAD')" class="accent-[#10B981]" />
+              <div>
+                <div class="text-xs font-extrabold text-[#070D17]">Bayad Agad</div>
+                <div class="text-[9px] text-[#10B981] font-bold">E-Wallet Express</div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Bayad Agad E-Wallet Options Panel (Shown when Bayad Agad is selected) -->
+          <div id="bayad-agad-ewallet-box" class="hidden p-3 rounded-2xl bg-[#F4F6F9] border border-[#10B981]/40 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">Select E-Wallet</span>
+              <span class="text-[10px] font-bold text-[#10B981]">Instant Verification</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5" id="ewallet-options-grid">
+              <button type="button" onclick="selectBayadAgadWallet('GCash')" data-wallet="GCash" class="ewallet-choice-btn p-2 rounded-xl border-2 border-[#070D17] bg-white text-left flex items-center gap-2 cursor-pointer">
+                <span class="w-6 h-6 rounded-lg bg-[#070D17] text-white font-display font-extrabold text-[10px] flex items-center justify-center shrink-0">G</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-[#070D17]">GCash</div>
+                  <div class="text-[9px] text-slate-500 truncate">0917-882-3310</div>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectBayadAgadWallet('Maya')" data-wallet="Maya" class="ewallet-choice-btn p-2 rounded-xl border border-[#E2E8F0] bg-white text-left flex items-center gap-2 cursor-pointer">
+                <span class="w-6 h-6 rounded-lg bg-[#10B981] text-white font-display font-extrabold text-[10px] flex items-center justify-center shrink-0">M</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-[#070D17]">Maya</div>
+                  <div class="text-[9px] text-slate-500 truncate">0918-401-7721</div>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectBayadAgadWallet('GoTyme Bank')" data-wallet="GoTyme Bank" class="ewallet-choice-btn p-2 rounded-xl border border-[#E2E8F0] bg-white text-left flex items-center gap-2 cursor-pointer">
+                <span class="w-6 h-6 rounded-lg bg-[#F59E0B] text-[#070D17] font-display font-extrabold text-[10px] flex items-center justify-center shrink-0">GT</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-[#070D17]">GoTyme</div>
+                  <div class="text-[9px] text-slate-500 truncate">Instant QRPH</div>
+                </div>
+              </button>
+
+              <button type="button" onclick="selectBayadAgadWallet('ShopeePay')" data-wallet="ShopeePay" class="ewallet-choice-btn p-2 rounded-xl border border-[#E2E8F0] bg-white text-left flex items-center gap-2 cursor-pointer">
+                <span class="w-6 h-6 rounded-lg bg-[#EF4444] text-white font-display font-extrabold text-[10px] flex items-center justify-center shrink-0">SP</span>
+                <div class="min-w-0">
+                  <div class="text-xs font-extrabold text-[#070D17]">ShopeePay</div>
+                  <div class="text-[9px] text-slate-500 truncate">E-Wallet / QR</div>
+                </div>
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Your E-Wallet Mobile / Ref No.</label>
+              <input type="text" id="ewallet-sender-ref" value="0917-555-0192" placeholder="09XX-XXX-XXXX or Ref #" class="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E2E8F0] text-xs font-semibold text-[#070D17]" />
+            </div>
+          </div>
+
+          <div id="checkout-payment-hint" class="p-2.5 rounded-xl bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[11px] text-[#1E293B] font-medium">
+            Prepare exact cash for the rider upon parcel delivery.
+          </div>
+        </div>
+
+        <div class="p-3 rounded-2xl bg-[#070D17] text-white flex items-center justify-between">
+          <div>
+            <div class="text-[10px] text-slate-400">Total Amount (<span id="checkout-modal-count">0</span> items)</div>
+            <div id="checkout-modal-total" class="text-base font-display font-extrabold text-[#10B981] tabular-price">₱0</div>
+          </div>
+          <button type="submit" id="checkout-submit-btn" class="px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+            Place Order
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- TikTok-Style Pre-Live Setup Modal -->
+    <div id="live-setup-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/75 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="confirmStartLiveSession(event)" class="bg-[#070D17] text-white w-full rounded-3xl p-4 space-y-3.5 border border-slate-800 shadow-2xl max-h-[92dvh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-ping"></span>
+            <div>
+              <h3 class="text-sm font-display font-extrabold text-white">Go LIVE Setup</h3>
+              <p class="text-[10px] text-slate-400">Configure your stream title, cover &amp; pinned rack</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeLiveSetupModal()" class="p-1.5 rounded-full bg-white/10 text-slate-300 hover:text-white cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- Cover Thumbnail + Live Title Card (TikTok Live Style) -->
+        <div class="p-3 rounded-2xl bg-white/10 border border-white/10 flex items-center gap-3">
+          <label class="relative w-16 h-20 rounded-xl overflow-hidden bg-slate-800 border border-white/15 shrink-0 cursor-pointer group">
+            <img id="live-setup-cover-preview" src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80" alt="Live Cover" class="w-full h-full object-cover" />
+            <span class="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] font-extrabold text-center py-0.5 text-white">Change Cover</span>
+            <input type="file" accept="image/*" onchange="handleLiveCoverUpload(event)" class="hidden" />
+          </label>
+          <div class="flex-1 min-w-0 space-y-1.5">
+            <label class="block text-[9px] font-extrabold uppercase tracking-wider text-[#10B981]">Live Stream Title</label>
+            <input type="text" id="live-setup-title" value="Class A Korean Windbreakers & Hoodies Bale Drop!" placeholder="Add an engaging title to attract miners..." required class="w-full px-2.5 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-bold text-white placeholder-slate-400 focus:outline-none focus:border-[#10B981]" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Ukay Category</label>
+            <select id="live-setup-category" class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white">
+              <option value="Jackets & Hoodies" class="text-[#070D17]">Jackets &amp; Hoodies</option>
+              <option value="Tops & Tees" class="text-[#070D17]">Tops &amp; Tees</option>
+              <option value="Denim & Pants" class="text-[#070D17]">Denim &amp; Pants</option>
+              <option value="Bags & Wallets" class="text-[#070D17]">Bags &amp; Wallets</option>
+              <option value="Ukay Kicks" class="text-[#070D17]">Ukay Kicks</option>
+              <option value="Bundle Bales" class="text-[#070D17]">Bundle Bales</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Camera Lens</label>
+            <select id="live-setup-camera" class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white">
+              <option value="environment" class="text-[#070D17]">Rear Camera (Rack View)</option>
+              <option value="user" class="text-[#070D17]">Front Camera (Selfie Host)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Starting Pinned Item</label>
+            <select id="live-setup-pinned-item" class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"></select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Steal / Lock Timer</label>
+            <select id="live-setup-timer" class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white">
+              <option value="First Tap Locks (Instant)" class="text-[#070D17]">First Tap Locks (Instant)</option>
+              <option value="15s Steal Window" class="text-[#070D17]">15s Steal Window</option>
+              <option value="30s Steal Window" class="text-[#070D17]">30s Steal Window</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Pinned Host Rule / Promo Note</label>
+          <input type="text" id="live-setup-rule" value="No joy reservers! Checkout within 12 hrs via Bayad Agad or COD." class="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs text-slate-200 focus:outline-none" />
+        </div>
+
+        <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 text-[11px]">
+          <span class="font-bold text-[#10B981]">✓ Zero Brand-Strike Safe-Harbor Active</span>
+          <span class="text-slate-300 font-semibold">Notify Followers</span>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg cursor-pointer flex items-center justify-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+          <span>Go LIVE Now</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Philippine Primary ID Identity Verification Modal -->
+    <div id="id-verify-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitIdVerification(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-[#070D17] text-[#10B981] flex items-center justify-center shrink-0">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-display font-extrabold text-[#070D17]">Identity Verification</h3>
+              <p class="text-[10px] text-slate-500">Submit a Philippine Primary Government ID</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeIdVerifyModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Accepted Primary ID (Philippines)</label>
+          <select id="verify-id-type" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]">
+            <option value="Philippine National ID (PhilSys / ePhilID)">Philippine National ID (PhilSys / ePhilID)</option>
+            <option value="Philippine Passport (DFA)">Philippine Passport (DFA)</option>
+            <option value="LTO Driver's License">LTO Driver's License</option>
+            <option value="Unified Multi-Purpose ID (UMID)">Unified Multi-Purpose ID (UMID)</option>
+            <option value="PRC Professional ID">PRC Professional ID</option>
+            <option value="Postal ID (Digitized)">Postal ID (Digitized)</option>
+            <option value="SSS / GSIS e-Card">SSS / GSIS e-Card</option>
+            <option value="COMELEC Voter's ID">COMELEC Voter's ID</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Full Name on ID</label>
+            <input type="text" id="verify-id-fullname" placeholder="Mika Santos" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">ID Reference Number</label>
+            <input type="text" id="verify-id-number" placeholder="e.g. 1234-5678-9012" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]" />
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-[10px] font-bold uppercase text-slate-500">Upload Front of Primary ID</label>
+          <label class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
+            <i data-lucide="upload-cloud" class="w-5 h-5 text-[#070D17] mb-1"></i>
+            <span id="verify-id-file-label" class="text-[11px] font-bold text-[#070D17]">Tap to upload Primary ID photo (JPG / PNG)</span>
+            <input type="file" id="verify-id-file" accept="image/*" onchange="handleVerifyFilePreview(event, 'id')" class="hidden" />
+          </label>
+          <img id="verify-id-preview" src="" alt="Primary ID Preview" class="hidden w-full h-28 object-cover rounded-xl border border-[#E2E8F0]" />
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-[10px] font-bold uppercase text-slate-500">Upload Selfie Holding Your ID</label>
+          <label class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
+            <i data-lucide="camera" class="w-5 h-5 text-[#10B981] mb-1"></i>
+            <span id="verify-selfie-file-label" class="text-[11px] font-bold text-[#070D17]">Tap to upload Selfie with ID</span>
+            <input type="file" id="verify-selfie-file" accept="image/*" onchange="handleVerifyFilePreview(event, 'selfie')" class="hidden" />
+          </label>
+          <img id="verify-selfie-preview" src="" alt="Selfie Preview" class="hidden w-full h-28 object-cover rounded-xl border border-[#E2E8F0]" />
+        </div>
+
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+          Submit Primary ID for Verification
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION STATE & INTERACTIVE LOGIC                                 -->
+  <!-- ===================================================================== -->
+  <script>
+    const STORAGE_KEY = 'ukayo_marketplace_state_v10';
+
+    const UKAY_CATEGORIES = [
+      { id: 'Tops', label: 'Tops & Tees', image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=300&q=80' },
+      { id: 'Jackets', label: 'Jackets & Hoodies', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=300&q=80' },
+      { id: 'Denim', label: 'Denim & Pants', image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=300&q=80' },
+      { id: 'Bags', label: 'Bags & Wallets', image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=300&q=80' },
+      { id: 'Shoes', label: 'Ukay Kicks', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80' },
+      { id: 'Bundle Bales', label: 'Bundle Bales', image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=300&q=80' }
+    ];
+
+    function getDefaultState() {
+      return {
+        role: 'buyer',
+        activeTab: 'home',
+        activeFeedCategory: 'ALL',
+        activeStoreId: 'seller_joy',
+        activeLiveSellerId: 'seller_joy',
+        activePinnedItemId: 'live_1',
+        activeChatSellerId: 'seller_joy',
+        activePurchaseFilter: 'ALL',
+        searchQuery: '',
+        user: {
+          name: 'Mika Santos',
+          email: 'mika.santos@ukayo.ph',
+          verified: false,
+          verificationStatus: 'unverified',
+          idType: '',
+          idNumber: '',
+          idImageData: '',
+          selfieImageData: '',
+          isSeller: false,
+          shopName: "Mika's Ukay Closet",
+          city: 'Cebu City',
+          gcash: '0917-555-0192',
+          ownSellerId: 'seller_joy'
+        },
+        sellers: [
+          {
+            id: 'seller_joy',
+            name: "Ate Joy's Bale Closet",
+            handle: '@atejoyukay',
+            city: 'Cebu City',
+            bio: 'Fresh Class A Korean & US bales opened every night! No joy reservers pls.',
+            followers: 2480,
+            followed: false,
+            rating: 4.9,
+            isLive: true,
+            liveCategory: 'Jackets & Hoodies',
+            liveTitle: 'Class A Korean Windbreakers & Hoodies Bale Drop!',
+            liveStreamPreview: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
+            gcash: '0917-882-3310',
+            products: [
+              {
+                id: 'prod_1',
+                title: 'Vintage 90s Colorblock Windbreaker Jacket',
+                price: 280,
+                category: 'Jackets',
+                size: 'Large (23" x 27")',
+                condition: '10/10 Like New',
+                status: 'Available',
+                rating: 5.0,
+                image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80',
+                description: 'Authentic preloved 90s nylon windbreaker from Korean Class A bale. Crisp zipper, zero flaws.',
+                reviews: []
+              },
+              {
+                id: 'prod_2',
+                title: 'Oversized Korean Washed Graphic Hoodie',
+                price: 220,
+                category: 'Jackets',
+                size: 'XL (24" x 28")',
+                condition: '9.5/10 EUC',
+                status: 'Available',
+                rating: 4.9,
+                image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=600&q=80',
+                description: 'Thick fleece cotton pullover hoodie in washed charcoal. Heavyweight drip.',
+                reviews: []
+              }
+            ]
+          },
+          {
+            id: 'seller_vince',
+            name: 'Kuya Vince Vintage',
+            handle: '@vincevintagebaguio',
+            city: 'Baguio City',
+            bio: 'Handpicked Baguio Hilltop vintage denim, Carhartt workwear & flannel drops.',
+            followers: 4120,
+            followed: true,
+            rating: 5.0,
+            isLive: true,
+            liveCategory: 'Jackets & Hoodies',
+            liveTitle: 'Baguio Hilltop Heavy Jackets & Workwear Steals!',
+            liveStreamPreview: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=800&q=80',
+            gcash: '0918-401-7721',
+            products: [
+              {
+                id: 'prod_3',
+                title: 'Baguio Heavyweight Duck Canvas Work Jacket',
+                price: 450,
+                category: 'Jackets',
+                size: 'Large (23.5" x 27.5")',
+                condition: '9.5/10 Vintage Fade',
+                status: 'Available',
+                rating: 5.0,
+                image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=600&q=80',
+                description: 'Rugged tan canvas workwear jacket sourced from Baguio hilltop bale.',
+                reviews: []
+              },
+              {
+                id: 'prod_4',
+                title: 'Vintage 501 Straight-Cut Selvedge Denim',
+                price: 380,
+                category: 'Denim',
+                size: 'W32 L30',
+                condition: '9/10 Good Vintage',
+                status: 'Available',
+                rating: 4.9,
+                image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=600&q=80',
+                description: 'Classic medium-wash straight-leg denim jeans with authentic vintage whiskering.',
+                reviews: []
+              }
+            ]
+          },
+          {
+            id: 'seller_mhel',
+            name: "Tita Mhel's Luxury Thrift",
+            handle: '@titamhelbags',
+            city: 'Makati City',
+            bio: 'Curated Japan & Korea leather bags, loafers, and classy office tops.',
+            followers: 1890,
+            followed: false,
+            rating: 4.8,
+            isLive: true,
+            liveCategory: 'Bags & Wallets',
+            liveTitle: 'Japan Bale Leather Bags & Silk Tops Live!',
+            liveStreamPreview: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80',
+            gcash: '0919-330-9914',
+            products: [
+              {
+                id: 'prod_5',
+                title: 'Structured Faux-Croc Vintage Shoulder Bag',
+                price: 350,
+                category: 'Bags',
+                size: 'Medium (11" x 7")',
+                condition: '10/10 Like New',
+                status: 'Available',
+                rating: 4.9,
+                image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80',
+                description: 'Glossy espresso shoulder bag from Japan box bale. Clean gold hardware.',
+                reviews: []
+              }
+            ]
+          }
+        ],
+        liveItems: [
+          {
+            id: 'live_1',
+            sellerId: 'seller_joy',
+            code: 'A01',
+            title: 'Vintage 90s Colorblock Windbreaker',
+            price: 280,
+            size: 'L (23"x27")',
+            condition: '10/10 Like New',
+            image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80',
+            winner: null,
+            steals: []
+          },
+          {
+            id: 'live_2',
+            sellerId: 'seller_joy',
+            code: 'A02',
+            title: 'Oversized Korean Graphic Hoodie',
+            price: 220,
+            size: 'XL (24"x28")',
+            condition: '9.5/10 EUC',
+            image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
+            winner: null,
+            steals: []
+          },
+          {
+            id: 'live_3',
+            sellerId: 'seller_vince',
+            code: 'B01',
+            title: 'Baguio Duck Canvas Work Jacket',
+            price: 450,
+            size: 'L (23.5"x27.5")',
+            condition: '9.5/10 Vintage',
+            image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=400&q=80',
+            winner: null,
+            steals: []
+          },
+          {
+            id: 'live_4',
+            sellerId: 'seller_mhel',
+            code: 'C01',
+            title: 'Japan Bale Faux-Croc Shoulder Bag',
+            price: 350,
+            size: 'Medium',
+            condition: '10/10 Like New',
+            image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80',
+            winner: null,
+            steals: []
+          }
+        ],
+        liveChat: [
+          { sender: "Ate Joy's Bale Closet", badge: 'HOST', text: 'Welcome miners! Tap MINE NA! on A01 para walang agawan sa comments!', isHost: true },
+          { sender: 'Carla M.', badge: 'VIP', text: 'Ganda ng colorblock windbreaker Ate Joy!!', isHost: false },
+          { sender: 'Jomar R.', badge: 'MINER', text: 'Anong chest measurement ng A01 po?', isHost: false }
+        ],
+        feedPosts: [
+          {
+            id: 'post_1',
+            sellerId: 'seller_joy',
+            authorName: "Ate Joy's Bale Closet",
+            authorRole: 'Verified Seller • Cebu City',
+            timeAgo: '14 mins ago',
+            category: 'Jackets',
+            caption: 'Fresh Korean Class A Windbreaker drop! Zero flaws, freshly steamed. Tap Mine Na! below before tonight’s live.',
+            tags: ['#BaleDrop', '#VintageUkay', '#AuthenticPreloved'],
+            itemTitle: 'Vintage 90s Colorblock Windbreaker',
+            price: 280,
+            condition: '10/10 Like New',
+            image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=700&q=80',
+            likes: 34,
+            liked: false,
+            minedBy: null,
+            comments: [
+              { user: 'Bea L.', text: 'Available pa po ba ito for Cebu City delivery?' }
+            ]
+          },
+          {
+            id: 'post_2',
+            sellerId: 'seller_vince',
+            authorName: 'Kuya Vince Vintage',
+            authorRole: 'Verified Seller • Baguio City',
+            timeAgo: '1 hr ago',
+            category: 'Denim',
+            caption: 'Freshly sorted vintage straight-cut denim from Baguio Hilltop! Thick cotton, nice natural fade.',
+            tags: ['#BaguioUkay', '#VintageDenim', '#Thrifted'],
+            itemTitle: 'Vintage 501 Straight-Cut Denim (W32)',
+            price: 380,
+            condition: '9/10 Vintage',
+            image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=700&q=80',
+            likes: 51,
+            liked: true,
+            minedBy: null,
+            comments: []
+          }
+        ],
+        minedOrders: [
+          {
+            id: 'ord_seed_1',
+            itemCode: 'A02',
+            title: 'Oversized Korean Washed Graphic Hoodie',
+            price: 220,
+            quantity: 1,
+            image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
+            sellerId: 'seller_joy',
+            sellerName: "Ate Joy's Bale Closet",
+            buyerName: 'Mika Santos',
+            courier: 'J&T Express',
+            paymentMethod: 'GCash',
+            stage: 'TO_PAY',
+            status: 'To Pay — Pending GCash',
+            timestamp: 'Today, 8:14 PM',
+            trackingEvents: [
+              { time: 'Today, 8:14 PM', title: 'Locked via Mine Na!', desc: 'Awaiting buyer checkout', done: true, current: true }
+            ]
+          },
+          {
+            id: 'ord_seed_2',
+            itemCode: 'B04',
+            title: 'Baguio Heavyweight Duck Canvas Work Jacket',
+            price: 450,
+            quantity: 1,
+            image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=400&q=80',
+            sellerId: 'seller_vince',
+            sellerName: 'Kuya Vince Vintage',
+            buyerName: 'Mika Santos',
+            courier: 'J&T Express',
+            paymentMethod: 'GCash',
+            stage: 'TO_SHIP',
+            status: 'To Ship — Seller Packing',
+            timestamp: 'Yesterday, 6:30 PM',
+            trackingEvents: [
+              { time: 'Yesterday, 6:30 PM', title: 'Payment Verified (₱450)', desc: 'Seller confirmed GCash receipt', done: true }
+            ]
+          },
+          {
+            id: 'ord_seed_3',
+            itemCode: 'C01',
+            title: 'Structured Faux-Croc Vintage Shoulder Bag',
+            price: 350,
+            quantity: 1,
+            image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80',
+            sellerId: 'seller_mhel',
+            sellerName: "Tita Mhel's Luxury Thrift",
+            buyerName: 'Mika Santos',
+            courier: 'J&T Express',
+            paymentMethod: 'COD',
+            stage: 'TO_RECEIVE',
+            status: 'In Transit — Out for Delivery',
+            timestamp: 'Nov 10, 4:15 PM',
+            trackingNumber: 'JT884920194PH',
+            trackingEvents: [
+              { time: 'Nov 13, 7:45 AM', title: 'Out for Delivery • Cebu City Hub', desc: 'Rider Kuya Carlo (0918-442-1190) is on the way to your address', done: true, current: true },
+              { time: 'Nov 12, 11:20 PM', title: 'Arrived at Mandaue Sorting Center', desc: 'Parcel unloaded and scanned at Cebu distribution hub', done: true },
+              { time: 'Nov 10, 6:05 PM', title: 'Picked up by J&T Express', desc: 'Tita Mhel handed over parcel in Makati City', done: true }
+            ]
+          },
+          {
+            id: 'ord_seed_4',
+            itemCode: 'A09',
+            title: 'Classic Striped Oxford Button-Down Polo',
+            price: 180,
+            quantity: 1,
+            image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80',
+            sellerId: 'seller_joy',
+            sellerName: "Ate Joy's Bale Closet",
+            buyerName: 'Mika Santos',
+            courier: 'Maxim',
+            paymentMethod: 'GCash',
+            stage: 'TO_RATE',
+            status: 'Delivered — Rate Seller',
+            timestamp: 'Nov 8, 2:10 PM',
+            trackingEvents: [
+              { time: 'Nov 8, 4:30 PM', title: 'Delivered', desc: 'Received by Mika Santos', done: true }
+            ]
+          }
+        ],
+        directChats: {
+          seller_joy: [
+            { from: 'seller', text: 'Hi Mika! Salamat sa pag-mine sa live kanina. Ready for J&T or Maxim po!', time: '8:15 PM' }
+          ],
+          seller_vince: [
+            { from: 'seller', text: 'Good evening! Packing your Baguio work jacket now, shipout bukas morning.', time: '6:40 PM' }
+          ],
+          seller_mhel: [
+            { from: 'seller', text: 'Hi dear, out for delivery na yung Japan shoulder bag mo today via J&T!', time: '8:05 AM' }
+          ]
+        }
+      };
+    }
+
+    let state = getDefaultState();
+    let liveStreamObj = null;
+    let liveFacingMode = 'environment';
+    let touchStartY = 0;
+    let lastWheelTime = 0;
+    let selectedEWallet = 'GCash';
+    let isLoggedOut = false;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = { ...getDefaultState(), ...parsed };
+        }
+      } catch (e) {
+        state = getDefaultState();
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (window.ukayoCloudSyncPush) {
+          window.ukayoCloudSyncPush(state);
+        }
+      } catch (e) {}
+    }
+
+    function setMarketplaceMode(mode) {
+      state.role = mode;
+      saveState();
+      renderAll();
+    }
+
+    function launchSellerLiveInApp() {
+      state.role = 'seller';
+      state.activeLiveSellerId = state.user.ownSellerId || 'seller_joy';
+      saveState();
+      switchTab('mine');
+      openLiveSetupModal();
+    }
+
+    function launchSellerPostInApp() {
+      state.role = 'seller';
+      saveState();
+      switchTab('feed');
+      openFeedComposerModal();
+    }
+
+    function showToast(msg, type = 'success') {
+      const box = document.getElementById('toast-box');
+      if (!box) return;
+      const el = document.createElement('div');
+      el.className = `px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 transition-all duration-300 ${
+        type === 'error'
+          ? 'bg-[#EF4444] text-white'
+          : 'bg-[#070D17] text-white border border-slate-700'
+      }`;
+      el.innerHTML = `<span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-white' : 'bg-[#10B981]'} shrink-0"></span><span>${escapeHtml(msg)}</span>`;
+      box.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 250);
+      }, 2600);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      saveState();
+
+      const tabs = ['home', 'feed', 'mine', 'store', 'bag', 'chat', 'account'];
+      tabs.forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        if (sec) sec.classList.toggle('hidden', t !== tab);
+      });
+
+      const header = document.getElementById('main-app-header');
+      if (header) {
+        header.classList.toggle('hidden', tab === 'mine');
+      }
+
+      document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+        const btnTab = btn.getAttribute('data-tab');
+        const active = btnTab === tab;
+        btn.classList.toggle('text-[#070D17]', active);
+        btn.classList.toggle('font-extrabold', active);
+        btn.classList.toggle('text-slate-400', !active);
+        btn.classList.toggle('font-semibold', !active);
+      });
+
+      renderAll();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleGlobalSearch(q) {
+      state.searchQuery = q.trim().toLowerCase();
+      if (state.activeTab === 'home' && state.searchQuery.length > 0) {
+        switchTab('feed');
+      } else {
+        renderAll();
+      }
+    }
+
+    function browseUkayCategory(catId) {
+      state.activeFeedCategory = catId;
+      switchTab('feed');
+    }
+
+    // =========================================================================
+    // HOME TAB RENDERER
+    // =========================================================================
+    function renderHomeTab() {
+      const isSellerAccount = state.role === 'seller' || Boolean(state.user && state.user.isSeller);
+      const becomeLabel = document.getElementById('home-become-seller-label');
+      if (becomeLabel) {
+        becomeLabel.innerHTML = isSellerAccount ? 'My Seller<br/>Tindahan' : 'Become<br/>Ukayo Seller';
+      }
+
+      const livePreviews = document.getElementById('home-live-previews');
+      if (livePreviews) {
+        livePreviews.innerHTML = state.sellers.slice(0, 2).map(s => `
+          <button onclick="openLiveRoomForSeller('${s.id}')" class="relative rounded-xl overflow-hidden aspect-[4/5] bg-[#111827] text-left group cursor-pointer">
+            <img src="${s.liveStreamPreview}" alt="${escapeHtml(s.name)}" class="w-full h-full object-cover opacity-85 group-hover:scale-105 transition" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30"></div>
+            <span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase">LIVE</span>
+            <div class="absolute bottom-1.5 left-1.5 right-1.5">
+              <div class="text-[10px] font-bold text-white truncate">${escapeHtml(s.name)}</div>
+              <div class="text-[8px] text-[#10B981] font-semibold truncate">${escapeHtml(s.liveCategory)}</div>
+            </div>
+          </button>
+        `).join('');
+      }
+
+      const feedPreviews = document.getElementById('home-feed-previews');
+      if (feedPreviews) {
+        feedPreviews.innerHTML = state.feedPosts.slice(0, 2).map(p => `
+          <button onclick="switchTab('feed')" class="relative rounded-xl overflow-hidden aspect-[4/5] bg-slate-100 text-left group cursor-pointer">
+            <img src="${p.image}" alt="${escapeHtml(p.itemTitle)}" class="w-full h-full object-cover group-hover:scale-105 transition" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+            <span class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#070D17]/85 text-[#10B981] text-[8px] font-extrabold tabular-price">₱${p.price}</span>
+            <div class="absolute bottom-1.5 left-1.5 right-1.5">
+              <div class="text-[10px] font-bold text-white truncate">${escapeHtml(p.itemTitle)}</div>
+              <div class="text-[8px] text-slate-300 truncate">${escapeHtml(p.authorName)}</div>
+            </div>
+          </button>
+        `).join('');
+      }
+
+      const catGrid = document.getElementById('home-categories-grid');
+      if (catGrid) {
+        catGrid.innerHTML = UKAY_CATEGORIES.map(c => `
+          <button onclick="browseUkayCategory('${c.id}')" class="rounded-xl border border-[#E2E8F0] bg-[#F4F6F9] hover:border-[#070D17] overflow-hidden text-center group cursor-pointer transition">
+            <div class="aspect-square w-full overflow-hidden bg-white">
+              <img src="${c.image}" alt="${escapeHtml(c.label)}" class="w-full h-full object-cover group-hover:scale-105 transition" />
+            </div>
+            <div class="py-1.5 px-1 text-[10px] font-bold text-[#070D17] truncate">${escapeHtml(c.label)}</div>
+          </button>
+        `).join('');
+      }
+    }
+
+    // =========================================================================
+    // UKAY FEED (FACEBOOK-STYLE COMMUNITY POSTING WALL)
+    // =========================================================================
+    function renderFeedTab() {
+      const storiesEl = document.getElementById('feed-stories-strip');
+      if (storiesEl) {
+        storiesEl.innerHTML = state.sellers.map(s => `
+          <button onclick="openLiveRoomForSeller('${s.id}')" class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+            <div class="relative p-0.5 rounded-full bg-gradient-to-tr from-[#EF4444] to-[#F59E0B]">
+              <div class="w-10 h-10 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center border-2 border-white">
+                ${escapeHtml(s.name.slice(0, 2).toUpperCase())}
+              </div>
+              <span class="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded bg-[#EF4444] text-white text-[7px] font-extrabold uppercase">LIVE</span>
+            </div>
+            <span class="text-[10px] font-semibold text-[#1E293B] max-w-[64px] truncate">${escapeHtml(s.name.split(' ')[0])}</span>
+          </button>
+        `).join('');
+      }
+
+      const cats = ['ALL', 'Tops', 'Jackets', 'Denim', 'Bags', 'Shoes', 'Bundle Bales'];
+      const catBar = document.getElementById('feed-category-bar');
+      if (catBar) {
+        catBar.innerHTML = cats.map(c => {
+          const active = state.activeFeedCategory === c;
+          return `<button onclick="setFeedCategory('${c}')" class="px-3 py-1.5 rounded-full text-[11px] font-bold shrink-0 cursor-pointer transition ${
+            active
+              ? 'bg-[#070D17] text-white'
+              : 'bg-white text-[#1E293B] border border-[#E2E8F0]'
+          }">${c === 'ALL' ? 'All Drops' : c}</button>`;
+        }).join('');
+      }
+
+      const postsList = document.getElementById('feed-posts-list');
+      if (!postsList) return;
+
+      const filtered = state.feedPosts.filter(p => {
+        const catOk = state.activeFeedCategory === 'ALL' || p.category === state.activeFeedCategory;
+        const searchOk = !state.searchQuery ||
+          p.caption.toLowerCase().includes(state.searchQuery) ||
+          p.itemTitle.toLowerCase().includes(state.searchQuery) ||
+          p.authorName.toLowerCase().includes(state.searchQuery);
+        return catOk && searchOk;
+      });
+
+      postsList.innerHTML = filtered.map(post => `
+        <article class="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs">
+          <div class="p-3 flex items-center justify-between gap-2">
+            <button onclick="openSellerStore('${post.sellerId}')" class="flex items-center gap-2.5 text-left min-w-0 cursor-pointer group">
+              <div class="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
+                ${escapeHtml(post.authorName.slice(0, 2).toUpperCase())}
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-extrabold text-[#070D17] group-hover:underline truncate">${escapeHtml(post.authorName)}</div>
+                <div class="text-[10px] text-slate-400 truncate">${escapeHtml(post.authorRole)} • ${escapeHtml(post.timeAgo)}</div>
+              </div>
+            </button>
+            <span class="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] text-[9px] font-extrabold shrink-0">${escapeHtml(post.condition)}</span>
+          </div>
+
+          <div class="px-3 pb-2.5 space-y-1.5">
+            <p class="text-xs text-[#1E293B] leading-relaxed">${escapeHtml(post.caption)}</p>
+            <div class="flex flex-wrap gap-1">
+              ${(post.tags || []).map(t => `<span class="text-[10px] font-bold text-[#10B981]">${escapeHtml(t)}</span>`).join(' ')}
+            </div>
+          </div>
+
+          <div class="relative bg-[#F4F6F9]">
+            <img src="${post.image}" alt="${escapeHtml(post.itemTitle)}" class="w-full max-h-72 object-cover" />
+            <div class="p-2.5 bg-[#070D17] text-white flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="text-xs font-bold truncate">${escapeHtml(post.itemTitle)}</div>
+                <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price">₱${post.price}</div>
+              </div>
+              ${
+                post.minedBy
+                  ? `<span class="px-3 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold shrink-0">Mined by ${escapeHtml(post.minedBy)}</span>`
+                  : `<button onclick="claimFeedPost('${post.id}')" class="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shrink-0 cursor-pointer">MINE NA!</button>`
+              }
+            </div>
+          </div>
+
+          <div class="px-3 py-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-slate-500">
+            <button onclick="toggleLikePost('${post.id}')" class="inline-flex items-center gap-1 font-bold ${post.liked ? 'text-[#EF4444]' : 'text-slate-600'} cursor-pointer">
+              <i data-lucide="heart" class="w-3.5 h-3.5 ${post.liked ? 'fill-current' : ''}"></i>
+              <span>${post.likes} Likes</span>
+            </button>
+            <span>${post.comments.length} Comments</span>
+          </div>
+
+          <div class="px-3 pb-3 space-y-1.5 border-t border-slate-100 pt-2">
+            ${post.comments.map(c => `
+              <div class="bg-[#F4F6F9] rounded-xl px-2.5 py-1.5 text-[11px]">
+                <span class="font-extrabold text-[#070D17]">${escapeHtml(c.user)}:</span>
+                <span class="text-[#1E293B]">${escapeHtml(c.text)}</span>
+              </div>
+            `).join('')}
+            <form onsubmit="addFeedComment(event, '${post.id}')" class="flex items-center gap-1.5 pt-1">
+              <input type="text" id="comment-input-${post.id}" placeholder="Ask measurements or comment..." class="flex-1 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-[11px] focus:outline-none" />
+              <button type="submit" class="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer">Post</button>
+            </form>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function setFeedCategory(cat) {
+      state.activeFeedCategory = cat;
+      renderFeedTab();
+      lucide.createIcons();
+    }
+
+    function openFeedComposerModal() {
+      const m = document.getElementById('feed-composer-modal');
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      }
+    }
+
+    function closeFeedComposerModal() {
+      const m = document.getElementById('feed-composer-modal');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    function submitNewFeedPost(e) {
+      e.preventDefault();
+      const title = document.getElementById('post-item-title').value.trim();
+      const price = Number(document.getElementById('post-item-price').value) || 200;
+      const category = document.getElementById('post-item-category').value;
+      const caption = document.getElementById('post-item-caption').value.trim();
+
+      state.feedPosts.unshift({
+        id: 'post_' + Date.now(),
+        sellerId: state.user.ownSellerId,
+        authorName: state.role === 'seller' ? state.user.shopName : state.user.name,
+        authorRole: `${state.role === 'seller' ? 'Verified Seller' : 'Community Member'} • ${state.user.city}`,
+        timeAgo: 'Just now',
+        category,
+        caption,
+        tags: ['#UkayDrop', `#${category.replace(/\s+/g, '')}`, '#Thrifted'],
+        itemTitle: title,
+        price,
+        condition: '9.5/10 Preloved',
+        image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=700&q=80',
+        likes: 1,
+        liked: true,
+        minedBy: null,
+        comments: []
+      });
+
+      saveState();
+      closeFeedComposerModal();
+      renderAll();
+      showToast('Posted to Ukay Feed!');
+    }
+
+    function toggleLikePost(postId) {
+      const post = state.feedPosts.find(p => p.id === postId);
+      if (!post) return;
+      post.liked = !post.liked;
+      post.likes += post.liked ? 1 : -1;
+      saveState();
+      renderFeedTab();
+      lucide.createIcons();
+    }
+
+    function addFeedComment(e, postId) {
+      e.preventDefault();
+      const input = document.getElementById(`comment-input-${postId}`);
+      if (!input || !input.value.trim()) return;
+      const post = state.feedPosts.find(p => p.id === postId);
+      if (!post) return;
+      post.comments.push({ user: state.user.name, text: input.value.trim() });
+      input.value = '';
+      saveState();
+      renderFeedTab();
+      lucide.createIcons();
+    }
+
+    function claimFeedPost(postId) {
+      const post = state.feedPosts.find(p => p.id === postId);
+      if (!post || post.minedBy) return;
+      post.minedBy = state.user.name;
+
+      state.minedOrders.unshift({
+        id: 'ord_' + Date.now(),
+        itemCode: 'FEED',
+        title: post.itemTitle,
+        price: post.price,
+        quantity: 1,
+        image: post.image,
+        sellerId: post.sellerId,
+        sellerName: post.authorName,
+        buyerName: state.user.name,
+        courier: 'J&T Express',
+        paymentMethod: 'COD',
+        stage: 'TO_PAY',
+        status: 'In My Bayong — Ready for Checkout',
+        timestamp: 'Just now',
+        trackingEvents: [
+          { time: 'Just now', title: 'Added to My Bayong', desc: 'Claimed from Ukay Feed', done: true, current: true }
+        ]
+      });
+
+      saveState();
+      renderAll();
+      showToast(`Mined "${post.itemTitle}"! Added to My Bayong.`);
+    }
+
+    // =========================================================================
+    // MINE NA! (TIKTOK LIVE SELLING ROOM)
+    // =========================================================================
+    function openLiveRoomForSeller(sellerId) {
+      state.activeLiveSellerId = sellerId;
+      const sellerItem = state.liveItems.find(i => i.sellerId === sellerId && !i.winner) ||
+                         state.liveItems.find(i => i.sellerId === sellerId);
+      if (sellerItem) {
+        state.activePinnedItemId = sellerItem.id;
+      }
+      switchTab('mine');
+    }
+
+    function renderMineTab() {
+      const seller = state.sellers.find(s => s.id === state.activeLiveSellerId) || state.sellers[0];
+      const pinnedItem = state.liveItems.find(i => i.id === state.activePinnedItemId) ||
+                         state.liveItems.find(i => i.sellerId === seller.id) ||
+                         state.liveItems[0];
+
+      const hostNameEl = document.getElementById('live-host-name');
+      const hostCatEl = document.getElementById('live-host-category');
+      const followBtn = document.getElementById('live-follow-btn');
+      const bgImg = document.getElementById('live-fallback-bg');
+
+      if (hostNameEl) hostNameEl.textContent = seller.name;
+      if (hostCatEl) hostCatEl.textContent = seller.liveTitle || seller.liveCategory || 'Ukay Live';
+      if (followBtn) followBtn.textContent = seller.followed ? 'Following' : 'Follow';
+      if (bgImg && !liveStreamObj) bgImg.src = seller.liveStreamPreview;
+
+      const sellerDropBtn = document.getElementById('tiktok-seller-drop-btn');
+      if (sellerDropBtn) {
+        sellerDropBtn.classList.toggle('hidden', state.role !== 'seller');
+        sellerDropBtn.classList.toggle('flex', state.role === 'seller');
+      }
+
+      const chatList = document.getElementById('live-chat-messages');
+      if (chatList) {
+        chatList.innerHTML = state.liveChat.slice(-14).map(m => `
+          <div class="inline-flex items-start gap-1.5 bg-black/45 backdrop-blur-xs rounded-2xl px-2.5 py-1 text-[11px] max-w-full">
+            <span class="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${
+              m.badge === 'HOST' ? 'bg-[#EF4444] text-white' :
+              m.badge === 'LOCKED' ? 'bg-[#10B981] text-white' : 'bg-[#F59E0B] text-[#070D17]'
+            }">${escapeHtml(m.badge)}</span>
+            <p class="text-white leading-snug break-words">
+              <span class="font-bold text-slate-200">${escapeHtml(m.sender)}:</span> ${escapeHtml(m.text)}
+            </p>
+          </div>
+        `).join('');
+        chatList.scrollTop = chatList.scrollHeight;
+      }
+
+      const pinnedBox = document.getElementById('live-pinned-item-card');
+      if (pinnedBox && pinnedItem) {
+        const isWinner = pinnedItem.winner === state.user.name;
+        pinnedBox.innerHTML = `
+          <div class="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-xl border border-white flex items-center gap-2.5">
+            <div class="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+              <img src="${pinnedItem.image}" alt="${escapeHtml(pinnedItem.title)}" class="w-full h-full object-cover" />
+              <span class="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-[#070D17] text-white text-[9px] font-extrabold">${escapeHtml(pinnedItem.code)}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] font-extrabold text-[#070D17] truncate">${escapeHtml(pinnedItem.title)}</div>
+              <div class="text-[10px] text-slate-500 truncate">${escapeHtml(pinnedItem.size)} • ${escapeHtml(pinnedItem.condition)}</div>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-sm font-display font-extrabold text-[#10B981] tabular-price">₱${pinnedItem.price}</span>
+                ${
+                  pinnedItem.winner
+                    ? `<span class="px-1.5 py-0.2 rounded bg-[#F59E0B]/20 text-[#070D17] text-[9px] font-extrabold truncate">Mined: ${escapeHtml(pinnedItem.winner)}</span>`
+                    : `<span class="text-[9px] font-bold text-[#10B981]">Available</span>`
+                }
+              </div>
+            </div>
+            <button onclick="claimLiveItem('${pinnedItem.id}')" class="px-3 py-2.5 rounded-xl ${
+              pinnedItem.winner
+                ? (isWinner ? 'bg-[#F59E0B] text-[#070D17]' : 'bg-[#070D17] text-white')
+                : 'bg-[#10B981] hover:bg-emerald-600 text-white'
+            } text-[11px] font-extrabold shrink-0 cursor-pointer shadow-sm">
+              ${pinnedItem.winner ? (isWinner ? 'LOCKED!' : 'STEAL') : 'MINE NA!'}
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function claimLiveItem(itemId) {
+      const item = state.liveItems.find(i => i.id === itemId);
+      if (!item) return;
+      const seller = state.sellers.find(s => s.id === item.sellerId) || state.sellers[0];
+
+      if (!item.winner) {
+        item.winner = state.user.name;
+        state.liveChat.push({
+          sender: state.user.name,
+          badge: 'LOCKED',
+          text: `MINED ${item.code} (${item.title}) — ₱${item.price}!`,
+          isHost: false
+        });
+
+        state.minedOrders.unshift({
+          id: 'ord_' + Date.now(),
+          itemCode: item.code,
+          title: item.title,
+          price: item.price,
+          quantity: 1,
+          image: item.image,
+          sellerId: seller.id,
+          sellerName: seller.name,
+          buyerName: state.user.name,
+          courier: 'J&T Express',
+          paymentMethod: 'COD',
+          stage: 'TO_PAY',
+          status: 'Locked Live — In My Bayong',
+          timestamp: 'Just now',
+          trackingEvents: [
+            { time: 'Just now', title: `Locked Live (${item.code})`, desc: 'Added to My Bayong for checkout', done: true, current: true }
+          ]
+        });
+
+        saveState();
+        renderAll();
+        showToast(`First to Mine! ${item.code} added to My Bayong.`);
+      } else if (item.winner !== state.user.name) {
+        if (!item.steals.includes(state.user.name)) {
+          item.steals.push(state.user.name);
+        }
+        state.liveChat.push({
+          sender: state.user.name,
+          badge: 'MINER',
+          text: `Steal / Next in line for ${item.code}!`,
+          isHost: false
+        });
+        saveState();
+        renderMineTab();
+        showToast(`Queued as Steal #${item.steals.length} for ${item.code}!`);
+      } else {
+        showToast(`You already locked ${item.code}! Check My Bayong.`);
+      }
+    }
+
+    function sendLiveChat(e) {
+      e.preventDefault();
+      const input = document.getElementById('live-chat-input');
+      if (!input || !input.value.trim()) return;
+      state.liveChat.push({
+        sender: state.user.name,
+        badge: state.role === 'seller' ? 'HOST' : 'MINER',
+        text: input.value.trim(),
+        isHost: state.role === 'seller'
+      });
+      input.value = '';
+      saveState();
+      renderMineTab();
+    }
+
+    function toggleFollowCurrentLiveSeller() {
+      const seller = state.sellers.find(s => s.id === state.activeLiveSellerId);
+      if (!seller) return;
+      seller.followed = !seller.followed;
+      seller.followers += seller.followed ? 1 : -1;
+      saveState();
+      renderMineTab();
+      showToast(seller.followed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
+    }
+
+    function switchToNextRelatedLive() {
+      const current = state.sellers.find(s => s.id === state.activeLiveSellerId) || state.sellers[0];
+      const others = state.sellers.filter(s => s.id !== current.id);
+      if (!others.length) return;
+      const related = others.find(s => s.liveCategory === current.liveCategory) || others[0];
+      openLiveRoomForSeller(related.id);
+    }
+
+    function handleLiveTouchStart(e) {
+      touchStartY = e.touches[0].clientY;
+    }
+
+    function handleLiveTouchEnd(e) {
+      const deltaY = touchStartY - e.changedTouches[0].clientY;
+      if (deltaY > 65) {
+        switchToNextRelatedLive();
+      }
+    }
+
+    function handleLiveWheel(e) {
+      const now = Date.now();
+      if (now - lastWheelTime < 900) return;
+      if (e.deltaY > 45) {
+        lastWheelTime = now;
+        switchToNextRelatedLive();
+      }
+    }
+
+    function triggerLiveReaction() {
+      const container = document.getElementById('floating-hearts-container');
+      if (!container) return;
+      const heart = document.createElement('div');
+      heart.className = 'floating-heart text-[#EF4444] text-xl';
+      heart.style.right = `${10 + Math.random() * 24}px`;
+      heart.innerHTML = '❤️';
+      container.appendChild(heart);
+      setTimeout(() => heart.remove(), 1700);
+    }
+
+    let pendingLiveCoverData = '';
+
+    function openLiveSetupModal() {
+      const seller = state.sellers.find(s => s.id === state.activeLiveSellerId) || state.sellers[0];
+      const titleInput = document.getElementById('live-setup-title');
+      const catSelect = document.getElementById('live-setup-category');
+      const coverImg = document.getElementById('live-setup-cover-preview');
+      const pinnedSelect = document.getElementById('live-setup-pinned-item');
+
+      if (titleInput) titleInput.value = seller.liveTitle || `${state.user.shopName || seller.name} Live Ukay Drop!`;
+      if (catSelect && seller.liveCategory) catSelect.value = seller.liveCategory;
+      if (coverImg) coverImg.src = pendingLiveCoverData || seller.liveStreamPreview;
+      if (pinnedSelect) {
+        pinnedSelect.innerHTML = state.liveItems.map(item =>
+          `<option value="${item.id}" class="text-[#070D17]" ${item.id === state.activePinnedItemId ? 'selected' : ''}>${escapeHtml(item.code)} • ${escapeHtml(item.title)} (₱${item.price})</option>`
+        ).join('');
+      }
+
+      const modal = document.getElementById('live-setup-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function closeLiveSetupModal() {
+      const modal = document.getElementById('live-setup-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function handleLiveCoverUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        pendingLiveCoverData = ev.target.result;
+        const preview = document.getElementById('live-setup-cover-preview');
+        if (preview) preview.src = pendingLiveCoverData;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function confirmStartLiveSession(e) {
+      e.preventDefault();
+      const seller = state.sellers.find(s => s.id === state.activeLiveSellerId) || state.sellers[0];
+      const title = document.getElementById('live-setup-title').value.trim();
+      const category = document.getElementById('live-setup-category').value;
+      const cameraFacing = document.getElementById('live-setup-camera').value;
+      const pinnedId = document.getElementById('live-setup-pinned-item').value;
+      const ruleText = document.getElementById('live-setup-rule').value.trim();
+
+      seller.isLive = true;
+      seller.liveTitle = title;
+      seller.liveCategory = category;
+      if (pendingLiveCoverData) {
+        seller.liveStreamPreview = pendingLiveCoverData;
+      }
+      if (pinnedId) {
+        state.activePinnedItemId = pinnedId;
+      }
+      liveFacingMode = cameraFacing;
+
+      state.liveChat.push({
+        sender: seller.name,
+        badge: 'HOST',
+        text: `LIVE STARTED: "${title}" (${category}) — ${ruleText}`,
+        isHost: true
+      });
+
+      saveState();
+      closeLiveSetupModal();
+      renderAll();
+      await startCameraStreamDirect();
+    }
+
+    async function startCameraStreamDirect() {
+      const videoEl = document.getElementById('live-camera-video');
+      const bgImg = document.getElementById('live-fallback-bg');
+      const camBtn = document.getElementById('tiktok-cam-btn');
+
+      if (liveStreamObj) {
+        liveStreamObj.getTracks().forEach(t => t.stop());
+        liveStreamObj = null;
+      }
+
+      try {
+        liveStreamObj = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: liveFacingMode },
+          audio: true
+        });
+        if (videoEl) {
+          videoEl.srcObject = liveStreamObj;
+          videoEl.classList.remove('hidden');
+        }
+        if (bgImg) bgImg.classList.add('hidden');
+        if (camBtn) camBtn.classList.add('bg-[#EF4444]');
+        showToast('You are now LIVE on Mine Na!');
+      } catch (err) {
+        showToast('Live room configured! Camera preview unavailable on this browser.', 'error');
+      }
+    }
+
+    async function toggleCameraLive() {
+      const videoEl = document.getElementById('live-camera-video');
+      const bgImg = document.getElementById('live-fallback-bg');
+      const camBtn = document.getElementById('tiktok-cam-btn');
+
+      if (liveStreamObj) {
+        liveStreamObj.getTracks().forEach(t => t.stop());
+        liveStreamObj = null;
+        if (videoEl) {
+          videoEl.srcObject = null;
+          videoEl.classList.add('hidden');
+        }
+        if (bgImg) bgImg.classList.remove('hidden');
+        if (camBtn) camBtn.classList.remove('bg-[#EF4444]');
+        showToast('Live stream ended.');
+        return;
+      }
+
+      openLiveSetupModal();
+    }
+
+    async function flipLiveCamera() {
+      liveFacingMode = liveFacingMode === 'environment' ? 'user' : 'environment';
+      if (liveStreamObj) {
+        await toggleCameraLive();
+        await toggleCameraLive();
+      } else {
+        showToast(`Camera ready (${liveFacingMode === 'user' ? 'Front' : 'Rear'})`);
+      }
+    }
+
+    // =========================================================================
+    // NASA TINDAHAN (SELLER STOREFRONT PORTAL)
+    // =========================================================================
+    function openSellerStore(sellerId) {
+      state.activeStoreId = sellerId || state.user.ownSellerId;
+      switchTab('store');
+    }
+
+    function openSellerCenterPortal() {
+      saveState();
+      try {
+        window.location.href = 'ukayo_seller_center.html';
+      } catch (e) {
+        window.open('ukayo_seller_center.html', '_blank', 'noopener');
+      }
+    }
+
+    function renderStoreTab() {
+      const seller = state.sellers.find(s => s.id === state.activeStoreId) || state.sellers[0];
+      const headerEl = document.getElementById('storefront-hero');
+      const gridEl = document.getElementById('storefront-products-grid');
+      const addProductBtn = document.getElementById('store-add-product-btn');
+
+      if (addProductBtn) {
+        addProductBtn.classList.toggle('hidden', state.role !== 'seller');
+      }
+
+      if (headerEl) {
+        headerEl.innerHTML = `
+          <div class="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-12 h-12 rounded-2xl bg-[#111827] border border-slate-700 text-[#F59E0B] font-display font-extrabold text-base flex items-center justify-center shrink-0">
+                  ${escapeHtml(seller.name.slice(0, 2).toUpperCase())}
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <h2 class="text-sm font-display font-extrabold truncate">${escapeHtml(seller.name)}</h2>
+                    ${seller.isLive ? `<span class="px-1.5 py-0.2 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase shrink-0">LIVE</span>` : ''}
+                  </div>
+                  <div class="text-[11px] text-slate-400 truncate">${escapeHtml(seller.city)} • ${seller.rating} ★ • ${seller.followers.toLocaleString()} Followers</div>
+                </div>
+              </div>
+              <button onclick="toggleFollowStore('${seller.id}')" class="px-3.5 py-1.5 rounded-xl ${
+                seller.followed ? 'bg-white/15 text-white' : 'bg-[#10B981] text-white'
+              } text-xs font-extrabold shrink-0 cursor-pointer">
+                ${seller.followed ? 'Following' : 'Follow'}
+              </button>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(seller.bio)}</p>
+            <div class="flex items-center gap-2 pt-1">
+              <button onclick="openLiveRoomForSeller('${seller.id}')" class="flex-1 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold cursor-pointer">
+                Watch Live Room
+              </button>
+              <button onclick="openDirectChatWithSeller('${seller.id}')" class="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold cursor-pointer">
+                Chat Seller
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      if (gridEl) {
+        gridEl.innerHTML = seller.products.map(prod => `
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col">
+            <button onclick="openItemDetailModal('${seller.id}', '${prod.id}')" class="relative aspect-square bg-[#F4F6F9] overflow-hidden cursor-pointer text-left">
+              <img src="${prod.image}" alt="${escapeHtml(prod.title)}" class="w-full h-full object-cover" />
+              <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                prod.status === 'Available' ? 'bg-[#10B981] text-white' : 'bg-[#F59E0B] text-[#070D17]'
+              }">${escapeHtml(prod.status)}</span>
+            </button>
+            <div class="p-2.5 flex-1 flex flex-col justify-between space-y-2">
+              <div>
+                <div class="text-xs font-bold text-[#070D17] line-clamp-2">${escapeHtml(prod.title)}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(prod.size)}</div>
+              </div>
+              <div class="flex items-center justify-between gap-1 pt-1">
+                <span class="text-sm font-display font-extrabold text-[#10B981] tabular-price">₱${prod.price}</span>
+                <button onclick="claimStoreProduct('${seller.id}', '${prod.id}')" class="px-2.5 py-1 rounded-lg bg-[#070D17] hover:bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition">
+                  MINE NA!
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function toggleFollowStore(sellerId) {
+      const seller = state.sellers.find(s => s.id === sellerId);
+      if (!seller) return;
+      seller.followed = !seller.followed;
+      seller.followers += seller.followed ? 1 : -1;
+      saveState();
+      renderStoreTab();
+      showToast(seller.followed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
+    }
+
+    function claimStoreProduct(sellerId, prodId) {
+      const seller = state.sellers.find(s => s.id === sellerId);
+      const prod = seller ? seller.products.find(p => p.id === prodId) : null;
+      if (!seller || !prod) return;
+
+      prod.status = 'Mined';
+      state.minedOrders.unshift({
+        id: 'ord_' + Date.now(),
+        itemCode: 'SHOP',
+        title: prod.title,
+        price: prod.price,
+        quantity: 1,
+        image: prod.image,
+        sellerId: seller.id,
+        sellerName: seller.name,
+        buyerName: state.user.name,
+        courier: 'J&T Express',
+        paymentMethod: 'COD',
+        stage: 'TO_PAY',
+        status: 'In My Bayong — Ready for Checkout',
+        timestamp: 'Just now',
+        trackingEvents: [
+          { time: 'Just now', title: 'Added to My Bayong', desc: `Claimed from ${seller.name}`, done: true, current: true }
+        ]
+      });
+
+      saveState();
+      renderAll();
+      showToast(`Added "${prod.title}" to My Bayong!`);
+    }
+
+    // =========================================================================
+    // MY BAYONG (QUANTITY +/- , DELETION & COD / BAYAD AGAD CHECKOUT)
+    // =========================================================================
+    function renderBagTab() {
+      const listEl = document.getElementById('bayong-items-list');
+      const checkoutBar = document.getElementById('bayong-checkout-bar');
+      const totalEl = document.getElementById('bayong-grand-total');
+      const countEl = document.getElementById('bayong-item-count');
+
+      const bayongItems = state.minedOrders.filter(o => o.stage === 'TO_PAY');
+      const grandTotal = bayongItems.reduce((sum, o) => sum + (o.price * (o.quantity || 1)), 0);
+      const totalQty = bayongItems.reduce((sum, o) => sum + (o.quantity || 1), 0);
+
+      if (totalEl) totalEl.textContent = `₱${grandTotal.toLocaleString()}`;
+      if (countEl) countEl.textContent = `${totalQty} ${totalQty === 1 ? 'item' : 'items'}`;
+      if (checkoutBar) checkoutBar.classList.toggle('hidden', bayongItems.length === 0);
+
+      if (!listEl) return;
+      if (bayongItems.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
+            <div class="w-12 h-12 rounded-2xl bg-[#F4F6F9] text-[#070D17] flex items-center justify-center mx-auto">
+              <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Your Bayong is empty</h3>
+            <p class="text-xs text-slate-500">Tap <strong>MINE NA!</strong> in live streams or Ukay Feed to add items here.</p>
+            <button onclick="switchTab('mine')" class="px-4 py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer">
+              Go to Mine Na! Live
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = bayongItems.map(item => {
+        const qty = item.quantity || 1;
+        const lineTotal = item.price * qty;
+        return `
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs flex items-center gap-3">
+            <img src="${item.image}" alt="${escapeHtml(item.title)}" class="w-16 h-16 rounded-xl object-cover bg-[#F4F6F9] shrink-0" />
+            <div class="min-w-0 flex-1 space-y-1">
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-xs font-extrabold text-[#070D17] line-clamp-2">${escapeHtml(item.title)}</div>
+                <button onclick="removeBayongItem('${item.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition shrink-0 cursor-pointer" title="Remove from Bayong">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <div class="text-[10px] text-slate-500 truncate">Seller: <span class="font-bold text-[#070D17]">${escapeHtml(item.sellerName)}</span></div>
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-sm font-display font-extrabold text-[#10B981] tabular-price">₱${lineTotal.toLocaleString()}</span>
+                <div class="inline-flex items-center gap-2 bg-[#F4F6F9] border border-[#E2E8F0] rounded-xl px-1.5 py-0.5">
+                  <button onclick="updateBayongQuantity('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-white text-[#070D17] font-extrabold text-xs flex items-center justify-center shadow-2xs cursor-pointer" title="Decrease Quantity">
+                    <i data-lucide="minus" class="w-3 h-3"></i>
+                  </button>
+                  <span class="text-xs font-extrabold text-[#070D17] min-w-[16px] text-center">${qty}</span>
+                  <button onclick="updateBayongQuantity('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-[#070D17] text-white font-extrabold text-xs flex items-center justify-center cursor-pointer" title="Increase Quantity">
+                    <i data-lucide="plus" class="w-3 h-3"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateBayongQuantity(orderId, delta) {
+      const idx = state.minedOrders.findIndex(o => o.id === orderId);
+      if (idx === -1) return;
+      const nextQty = (state.minedOrders[idx].quantity || 1) + delta;
+      if (nextQty <= 0) {
+        removeBayongItem(orderId);
+        return;
+      }
+      state.minedOrders[idx].quantity = nextQty;
+      saveState();
+      renderAll();
+    }
+
+    function removeBayongItem(orderId) {
+      state.minedOrders = state.minedOrders.filter(o => o.id !== orderId);
+      saveState();
+      renderAll();
+      showToast('Item removed from My Bayong.');
+    }
+
+    function openCheckoutModal() {
+      const bayongItems = state.minedOrders.filter(o => o.stage === 'TO_PAY');
+      if (!bayongItems.length) {
+        showToast('Your Bayong is empty!', 'error');
+        return;
+      }
+      const grandTotal = bayongItems.reduce((sum, o) => sum + (o.price * (o.quantity || 1)), 0);
+      const totalQty = bayongItems.reduce((sum, o) => sum + (o.quantity || 1), 0);
+
+      document.getElementById('checkout-modal-total').textContent = `₱${grandTotal.toLocaleString()}`;
+      document.getElementById('checkout-modal-count').textContent = totalQty;
+
+      const checkedRadio = document.querySelector('input[name="checkout-pay-method"]:checked');
+      updateCheckoutPaymentHint(checkedRadio ? checkedRadio.value : 'COD');
+
+      const modal = document.getElementById('checkout-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeCheckoutModal() {
+      const modal = document.getElementById('checkout-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function selectBayadAgadWallet(walletName) {
+      selectedEWallet = walletName;
+      document.querySelectorAll('.ewallet-choice-btn').forEach(btn => {
+        const isSelected = btn.getAttribute('data-wallet') === walletName;
+        btn.classList.toggle('border-2', isSelected);
+        btn.classList.toggle('border-[#070D17]', isSelected);
+        btn.classList.toggle('border', !isSelected);
+        btn.classList.toggle('border-[#E2E8F0]', !isSelected);
+      });
+      updateCheckoutPaymentHint('BAYAD_AGAD');
+    }
+
+    function updateCheckoutPaymentHint(method) {
+      const hint = document.getElementById('checkout-payment-hint');
+      const walletBox = document.getElementById('bayad-agad-ewallet-box');
+      const submitBtn = document.getElementById('checkout-submit-btn');
+
+      if (walletBox) {
+        walletBox.classList.toggle('hidden', method !== 'BAYAD_AGAD');
+      }
+      if (submitBtn) {
+        submitBtn.textContent = method === 'BAYAD_AGAD' ? `Pay with ${selectedEWallet}` : 'Place COD Order';
+      }
+      if (!hint) return;
+      hint.textContent = method === 'BAYAD_AGAD'
+        ? `Pay instantly via ${selectedEWallet}. Your mined items will be marked Paid and queued for priority shipout.`
+        : 'Prepare exact cash for the rider upon parcel delivery.';
+    }
+
+    function submitBayongCheckout(e) {
+      e.preventDefault();
+      const address = document.getElementById('checkout-address').value.trim();
+      const courier = document.getElementById('checkout-courier').value;
+      const payRadio = document.querySelector('input[name="checkout-pay-method"]:checked');
+      const payMethod = payRadio ? payRadio.value : 'COD';
+      const senderRef = (document.getElementById('ewallet-sender-ref')?.value || '').trim();
+      const label = payMethod === 'BAYAD_AGAD'
+        ? `Bayad Agad (${selectedEWallet}${senderRef ? ' • ' + senderRef : ''})`
+        : 'COD (Cash on Delivery)';
+
+      state.minedOrders.forEach(o => {
+        if (o.stage === 'TO_PAY') {
+          o.stage = 'TO_SHIP';
+          o.courier = courier;
+          o.buyerAddress = address;
+          o.paymentMethod = label;
+          o.status = payMethod === 'BAYAD_AGAD' ? `Paid (${selectedEWallet}) — To Ship` : 'To Ship — COD';
+          o.trackingEvents = [
+            {
+              time: 'Just now',
+              title: payMethod === 'BAYAD_AGAD' ? `Paid via ${selectedEWallet}` : 'Checked Out (COD)',
+              desc: `Scheduled for ${courier} pickup`,
+              done: true,
+              current: true
+            },
+            ...(o.trackingEvents || [])
+          ];
+        }
+      });
+
+      saveState();
+      closeCheckoutModal();
+      renderAll();
+      switchTab('account');
+      setPurchaseFilter('TO_SHIP');
+      showToast(payMethod === 'BAYAD_AGAD' ? `Paid via ${selectedEWallet}! Order moved to To Ship.` : 'COD Order placed! Moved to To Ship.');
+    }
+
+    // =========================================================================
+    // DIRECT SELLER CHAT
+    // =========================================================================
+    function openDirectChatWithSeller(sellerId) {
+      state.activeChatSellerId = sellerId;
+      switchTab('chat');
+    }
+
+    function renderChatTab() {
+      const sellersRow = document.getElementById('chat-sellers-strip');
+      const threadBox = document.getElementById('chat-messages-box');
+      const headerTitle = document.getElementById('chat-active-seller-name');
+
+      const activeSeller = state.sellers.find(s => s.id === state.activeChatSellerId) || state.sellers[0];
+      if (headerTitle) headerTitle.textContent = activeSeller.name;
+
+      if (sellersRow) {
+        sellersRow.innerHTML = state.sellers.map(s => {
+          const active = s.id === activeSeller.id;
+          return `
+            <button onclick="openDirectChatWithSeller('${s.id}')" class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
+              active ? 'bg-[#070D17] text-white' : 'bg-white text-[#1E293B] border border-[#E2E8F0]'
+            }">${escapeHtml(s.name)}</button>
+          `;
+        }).join('');
+      }
+
+      if (threadBox) {
+        const msgs = state.directChats[activeSeller.id] || [];
+        threadBox.innerHTML = msgs.map(m => `
+          <div class="flex ${m.from === 'buyer' ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%] rounded-2xl px-3.5 py-2 text-xs ${
+              m.from === 'buyer'
+                ? 'bg-[#070D17] text-white rounded-br-xs'
+                : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
+            }">
+              <p>${escapeHtml(m.text)}</p>
+              <div class="text-[9px] opacity-60 mt-1 text-right">${escapeHtml(m.time)}</div>
+            </div>
+          </div>
+        `).join('');
+        threadBox.scrollTop = threadBox.scrollHeight;
+      }
+    }
+
+    function sendDirectChatMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('direct-chat-input');
+      if (!input || !input.value.trim()) return;
+      const sid = state.activeChatSellerId || state.sellers[0].id;
+      if (!state.directChats[sid]) state.directChats[sid] = [];
+      state.directChats[sid].push({
+        from: 'buyer',
+        text: input.value.trim(),
+        time: 'Just now'
+      });
+      input.value = '';
+      saveState();
+      renderChatTab();
+    }
+
+    // =========================================================================
+    // MY ACCOUNT & PURCHASE TRACKING TIMELINE
+    // =========================================================================
+    function setPurchaseFilter(stage) {
+      state.activePurchaseFilter = stage;
+      renderAccountTab();
+      lucide.createIcons();
+    }
+
+    function renderAccountTab() {
+      const nameEl = document.getElementById('account-display-name');
+      const emailEl = document.getElementById('account-email-line');
+      const avatarEl = document.getElementById('account-avatar-initials');
+      const rolePill = document.getElementById('account-role-pill');
+      const verifiedBadge = document.getElementById('account-verified-badge');
+      const verifySubtext = document.getElementById('settings-verify-subtext');
+      const verifyDot = document.getElementById('settings-verify-dot');
+
+      const isSellerAccount = state.role === 'seller' || Boolean(state.user && state.user.isSeller);
+      const isSellerMode = state.role === 'seller';
+
+      if (nameEl) nameEl.textContent = `Hello, ${state.user.name.split(' ')[0]}!`;
+      if (emailEl) emailEl.textContent = state.user.email;
+      if (avatarEl) {
+        const parts = state.user.name.trim().split(' ');
+        avatarEl.textContent = ((parts[0]?.[0] || 'M') + (parts[1]?.[0] || 'S')).toUpperCase();
+      }
+      if (rolePill) {
+        rolePill.textContent = isSellerMode ? 'SELLER' : 'MINER';
+        rolePill.className = isSellerMode
+          ? 'absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full bg-[#10B981] text-white text-[8px] font-extrabold uppercase tracking-wider shadow-2xs'
+          : 'absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full bg-[#F59E0B] text-[#070D17] text-[8px] font-extrabold uppercase tracking-wider shadow-2xs';
+      }
+
+      const status = state.user.verificationStatus || 'unverified';
+      if (verifiedBadge) {
+        if (status === 'verified' || status === 'pending') {
+          verifiedBadge.className = 'mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 text-[10px] font-bold cursor-pointer';
+          verifiedBadge.innerHTML = `<i data-lucide="check-circle-2" class="w-3 h-3"></i><span>${status === 'verified' ? 'Verified Primary ID' : 'Primary ID Submitted • Under Review'}</span>`;
+        } else {
+          verifiedBadge.className = 'mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer';
+          verifiedBadge.innerHTML = `<i data-lucide="alert-circle" class="w-3 h-3"></i><span>Not Verified • Submit Primary ID</span>`;
+        }
+      }
+      if (verifySubtext && state.user.idType) {
+        verifySubtext.textContent = `${state.user.idType} (${state.user.idNumber})`;
+      }
+      if (verifyDot) {
+        verifyDot.classList.toggle('hidden', status === 'verified' || status === 'pending');
+      }
+
+      const bannerTitle = document.getElementById('account-seller-banner-title');
+      const bannerDesc = document.getElementById('account-seller-banner-desc');
+      const statusBadge = document.getElementById('account-seller-status-badge');
+      const applyBox = document.getElementById('account-buyer-apply-actions');
+      const activeControls = document.getElementById('account-seller-active-controls');
+
+      if (isSellerAccount) {
+        if (bannerTitle) bannerTitle.textContent = state.user.shopName || 'Seller Mode Active';
+        if (bannerDesc) bannerDesc.textContent = 'Switch between shopping as a Miner or Live-Selling & Posting as a Seller.';
+        if (statusBadge) statusBadge.classList.remove('hidden');
+        if (applyBox) applyBox.classList.add('hidden');
+        if (activeControls) activeControls.classList.remove('hidden');
+
+        const buyerBtn = document.getElementById('mode-btn-buyer');
+        const sellerBtn = document.getElementById('mode-btn-seller');
+        if (buyerBtn && sellerBtn) {
+          buyerBtn.className = !isSellerMode
+            ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#070D17] text-white cursor-pointer transition'
+            : 'py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#1E293B] hover:bg-[#F4F6F9] cursor-pointer transition';
+          sellerBtn.className = isSellerMode
+            ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#10B981] text-white cursor-pointer transition'
+            : 'py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#1E293B] hover:bg-[#F4F6F9] cursor-pointer transition';
+        }
+      } else {
+        if (bannerTitle) bannerTitle.textContent = 'Become a Ukayo Seller';
+        if (bannerDesc) bannerDesc.textContent = 'Apply to open your own Nasa Tindahan & go live on Mine Na!';
+        if (statusBadge) statusBadge.classList.add('hidden');
+        if (applyBox) applyBox.classList.remove('hidden');
+        if (activeControls) activeControls.classList.add('hidden');
+      }
+
+      const logoutTitle = document.getElementById('account-logout-title');
+      const logoutSub = document.getElementById('account-logout-sub');
+      if (isLoggedOut) {
+        if (nameEl) nameEl.textContent = 'Guest Miner';
+        if (emailEl) emailEl.textContent = 'Signed out • Tap below to log back in';
+        if (avatarEl) avatarEl.textContent = 'GU';
+        if (logoutTitle) logoutTitle.textContent = 'Log Back In as Mika Santos';
+        if (logoutSub) logoutSub.textContent = 'Restore your saved bayong, orders & seller profile';
+      } else {
+        if (logoutTitle) logoutTitle.textContent = 'Log Out';
+        if (logoutSub) logoutSub.textContent = 'Sign out of your UKAYO buyer & seller session';
+      }
+
+      ['TO_PAY', 'TO_SHIP', 'TO_RECEIVE', 'TO_RATE'].forEach(st => {
+        const count = state.minedOrders.filter(o => o.stage === st).length;
+        const badge = document.getElementById(`count-${st}`);
+        if (badge) {
+          badge.textContent = count;
+          badge.classList.toggle('hidden', count === 0);
+        }
+        const btn = document.getElementById(`purchase-tab-${st}`);
+        if (btn) {
+          const active = state.activePurchaseFilter === st;
+          btn.classList.toggle('bg-[#070D17]', active);
+          btn.classList.toggle('text-white', active);
+          btn.classList.toggle('bg-[#F4F6F9]', !active);
+          btn.classList.toggle('text-[#1E293B]', !active);
+        }
+      });
+
+      const ordersContainer = document.getElementById('account-orders-list');
+      if (!ordersContainer) return;
+
+      const visibleOrders = state.activePurchaseFilter === 'ALL'
+        ? state.minedOrders
+        : state.minedOrders.filter(o => o.stage === state.activePurchaseFilter);
+
+      if (visibleOrders.length === 0) {
+        ordersContainer.innerHTML = `<div class="bg-[#F4F6F9] rounded-2xl border border-[#E2E8F0] p-4 text-center text-xs text-slate-500">No orders in this status yet.</div>`;
+        return;
+      }
+
+      ordersContainer.innerHTML = visibleOrders.map(o => `
+        <div class="bg-[#F4F6F9] rounded-2xl border border-[#E2E8F0] p-3 space-y-2.5">
+          <div class="flex items-center justify-between text-[10px]">
+            <span class="font-extrabold text-[#070D17]">${escapeHtml(o.sellerName)}</span>
+            <span class="px-2 py-0.5 rounded-full font-extrabold ${
+              o.stage === 'TO_PAY' ? 'bg-[#F59E0B]/20 text-[#070D17]' :
+              o.stage === 'TO_SHIP' ? 'bg-[#070D17] text-white' :
+              o.stage === 'TO_RECEIVE' ? 'bg-[#10B981]/15 text-[#10B981]' :
+              'bg-white text-slate-700'
+            }">${escapeHtml(o.status)}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <img src="${o.image}" alt="${escapeHtml(o.title)}" class="w-14 h-14 rounded-xl object-cover bg-white shrink-0" />
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-bold text-[#070D17] truncate">${escapeHtml(o.title)}</div>
+              <div class="text-[10px] text-slate-500">Qty: ${o.quantity || 1} • ${escapeHtml(o.courier)} • ${escapeHtml(o.paymentMethod)}</div>
+              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">₱${(o.price * (o.quantity || 1)).toLocaleString()}</div>
+            </div>
+          </div>
+
+          ${
+            o.stage === 'TO_RECEIVE' && o.trackingEvents
+              ? `<div class="pt-2 border-t border-slate-200 space-y-2">
+                  <div class="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">Live Parcel Timeline ${o.trackingNumber ? `• ${escapeHtml(o.trackingNumber)}` : ''}</div>
+                  <div class="space-y-2 pl-2 border-l-2 border-[#10B981]">
+                    ${o.trackingEvents.map(ev => `
+                      <div class="relative pl-3">
+                        <span class="absolute -left-[15px] top-1 w-2.5 h-2.5 rounded-full ${ev.current ? 'bg-[#10B981] ring-4 ring-[#10B981]/20' : 'bg-slate-300'}"></span>
+                        <div class="text-[11px] font-bold text-[#070D17]">${escapeHtml(ev.title)}</div>
+                        <div class="text-[10px] text-slate-500">${escapeHtml(ev.desc)}</div>
+                        <div class="text-[9px] text-slate-400">${escapeHtml(ev.time)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>`
+              : ''
+          }
+        </div>
+      `).join('');
+    }
+
+    // =========================================================================
+    // MODALS: BECOME UKAYO SELLER, IDENTITY VERIFICATION, PROFILE, PERKS, ITEM
+    // =========================================================================
+    function handleBecomeSellerAction() {
+      const isSellerAccount = state.role === 'seller' || Boolean(state.user && state.user.isSeller);
+      if (isSellerAccount) {
+        openSellerStore(state.user.ownSellerId);
+        return;
+      }
+      openSellerCenterPortal();
+    }
+
+    function closeBecomeSellerModal() {
+      const modal = document.getElementById('become-seller-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function submitSellerApplication(e) {
+      e.preventDefault();
+      const shopName = document.getElementById('apply-shop-name').value.trim();
+      const city = document.getElementById('apply-shop-city').value.trim();
+      const gcash = document.getElementById('apply-shop-gcash').value.trim();
+
+      state.role = 'seller';
+      state.user.isSeller = true;
+      state.user.shopName = shopName || state.user.shopName;
+      state.user.city = city || state.user.city;
+      state.user.gcash = gcash || state.user.gcash;
+
+      saveState();
+      closeBecomeSellerModal();
+      renderAll();
+      showToast(`Welcome Seller! "${state.user.shopName}" is now active.`);
+    }
+
+    function openIdVerifyModal() {
+      const modal = document.getElementById('id-verify-modal');
+      if (!modal) return;
+      if (state.user.idType) document.getElementById('verify-id-type').value = state.user.idType;
+      document.getElementById('verify-id-fullname').value = state.user.name;
+      if (state.user.idNumber) document.getElementById('verify-id-number').value = state.user.idNumber;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeIdVerifyModal() {
+      const modal = document.getElementById('id-verify-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function handleVerifyFilePreview(e, kind) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        const previewEl = document.getElementById(kind === 'id' ? 'verify-id-preview' : 'verify-selfie-preview');
+        const labelEl = document.getElementById(kind === 'id' ? 'verify-id-file-label' : 'verify-selfie-file-label');
+        if (previewEl) {
+          previewEl.src = ev.target.result;
+          previewEl.classList.remove('hidden');
+        }
+        if (labelEl) {
+          labelEl.textContent = `Selected: ${file.name}`;
+        }
+        if (kind === 'id') state.user.idImageData = ev.target.result;
+        if (kind === 'selfie') state.user.selfieImageData = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function submitIdVerification(e) {
+      e.preventDefault();
+      state.user.idType = document.getElementById('verify-id-type').value;
+      state.user.name = document.getElementById('verify-id-fullname').value.trim() || state.user.name;
+      state.user.idNumber = document.getElementById('verify-id-number').value.trim();
+      state.user.verificationStatus = 'pending';
+      saveState();
+      closeIdVerifyModal();
+      renderAll();
+      showToast('Philippine Primary ID submitted for verification!');
+    }
+
+    function openPerksModal(kind) {
+      showToast(
+        kind === 'referral'
+          ? 'Your Referral Code: UKAYO-MIKA (Earn 50 pts per invited miner!)'
+          : kind === 'discounts'
+          ? '20% OFF Bale Drops applied automatically on orders ₱500+!'
+          : 'Voucher UKAYOFREESHIP claimed! Ready in My Bayong.'
+      );
+    }
+
+    function openAppReleaseModal() {
+      showToast('UKAYO PWA ready! Tap "Add to Home Screen" on iOS or Android.');
+    }
+
+    function openAgoraModal() {
+      showToast('Agora.io WebRTC Live Engine ready for your App ID.');
+    }
+
+    function openProfileModal() {
+      openIdVerifyModal();
+    }
+
+    function handleAccountLogout() {
+      isLoggedOut = !isLoggedOut;
+      if (isLoggedOut) {
+        state.role = 'buyer';
+      }
+      renderAll();
+    }
+
+    function openItemDetailModal(sellerId, prodId) {
+      const seller = state.sellers.find(s => s.id === sellerId);
+      const prod = seller ? seller.products.find(p => p.id === prodId) : null;
+      if (!seller || !prod) return;
+      claimStoreProduct(seller.id, prod.id);
+    }
+
+    function openSellerDropModal() {
+      const code = 'A0' + (state.liveItems.length + 1);
+      const newItem = {
+        id: 'live_' + Date.now(),
+        sellerId: state.activeLiveSellerId,
+        code,
+        title: 'Flash Bale Drop Vintage Pullover',
+        price: 250,
+        size: 'Large (23"x27")',
+        condition: '10/10 Like New',
+        image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
+        winner: null,
+        steals: []
+      };
+      state.liveItems.unshift(newItem);
+      state.activePinnedItemId = newItem.id;
+      saveState();
+      renderMineTab();
+      showToast(`Pinned new live drop ${code} (₱250)!`);
+    }
+
+    function renderAll() {
+      const bagBadge = document.getElementById('header-bag-badge');
+      const navBagBadge = document.getElementById('nav-bag-badge');
+      const bayongQty = state.minedOrders
+        .filter(o => o.stage === 'TO_PAY')
+        .reduce((sum, o) => sum + (o.quantity || 1), 0);
+
+      if (bagBadge) bagBadge.textContent = bayongQty;
+      if (navBagBadge) {
+        navBagBadge.textContent = bayongQty;
+        navBagBadge.classList.toggle('hidden', bayongQty === 0);
+      }
+
+      renderHomeTab();
+      renderFeedTab();
+      renderMineTab();
+      renderStoreTab();
+      renderBagTab();
+      renderChatTab();
+      renderAccountTab();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      switchTab(state.activeTab || 'home');
+    });
+
+    // Real-time cross-tab sync with Seller Center & Admin Ops Portal
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          state = { ...getDefaultState(), ...parsed };
+          renderAll();
+        } catch (err) {}
+      }
+    });
+  </script>
+
+  <!-- Real-Time Cloud Bridge (Firestore Sync Across Devices) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ukayo-ph-ecosystem';
+    const rawConfig = typeof __firebase_config !== 'undefined'
+      ? JSON.parse(__firebase_config)
+      : (window.UKAYO_FIREBASE_CONFIG || null);
+
+    if (rawConfig && rawConfig.apiKey) {
+      (async () => {
+        try {
+          const app = initializeApp(rawConfig);
+          const auth = getAuth(app);
+          const db = getFirestore(app);
+          const cred = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
+            ? await signInWithCustomToken(auth, __initial_auth_token)
+            : await signInAnonymously(auth);
+          if (!cred.user) return;
+
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ukayo_ecosystem', 'live_state');
+          let applyingRemote = false;
+
+          window.ukayoCloudSyncPush = async (nextState) => {
+            if (applyingRemote) return;
+            try {
+              await setDoc(docRef, {
+                payloadJson: JSON.stringify(nextState),
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            } catch (e) {}
+          };
+
+          onSnapshot(docRef, (snap) => {
+            if (!snap.exists() || !snap.data().payloadJson) return;
+            applyingRemote = true;
+            try {
+              const remote = JSON.parse(snap.data().payloadJson);
+              state = { ...getDefaultState(), ...remote };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+              renderAll();
+            } catch (e) {} finally {
+              applyingRemote = false;
+            }
+          }, () => {});
+        } catch (e) {}
+      })();
+    }
+  </script>
+</body>
+</html>
