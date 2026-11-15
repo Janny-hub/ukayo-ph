@@ -106,7 +106,7 @@
           Invalid admin username/email or password.
         </div>
         <button type="submit" class="w-full py-3 rounded-xl bg-[#10B981] hover:bg-emerald-500 text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg">
-          Unlock Admin Command Center
+          Log In to Admin Command Center
         </button>
       </form>
 
@@ -175,15 +175,20 @@
             <span class="px-2 py-0.5 rounded-md bg-[#10B981] text-[#070D17] text-[10px] font-extrabold uppercase tracking-wider">Admin Ops Portal</span>
             <span id="admin-active-user-pill" class="hidden sm:inline text-xs font-bold text-slate-300">Signed in: jazran</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-0.5">Live Bridge: Buyer App + Seller Center • Zero Brand-Strike Enforcement</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Live Bridge: Buyer App + Seller Center • Zero Dummy Data</p>
         </div>
       </div>
 
-      <!-- Cross-App Quick Links, Security Settings & Lock -->
+      <!-- Cross-App Quick Links, Security Settings & Log Out -->
       <div class="flex flex-wrap items-center gap-2">
         <button onclick="syncFromEcosystem(true)" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white inline-flex items-center gap-1.5 cursor-pointer">
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-[#10B981]"></i>
           <span>Sync Apps</span>
+        </button>
+        <button onclick="switchAdminTab('support')" class="px-3 py-1.5 rounded-xl bg-[#10B981]/20 hover:bg-[#10B981] text-[#10B981] hover:text-[#070D17] text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer transition">
+          <i data-lucide="headphones" class="w-3.5 h-3.5"></i>
+          <span>Customer Service</span>
+          <span id="header-support-badge" class="hidden px-1.5 py-0.2 rounded-full bg-[#EF4444] text-white text-[9px] font-extrabold">0</span>
         </button>
         <button onclick="openAdminSecurityModal()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-[#F59E0B] inline-flex items-center gap-1.5 cursor-pointer" title="Change Admin Password & Email">
           <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
@@ -197,9 +202,9 @@
           <span>Buyer App</span>
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
         </a>
-        <button onclick="lockAdminSession()" class="px-3 py-1.5 rounded-xl bg-[#EF4444]/20 hover:bg-[#EF4444] text-white text-xs font-extrabold inline-flex items-center gap-1 cursor-pointer" title="Lock Admin Center">
+        <button onclick="lockAdminSession()" class="px-3 py-1.5 rounded-xl bg-[#EF4444]/20 hover:bg-[#EF4444] text-white text-xs font-extrabold inline-flex items-center gap-1 cursor-pointer" title="Log Out of Admin Center">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          <span>Lock</span>
+          <span>Log Out</span>
         </button>
       </div>
     </div>
@@ -229,15 +234,15 @@
         </div>
 
         <div class="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-2xs">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Tindahan</div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registered Shops</div>
           <div id="kpi-active-shops" class="text-xl font-display font-extrabold text-[#070D17] tabular-price mt-1">0</div>
           <div class="text-[10px] text-[#10B981] font-bold mt-1">● Live &amp; Verified Sellers</div>
         </div>
 
         <div class="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-2xs">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Orders &amp; Waybills</div>
-          <div id="kpi-total-orders" class="text-xl font-display font-extrabold text-[#070D17] tabular-price mt-1">0</div>
-          <div id="kpi-waybill-sub" class="text-[10px] text-slate-500 mt-1">0 A6 waybills active</div>
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registered Buyers</div>
+          <div id="kpi-total-buyers" class="text-xl font-display font-extrabold text-[#070D17] tabular-price mt-1">0</div>
+          <div id="kpi-waybill-sub" class="text-[10px] text-slate-500 mt-1">0 orders placed</div>
         </div>
 
         <div class="col-span-2 lg:col-span-1 bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-2xs">
@@ -249,7 +254,6 @@
 
       <!-- Detailed Analytics Breakdown Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- GMV by Channel & Payment Split -->
         <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
           <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
             <h3 class="text-sm font-display font-extrabold text-[#070D17]">GMV &amp; Payment Split</h3>
@@ -258,7 +262,6 @@
           <div id="analytics-payment-bars" class="space-y-3"></div>
         </div>
 
-        <!-- Order Fulfillment Pipeline -->
         <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
           <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
             <h3 class="text-sm font-display font-extrabold text-[#070D17]">Order Pipeline Analytics</h3>
@@ -267,10 +270,9 @@
           <div id="analytics-order-stages" class="space-y-2.5"></div>
         </div>
 
-        <!-- Top Tindahan & Compliance Health -->
         <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
           <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Platform Health &amp; Top Shops</h3>
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Registered Tindahan Shops</h3>
             <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-white text-[10px] font-extrabold">0-Strike</span>
           </div>
           <div id="analytics-top-shops" class="space-y-2.5"></div>
@@ -286,7 +288,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
             <h2 class="text-base font-display font-extrabold text-[#070D17]">Seller KYC, Primary ID &amp; BIR Form 2303 Queue</h2>
-            <p class="text-xs text-slate-500">Inspect uploaded Philippine Primary IDs, selfies, and single-registration BIR documents before approving shops.</p>
+            <p class="text-xs text-slate-500">Inspect uploaded Philippine Primary IDs, selfies, and single-registration BIR documents when sellers register.</p>
           </div>
           <span class="px-3 py-1 rounded-full bg-[#10B981]/15 text-[#065F46] text-xs font-extrabold self-start">Single-Registration BIR Policy</span>
         </div>
@@ -296,14 +298,14 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- MODULE 2: BUYER IDENTITY & JOY-RESERVER CONTROL                   -->
+    <!-- MODULE 2: BUYER ACCOUNTS & IDENTITY CONTROL                       -->
     <!-- ================================================================= -->
     <section id="admin-sec-buyers" class="hidden space-y-4">
       <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
-            <h2 class="text-base font-display font-extrabold text-[#070D17]">Buyer Accounts &amp; Joy-Reserver Protection</h2>
-            <p class="text-xs text-slate-500">Verify buyer Primary IDs submitted in My Account and restrict accounts with unpaid "Mine Na!" locks.</p>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">Registered Buyer &amp; Seller Accounts</h2>
+            <p class="text-xs text-slate-500">All newly registered accounts from the Marketplace and Seller Center appear here in real time.</p>
           </div>
         </div>
 
@@ -312,7 +314,72 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- MODULE 3: LIVE STREAM & UKAY FEED MODERATION (ZERO BRAND-STRIKE)  -->
+    <!-- MODULE 3: UKAY PABORITO IMAGE & TITLE MANAGER                     -->
+    <!-- ================================================================= -->
+    <section id="admin-sec-paborito" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+          <div>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">Ukay Paborito Image &amp; Title Manager</h2>
+            <p class="text-xs text-slate-500">Customize the category titles and upload new cover images for the "Ukay Paborito" section on the Buyer Marketplace Home screen.</p>
+          </div>
+          <button type="button" onclick="addNewPaboritoCategory()" class="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer self-start">
+            + Add Paborito Category
+          </button>
+        </div>
+
+        <div id="admin-paborito-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- MODULE 4: CUSTOMER SERVICE CHAT (VERTICAL LEFT LIST + LIVE CHAT)  -->
+    <!-- ================================================================= -->
+    <section id="admin-sec-support" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
+          <div>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">Customer Service Helpdesk (Buyers &amp; Sellers)</h2>
+            <p class="text-xs text-slate-500">Previous messages from Buyers and Sellers are arranged vertically on the left side. Click any thread to reply in real time.</p>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-[#10B981]/15 text-[#065F46] text-xs font-extrabold self-start">● Live Admin Support</span>
+        </div>
+
+        <div class="rounded-2xl border border-[#CBD5E1] overflow-hidden grid grid-cols-12 h-[65dvh] bg-white">
+          <!-- Left Sidebar: Vertical List of Previous Customer Service Threads -->
+          <div class="col-span-4 border-r border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
+            <div class="px-3.5 py-2.5 bg-[#070D17] text-white text-xs font-extrabold uppercase tracking-wider flex items-center justify-between">
+              <span>Previous Messages</span>
+              <span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+            </div>
+            <div id="admin-support-threads-left" class="flex-1 overflow-y-auto divide-y divide-[#E2E8F0] flex flex-col"></div>
+          </div>
+
+          <!-- Right Panel: Active Customer Service Thread -->
+          <div class="col-span-8 flex flex-col overflow-hidden">
+            <div class="px-4 py-2.5 bg-[#070D17] text-white flex items-center justify-between border-l border-slate-800">
+              <div class="min-w-0">
+                <div id="admin-support-active-name" class="text-xs font-extrabold truncate">Select a Buyer or Seller conversation</div>
+                <div id="admin-support-active-role" class="text-[10px] text-[#10B981] font-bold">UKAYO Customer Service</div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-bold">Real-Time Sync</span>
+            </div>
+
+            <div id="admin-support-messages-box" class="flex-1 p-4 overflow-y-auto space-y-2.5 bg-[#F4F6F9]"></div>
+
+            <form onsubmit="sendAdminSupportReply(event)" class="p-3 bg-white border-t border-[#E2E8F0] flex items-center gap-2">
+              <input type="text" id="admin-support-input" placeholder="Reply as UKAYO Customer Service Admin..." class="flex-1 px-3.5 py-2 rounded-full bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-medium focus:outline-none focus:border-[#070D17]" />
+              <button type="submit" class="px-4 py-2 rounded-full bg-[#10B981] hover:bg-emerald-600 text-[#070D17] text-xs font-extrabold cursor-pointer shrink-0">
+                Send Reply
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- MODULE 5: LIVE STREAM & UKAY FEED MODERATION                      -->
     <!-- ================================================================= -->
     <section id="admin-sec-moderation" class="hidden space-y-4">
       <div class="bg-[#070D17] text-white rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -321,17 +388,15 @@
           <h3 class="text-sm font-display font-extrabold mt-1">Zero Automated Brand-Strike Protection Active</h3>
           <p class="text-xs text-slate-300">Legitimate secondhand vintage &amp; branded ukay pieces are protected from false counterfeit takedowns.</p>
         </div>
-        <span class="text-xs font-extrabold text-[#F59E0B] shrink-0">3 Active Live Streams</span>
+        <span id="admin-active-live-count" class="text-xs font-extrabold text-[#F59E0B] shrink-0">0 Active Live Streams</span>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- Active Live Rooms -->
         <div class="bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
           <h3 class="text-sm font-display font-extrabold text-[#070D17]">Active "Mine Na!" Live Rooms</h3>
           <div id="admin-live-rooms-list" class="space-y-2.5"></div>
         </div>
 
-        <!-- Ukay Feed Posts -->
         <div class="bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
           <h3 class="text-sm font-display font-extrabold text-[#070D17]">Ukay Feed Community Posts</h3>
           <div id="admin-feed-posts-list" class="space-y-2.5"></div>
@@ -340,88 +405,88 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- MODULE 4: ORDERS & A6 WAYBILL OVERSIGHT                           -->
+    <!-- MODULE 6: ORDERS & PAYOUT OVERSIGHT                               -->
     <!-- ================================================================= -->
     <section id="admin-sec-orders" class="hidden space-y-4">
       <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E2E8F0] pb-3">
           <div>
-            <h2 class="text-base font-display font-extrabold text-[#070D17]">Platform Orders, COD Verification &amp; A6 Waybills</h2>
-            <p class="text-xs text-slate-500">Monitor order lifecycle across Buyer App and Seller Center, or override stuck parcels.</p>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">Platform Orders, COD Verification &amp; Seller Payouts</h2>
+            <p class="text-xs text-slate-500">Monitor order lifecycle across Buyer App and Seller Center, and release seller payouts.</p>
           </div>
         </div>
 
         <div id="admin-orders-list" class="space-y-2.5"></div>
       </div>
-    </section>
 
-    <!-- ================================================================= -->
-    <!-- MODULE 5: PAYOUTS, BIR 0.5% LEDGER & PLATFORM VOUCHERS            -->
-    <!-- ================================================================= -->
-    <section id="admin-sec-payouts" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Seller Payouts & BIR Withholding Ledger -->
-      <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
-        <div class="border-b border-[#E2E8F0] pb-2.5">
-          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Seller Payout Requests &amp; BIR RR 16-2023 Tax</h3>
-          <p class="text-xs text-slate-500">Starter sellers (≤ ₱500k/yr) remain exempt from 0.5% withholding tax.</p>
-        </div>
-        <div id="admin-payouts-list" class="space-y-2.5"></div>
-      </div>
-
-      <!-- Platform-Wide Vouchers & Announcements -->
-      <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
-        <div class="border-b border-[#E2E8F0] pb-2.5">
-          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Platform-Wide Promo Vouchers</h3>
-          <p class="text-xs text-slate-500">Create official UKAYO free-shipping or bale discount codes.</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
+          <div class="border-b border-[#E2E8F0] pb-2.5">
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Seller Payout Requests &amp; BIR RR 16-2023 Tax</h3>
+            <p class="text-xs text-slate-500">Starter sellers (≤ ₱500k/yr) remain exempt from 0.5% withholding tax.</p>
+          </div>
+          <div id="admin-payouts-list" class="space-y-2.5"></div>
         </div>
 
-        <form onsubmit="createPlatformVoucher(event)" class="grid grid-cols-3 gap-2">
-          <input type="text" id="new-voucher-code" placeholder="CODE (e.g. CEBUFREE)" required class="px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-bold uppercase" />
-          <input type="text" id="new-voucher-desc" placeholder="₱50 OFF Shipping" required class="px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold" />
-          <button type="submit" class="px-3 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
-            + Publish
-          </button>
-        </form>
+        <div class="bg-white rounded-3xl border border-[#CBD5E1] p-5 shadow-2xs space-y-3">
+          <div class="border-b border-[#E2E8F0] pb-2.5">
+            <h3 class="text-sm font-display font-extrabold text-[#070D17]">Platform-Wide Promo Vouchers</h3>
+            <p class="text-xs text-slate-500">Create official UKAYO free-shipping or bale discount codes.</p>
+          </div>
 
-        <div id="admin-vouchers-list" class="space-y-2"></div>
+          <form onsubmit="createPlatformVoucher(event)" class="grid grid-cols-3 gap-2">
+            <input type="text" id="new-voucher-code" placeholder="CODE (e.g. CEBUFREE)" required class="px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-bold uppercase" />
+            <input type="text" id="new-voucher-desc" placeholder="₱50 OFF Shipping" required class="px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold" />
+            <button type="submit" class="px-3 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+              + Publish
+            </button>
+          </form>
+
+          <div id="admin-vouchers-list" class="space-y-2"></div>
+        </div>
       </div>
     </section>
 
   </div>
 
   <!-- =================================================================== -->
-  <!-- DOCKED BOTTOM ADMIN NAVIGATION BAR (NO NUMBERS)                     -->
+  <!-- DOCKED BOTTOM ADMIN NAVIGATION BAR (7 TABS)                         -->
   <!-- =================================================================== -->
   <nav class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#CBD5E1] px-2 py-2 shadow-lg">
-    <div class="max-w-7xl mx-auto grid grid-cols-6 gap-1 text-center">
-      <button onclick="switchAdminTab('dashboard')" data-admin-tab="dashboard" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-[#070D17] text-white flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-extrabold cursor-pointer transition">
+    <div class="max-w-7xl mx-auto grid grid-cols-7 gap-1 text-center">
+      <button onclick="switchAdminTab('dashboard')" data-admin-tab="dashboard" class="admin-tab-btn py-2 px-1 rounded-xl bg-[#070D17] text-white flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-extrabold cursor-pointer transition">
         <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
         <span class="truncate max-w-full">Dashboard</span>
       </button>
 
-      <button onclick="switchAdminTab('kyc')" data-admin-tab="kyc" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+      <button onclick="switchAdminTab('kyc')" data-admin-tab="kyc" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
         <i data-lucide="shield-check" class="w-4 h-4"></i>
         <span class="truncate max-w-full">Seller KYC</span>
       </button>
 
-      <button onclick="switchAdminTab('buyers')" data-admin-tab="buyers" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+      <button onclick="switchAdminTab('buyers')" data-admin-tab="buyers" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
         <i data-lucide="users" class="w-4 h-4"></i>
-        <span class="truncate max-w-full">Buyers</span>
+        <span class="truncate max-w-full">Accounts</span>
       </button>
 
-      <button onclick="switchAdminTab('moderation')" data-admin-tab="moderation" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+      <button onclick="switchAdminTab('paborito')" data-admin-tab="paborito" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+        <i data-lucide="image" class="w-4 h-4"></i>
+        <span class="truncate max-w-full">Ukay Paborito</span>
+      </button>
+
+      <button onclick="switchAdminTab('support')" data-admin-tab="support" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+        <i data-lucide="headphones" class="w-4 h-4"></i>
+        <span class="truncate max-w-full">Cust. Service</span>
+      </button>
+
+      <button onclick="switchAdminTab('moderation')" data-admin-tab="moderation" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
         <i data-lucide="radio" class="w-4 h-4"></i>
-        <span class="truncate max-w-full">Moderation</span>
+        <span class="truncate max-w-full">Live &amp; Feed</span>
       </button>
 
-      <button onclick="switchAdminTab('orders')" data-admin-tab="orders" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
+      <button onclick="switchAdminTab('orders')" data-admin-tab="orders" class="admin-tab-btn py-2 px-1 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
         <i data-lucide="package" class="w-4 h-4"></i>
-        <span class="truncate max-w-full">Orders</span>
-      </button>
-
-      <button onclick="switchAdminTab('payouts')" data-admin-tab="payouts" class="admin-tab-btn py-2 px-1.5 rounded-xl bg-white text-[#1E293B] hover:bg-[#F4F6F9] flex flex-col items-center justify-center gap-1 text-[10px] sm:text-xs font-bold cursor-pointer transition">
-        <i data-lucide="wallet" class="w-4 h-4"></i>
-        <span class="truncate max-w-full">Payouts</span>
+        <span class="truncate max-w-full">Orders/Payout</span>
       </button>
     </div>
   </nav>
@@ -498,12 +563,50 @@
   </div>
 
   <!-- =================================================================== -->
-  <!-- ADMIN OPERATIONS SCRIPT (AUTH + SHARED LOCALSTORAGE BRIDGE)         -->
+  <!-- ADMIN OPERATIONS SCRIPT (AUTH + CLEAN V11 SHARED STATE BRIDGE)      -->
   <!-- =================================================================== -->
   <script>
-    const SHARED_STORAGE_KEY = 'ukayo_marketplace_state_v10';
+    const SHARED_STORAGE_KEY = 'ukayo_marketplace_state_v11';
     const ADMIN_CRED_KEY = 'ukayo_admin_credentials_v1';
     const ADMIN_SESSION_KEY = 'ukayo_admin_unlocked_session';
+
+    const DEFAULT_UKAY_PABORITO = [
+      {
+        id: 'Jackets',
+        label: 'Jackets & Hoodies',
+        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Tops',
+        label: 'Vintage Tees & Tops',
+        image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Denim',
+        label: 'Baggy Denim & Cargo',
+        image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Dresses',
+        label: 'Dresses & Skirts',
+        image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Bags',
+        label: 'Thrift Bags & Luxury',
+        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Shoes',
+        label: 'Ukay Kicks',
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=320&q=80'
+      },
+      {
+        id: 'Bundle Bales',
+        label: 'Sealed Class A Bales',
+        image: 'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=320&q=80'
+      }
+    ];
 
     let adminCreds = {
       username: 'jazran',
@@ -512,6 +615,52 @@
     };
 
     let activeEmailOtp = '';
+
+    let adminState = {
+      activeTab: 'dashboard',
+      activeSupportThreadId: '',
+      sharedApp: {
+        isAuthenticated: false,
+        role: 'buyer',
+        ukayPaborito: [...DEFAULT_UKAY_PABORITO],
+        user: {},
+        registeredUsers: [],
+        kycApplications: [],
+        sellers: [],
+        liveItems: [],
+        feedPosts: [],
+        minedOrders: [],
+        directChats: {},
+        supportThreads: [],
+        payoutRequests: [],
+        platformVouchers: []
+      }
+    };
+
+    function compressDataUrl(file, maxW = 600, quality = 0.78) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = Math.min(1, maxW / Math.max(img.width || 1, 1));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/jpeg', quality));
+            } else {
+              resolve(ev.target.result);
+            }
+          };
+          img.onerror = () => resolve(ev.target.result);
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     function loadAdminCredentials() {
       try {
@@ -626,7 +775,7 @@
       const pwInput = document.getElementById('admin-login-pass');
       if (pwInput) pwInput.value = '';
       checkAdminSession();
-      showAdminToast('Admin Command Center locked.');
+      showAdminToast('Logged out of Admin Command Center.');
     }
 
     function openAdminSecurityModal() {
@@ -669,120 +818,6 @@
       showAdminToast('Admin username, email & password updated!');
     }
 
-    const DEFAULT_DOCS = {
-      idSample: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=600&q=80',
-      selfieSample: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
-      birSample1: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=600&q=80',
-      birSample2: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=600&q=80'
-    };
-
-    let adminState = {
-      activeTab: 'dashboard',
-      sharedApp: null,
-      kycApplications: [
-        {
-          id: 'kyc_mika',
-          shopName: "Mika's Ukay Closet",
-          ownerName: 'Mika Santos',
-          city: 'Cebu City',
-          idType: 'Philippine National ID (PhilSys / ePhilID)',
-          idNumber: '4829-1042-8812',
-          taxTier: 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
-          tin: '123-456-789-000',
-          idPhoto: DEFAULT_DOCS.idSample,
-          selfiePhoto: DEFAULT_DOCS.selfieSample,
-          birPhotos: [DEFAULT_DOCS.birSample1, DEFAULT_DOCS.birSample2],
-          status: 'pending',
-          submittedAt: 'Today • 2:05 AM'
-        },
-        {
-          id: 'kyc_vince',
-          shopName: 'Kuya Vince Vintage',
-          ownerName: 'Vince Navarro',
-          city: 'Baguio City',
-          idType: "LTO Driver's License",
-          idNumber: 'N02-18-049281',
-          taxTier: 'Verified Merchant (Existing BIR Form 2303 COR)',
-          tin: '294-810-332-000',
-          idPhoto: DEFAULT_DOCS.idSample,
-          selfiePhoto: DEFAULT_DOCS.selfieSample,
-          birPhotos: [DEFAULT_DOCS.birSample1, DEFAULT_DOCS.birSample2],
-          status: 'approved',
-          submittedAt: 'Nov 10, 2026'
-        }
-      ],
-      buyerAccounts: [
-        {
-          id: 'buyer_mika',
-          name: 'Mika Santos',
-          email: 'mika.santos@ukayo.ph',
-          city: 'Cebu City',
-          idType: 'Philippine National ID (PhilSys / ePhilID)',
-          idNumber: '4829-1042-8812',
-          idPhoto: DEFAULT_DOCS.idSample,
-          selfiePhoto: DEFAULT_DOCS.selfieSample,
-          idStatus: 'pending',
-          unpaidMines: 1,
-          checkoutRate: '96%',
-          accountStatus: 'active'
-        },
-        {
-          id: 'buyer_carla',
-          name: 'Carla Mendoza',
-          email: 'carla.m@ukayo.ph',
-          city: 'Mandaue City',
-          idType: 'Philippine Passport (DFA)',
-          idNumber: 'P4920184B',
-          idPhoto: DEFAULT_DOCS.idSample,
-          selfiePhoto: DEFAULT_DOCS.selfieSample,
-          idStatus: 'verified',
-          unpaidMines: 0,
-          checkoutRate: '100%',
-          accountStatus: 'active'
-        },
-        {
-          id: 'buyer_joyres',
-          name: 'Rico D. (Flagged Miner)',
-          email: 'rico.d@ukayo.ph',
-          city: 'Quezon City',
-          idType: 'Not Submitted',
-          idNumber: '—',
-          idPhoto: '',
-          selfiePhoto: '',
-          idStatus: 'unverified',
-          unpaidMines: 4,
-          checkoutRate: '33%',
-          accountStatus: 'warned'
-        }
-      ],
-      payoutRequests: [
-        {
-          id: 'pay_1',
-          shopName: "Mika's Ukay Closet",
-          channel: 'GCash',
-          account: '0917-555-0192',
-          grossAmount: 800,
-          withholdingTax: 0,
-          taxNote: 'Exempt (Starter ≤ ₱500k)',
-          status: 'pending'
-        },
-        {
-          id: 'pay_2',
-          shopName: 'Kuya Vince Vintage',
-          channel: 'Maya',
-          account: '0918-401-7721',
-          grossAmount: 2450,
-          withholdingTax: 12.25,
-          taxNote: '0.5% BIR RR 16-2023',
-          status: 'released'
-        }
-      ],
-      platformVouchers: [
-        { code: 'UKAYOFREESHIP', desc: '₱45 OFF Nationwide J&T Shipping', claims: 142, active: true },
-        { code: 'UKAYWELCOME50', desc: '₱50 OFF First Live Mine Checkout', claims: 89, active: true }
-      ]
-    };
-
     function escapeHtml(str) {
       return String(str || '')
         .replace(/&/g, '&amp;')
@@ -810,30 +845,23 @@
       try {
         const raw = localStorage.getItem(SHARED_STORAGE_KEY);
         if (raw) {
-          adminState.sharedApp = JSON.parse(raw);
-          const u = adminState.sharedApp.user || {};
-          const mikaKyc = adminState.kycApplications.find(k => k.id === 'kyc_mika');
-          if (mikaKyc && u.shopName) {
-            mikaKyc.shopName = u.shopName;
-            mikaKyc.ownerName = u.name || mikaKyc.ownerName;
-            mikaKyc.city = u.city || mikaKyc.city;
-            if (u.idType) mikaKyc.idType = u.idType;
-            if (u.idNumber) mikaKyc.idNumber = u.idNumber;
-            if (u.tin) mikaKyc.tin = u.tin;
-            if (u.taxTier) mikaKyc.taxTier = u.taxTier;
-            if (u.idImageData) mikaKyc.idPhoto = u.idImageData;
-            if (u.selfieImageData) mikaKyc.selfiePhoto = u.selfieImageData;
-            if (Array.isArray(u.birImages) && u.birImages.length) mikaKyc.birPhotos = u.birImages;
-            if (u.verificationStatus === 'verified') mikaKyc.status = 'approved';
-          }
-          const mikaBuyer = adminState.buyerAccounts.find(b => b.id === 'buyer_mika');
-          if (mikaBuyer) {
-            if (u.verificationStatus) mikaBuyer.idStatus = u.verificationStatus;
-            if (u.idType) mikaBuyer.idType = u.idType;
-            if (u.idNumber) mikaBuyer.idNumber = u.idNumber;
-            if (u.idImageData) mikaBuyer.idPhoto = u.idImageData;
-            if (u.selfieImageData) mikaBuyer.selfiePhoto = u.selfieImageData;
-          }
+          const parsed = JSON.parse(raw);
+          adminState.sharedApp = {
+            ...adminState.sharedApp,
+            ...parsed,
+            ukayPaborito: Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length
+              ? parsed.ukayPaborito
+              : [...DEFAULT_UKAY_PABORITO],
+            registeredUsers: Array.isArray(parsed.registeredUsers) ? parsed.registeredUsers : [],
+            kycApplications: Array.isArray(parsed.kycApplications) ? parsed.kycApplications : [],
+            sellers: Array.isArray(parsed.sellers) ? parsed.sellers : [],
+            liveItems: Array.isArray(parsed.liveItems) ? parsed.liveItems : [],
+            feedPosts: Array.isArray(parsed.feedPosts) ? parsed.feedPosts : [],
+            minedOrders: Array.isArray(parsed.minedOrders) ? parsed.minedOrders : [],
+            supportThreads: Array.isArray(parsed.supportThreads) ? parsed.supportThreads : [],
+            payoutRequests: Array.isArray(parsed.payoutRequests) ? parsed.payoutRequests : [],
+            platformVouchers: Array.isArray(parsed.platformVouchers) ? parsed.platformVouchers : []
+          };
         }
       } catch (e) {}
 
@@ -842,7 +870,6 @@
     }
 
     function saveBackToEcosystem() {
-      if (!adminState.sharedApp) return;
       try {
         localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(adminState.sharedApp));
         if (window.ukayoCloudSyncPush) {
@@ -853,7 +880,7 @@
 
     function switchAdminTab(tab) {
       adminState.activeTab = tab;
-      ['dashboard', 'kyc', 'buyers', 'moderation', 'orders', 'payouts'].forEach(t => {
+      ['dashboard', 'kyc', 'buyers', 'paborito', 'support', 'moderation', 'orders'].forEach(t => {
         const sec = document.getElementById(`admin-sec-${t}`);
         if (sec) sec.classList.toggle('hidden', t !== tab);
       });
@@ -872,35 +899,42 @@
     }
 
     function renderAdminDashboard() {
-      const orders = adminState.sharedApp?.minedOrders || [
-        { id: 'ord_seed_1', title: 'Oversized Korean Washed Graphic Hoodie', price: 220, quantity: 1, buyerName: 'Mika Santos', sellerName: "Ate Joy's Bale Closet", courier: 'J&T Express', paymentMethod: 'GCash', stage: 'TO_PAY', status: 'To Pay' },
-        { id: 'ord_seed_2', title: 'Baguio Heavyweight Duck Canvas Work Jacket', price: 450, quantity: 1, buyerName: 'Mika Santos', sellerName: 'Kuya Vince Vintage', courier: 'J&T Express', paymentMethod: 'Bayad Agad (GCash)', stage: 'TO_SHIP', status: 'To Ship' },
-        { id: 'ord_seed_3', title: 'Structured Faux-Croc Vintage Shoulder Bag', price: 350, quantity: 1, buyerName: 'Mika Santos', sellerName: "Tita Mhel's Luxury Thrift", courier: 'J&T Express', paymentMethod: 'COD', stage: 'TO_RECEIVE', status: 'In Transit', trackingNumber: 'UKY884920194PH' }
-      ];
-      const sellers = adminState.sharedApp?.sellers || [
-        { id: 'seller_joy', name: "Ate Joy's Bale Closet", city: 'Cebu City', isLive: true, liveTitle: 'Class A Korean Windbreakers & Hoodies!', followers: 2480 },
-        { id: 'seller_vince', name: 'Kuya Vince Vintage', city: 'Baguio City', isLive: true, liveTitle: 'Baguio Hilltop Heavy Jackets & Workwear!', followers: 4120 },
-        { id: 'seller_mhel', name: "Tita Mhel's Luxury Thrift", city: 'Makati City', isLive: true, liveTitle: 'Japan Bale Leather Bags & Silk Tops!', followers: 1890 }
-      ];
-      const feedPosts = adminState.sharedApp?.feedPosts || [
-        { id: 'post_1', authorName: "Ate Joy's Bale Closet", itemTitle: 'Vintage 90s Colorblock Windbreaker', price: 280, caption: 'Fresh Korean Class A Windbreaker drop! Zero flaws.' },
-        { id: 'post_2', authorName: 'Kuya Vince Vintage', itemTitle: 'Vintage 501 Straight-Cut Denim (W32)', price: 380, caption: 'Freshly sorted vintage straight-cut denim from Baguio Hilltop!' }
-      ];
+      const app = adminState.sharedApp;
+      const orders = app.minedOrders || [];
+      const sellers = app.sellers || [];
+      const feedPosts = app.feedPosts || [];
+      const kycApps = app.kycApplications || [];
+      const regUsers = app.registeredUsers || [];
+      const payouts = app.payoutRequests || [];
+      const vouchers = app.platformVouchers || [];
+      const paboritos = app.ukayPaborito || DEFAULT_UKAY_PABORITO;
+      const supportThreads = app.supportThreads || [];
 
       const totalGmv = orders.reduce((s, o) => s + (o.price * (o.quantity || 1)), 0);
-      const pendingKyc = adminState.kycApplications.filter(k => k.status === 'pending').length;
-      const waybillCount = orders.filter(o => o.trackingNumber || o.stage === 'TO_RECEIVE' || o.stage === 'TO_RATE').length;
-      const pendingPayouts = adminState.payoutRequests
+      const pendingKyc = kycApps.filter(k => k.status === 'pending').length;
+      const pendingPayouts = payouts
         .filter(p => p.status === 'pending')
-        .reduce((s, p) => s + p.grossAmount, 0);
+        .reduce((s, p) => s + (p.grossAmount || 0), 0);
 
       document.getElementById('kpi-platform-gmv').textContent = `₱${totalGmv.toLocaleString()}`;
       document.getElementById('kpi-pending-kyc').textContent = pendingKyc;
       document.getElementById('kpi-active-shops').textContent = sellers.length;
-      document.getElementById('kpi-total-orders').textContent = orders.length;
-      document.getElementById('kpi-waybill-sub').textContent = `${waybillCount} A6 waybills active`;
+      document.getElementById('kpi-total-buyers').textContent = regUsers.length;
+      document.getElementById('kpi-waybill-sub').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} placed`;
       document.getElementById('kpi-payout-queue').textContent = `₱${pendingPayouts.toLocaleString()}`;
 
+      const supBadge = document.getElementById('header-support-badge');
+      if (supBadge) {
+        supBadge.textContent = supportThreads.length;
+        supBadge.classList.toggle('hidden', supportThreads.length === 0);
+      }
+
+      const liveCountEl = document.getElementById('admin-active-live-count');
+      if (liveCountEl) {
+        liveCountEl.textContent = `${sellers.length} Active Live Stream${sellers.length === 1 ? '' : 's'}`;
+      }
+
+      // 1. GMV & Payment Split
       const payBarsEl = document.getElementById('analytics-payment-bars');
       if (payBarsEl) {
         const bayadAgadTotal = orders
@@ -936,6 +970,7 @@
         `;
       }
 
+      // 2. Order Pipeline
       const stageEl = document.getElementById('analytics-order-stages');
       if (stageEl) {
         const stages = [
@@ -961,137 +996,161 @@
         }).join('');
       }
 
+      // 3. Registered Shops
       const topShopsEl = document.getElementById('analytics-top-shops');
       if (topShopsEl) {
-        topShopsEl.innerHTML = sellers.map(s => {
-          const shopGmv = orders
-            .filter(o => (o.sellerName || '').toLowerCase().includes(s.name.split(' ')[0].toLowerCase()))
-            .reduce((sum, o) => sum + (o.price * (o.quantity || 1)), 0);
-          return `
-            <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
-              <div class="min-w-0">
-                <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(s.name)}</div>
-                <div class="text-[10px] text-slate-500">${escapeHtml(s.city)} • ${(s.followers || 1500).toLocaleString()} followers</div>
+        if (!sellers.length) {
+          topShopsEl.innerHTML = `<div class="p-4 rounded-2xl bg-[#F4F6F9] text-center text-xs text-slate-500">No sellers registered yet. Register a buyer and apply as seller to see your shop here.</div>`;
+        } else {
+          topShopsEl.innerHTML = sellers.map(s => {
+            const shopGmv = orders
+              .filter(o => o.sellerId === s.id || o.sellerName === s.name)
+              .reduce((sum, o) => sum + (o.price * (o.quantity || 1)), 0);
+            return `
+              <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <img src="${s.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}" alt="${escapeHtml(s.name)}" class="w-8 h-8 rounded-xl object-cover shrink-0" />
+                  <div class="min-w-0">
+                    <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(s.name)}</div>
+                    <div class="text-[10px] text-slate-500">${escapeHtml(s.city)} • ${(s.products || []).length} items</div>
+                  </div>
+                </div>
+                <span class="text-xs font-display font-extrabold text-[#10B981] tabular-price shrink-0">₱${shopGmv.toLocaleString()}</span>
               </div>
-              <span class="text-xs font-display font-extrabold text-[#10B981] tabular-price shrink-0">₱${shopGmv.toLocaleString()}</span>
-            </div>
-          `;
-        }).join('');
+            `;
+          }).join('');
+        }
       }
 
+      // 4. Seller KYC List
       const kycList = document.getElementById('admin-kyc-list');
       if (kycList) {
-        kycList.innerHTML = adminState.kycApplications.map(k => `
-          <div class="p-4 rounded-2xl border ${k.status === 'pending' ? 'border-[#F59E0B] bg-[#F59E0B]/5' : 'border-[#E2E8F0] bg-[#F8FAFC]'} space-y-3">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <div class="text-sm font-display font-extrabold text-[#070D17]">${escapeHtml(k.shopName)}</div>
-                <div class="text-xs text-slate-600">Owner: <strong>${escapeHtml(k.ownerName)}</strong> • ${escapeHtml(k.city)}</div>
+        if (!kycApps.length) {
+          kycList.innerHTML = `<div class="col-span-full p-8 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-center text-xs text-slate-500">No Seller KYC applications submitted yet. Complete Seller Registration in Seller Center to inspect KYC &amp; BIR documents here.</div>`;
+        } else {
+          kycList.innerHTML = kycApps.map(k => `
+            <div class="p-4 rounded-2xl border ${k.status === 'pending' ? 'border-[#F59E0B] bg-[#F59E0B]/5' : 'border-[#E2E8F0] bg-[#F8FAFC]'} space-y-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <div class="text-sm font-display font-extrabold text-[#070D17]">${escapeHtml(k.shopName)}</div>
+                  <div class="text-xs text-slate-600">Owner: <strong>${escapeHtml(k.ownerName)}</strong> • ${escapeHtml(k.city)}</div>
+                </div>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                  k.status === 'approved' ? 'bg-[#10B981]/20 text-[#065F46]' :
+                  k.status === 'rejected' ? 'bg-[#EF4444]/15 text-[#EF4444]' :
+                  'bg-[#F59E0B]/25 text-[#070D17]'
+                }">${escapeHtml(k.status)}</span>
               </div>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                k.status === 'approved' ? 'bg-[#10B981]/20 text-[#065F46]' :
-                k.status === 'rejected' ? 'bg-[#EF4444]/15 text-[#EF4444]' :
-                'bg-[#F59E0B]/25 text-[#070D17]'
-              }">${escapeHtml(k.status)}</span>
-            </div>
 
-            <div class="p-3 rounded-xl bg-white border border-[#E2E8F0] text-xs space-y-1">
-              <div><span class="text-slate-500">Primary ID:</span> <strong class="text-[#070D17]">${escapeHtml(k.idType)}</strong></div>
-              <div><span class="text-slate-500">ID Number:</span> <strong class="font-mono text-[#070D17]">${escapeHtml(k.idNumber || 'Not entered')}</strong></div>
-              <div><span class="text-slate-500">BIR Tier:</span> <strong class="text-[#070D17]">${escapeHtml(k.taxTier)}</strong></div>
-              <div><span class="text-slate-500">BIR TIN:</span> <strong class="font-mono text-[#070D17]">${escapeHtml(k.tin || 'Starter Tier')}</strong></div>
-            </div>
+              <div class="p-3 rounded-xl bg-white border border-[#E2E8F0] text-xs space-y-1">
+                <div><span class="text-slate-500">Primary ID:</span> <strong class="text-[#070D17]">${escapeHtml(k.idType)}</strong></div>
+                <div><span class="text-slate-500">ID Number:</span> <strong class="font-mono text-[#070D17]">${escapeHtml(k.idNumber || 'Not entered')}</strong></div>
+                <div><span class="text-slate-500">BIR Tier:</span> <strong class="text-[#070D17]">${escapeHtml(k.taxTier)}</strong></div>
+                <div><span class="text-slate-500">BIR TIN:</span> <strong class="font-mono text-[#070D17]">${escapeHtml(k.tin || 'Starter Tier')}</strong></div>
+              </div>
 
-            <div class="space-y-1.5">
               <div class="flex items-center justify-between">
-                <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Submitted Verification Photos (${2 + (k.birPhotos?.length || 0)})</span>
-                <button onclick="openKycDocModal('${k.id}')" class="text-[11px] font-extrabold text-[#10B981] hover:underline cursor-pointer">
-                  Inspect Full Size →
+                <button onclick="openKycDocModal('${k.id}')" class="text-xs font-extrabold text-[#10B981] hover:underline cursor-pointer">
+                  Inspect Uploaded Photos →
                 </button>
+                <span class="text-[10px] text-slate-400">${escapeHtml(k.submittedAt || 'Just now')}</span>
               </div>
-              <div class="grid grid-cols-4 gap-2">
-                <button onclick="openKycDocModal('${k.id}')" class="group relative rounded-xl overflow-hidden border border-[#CBD5E1] aspect-square bg-white cursor-pointer">
-                  <img src="${k.idPhoto || DEFAULT_DOCS.idSample}" alt="Primary ID" class="w-full h-full object-cover group-hover:scale-105 transition" />
-                  <span class="absolute bottom-0 inset-x-0 bg-[#070D17]/85 text-white text-[8px] font-extrabold py-0.5 text-center">Primary ID</span>
-                </button>
-                <button onclick="openKycDocModal('${k.id}')" class="group relative rounded-xl overflow-hidden border border-[#CBD5E1] aspect-square bg-white cursor-pointer">
-                  <img src="${k.selfiePhoto || DEFAULT_DOCS.selfieSample}" alt="Applicant Selfie" class="w-full h-full object-cover group-hover:scale-105 transition" />
-                  <span class="absolute bottom-0 inset-x-0 bg-[#10B981] text-[#070D17] text-[8px] font-extrabold py-0.5 text-center">Selfie w/ ID</span>
-                </button>
-                ${(k.birPhotos || []).slice(0, 2).map((src, idx) => `
-                  <button onclick="openKycDocModal('${k.id}')" class="group relative rounded-xl overflow-hidden border border-[#CBD5E1] aspect-square bg-white cursor-pointer">
-                    <img src="${src}" alt="BIR Photo ${idx + 1}" class="w-full h-full object-cover group-hover:scale-105 transition" />
-                    <span class="absolute bottom-0 inset-x-0 bg-[#070D17]/85 text-white text-[8px] font-extrabold py-0.5 text-center">BIR #${idx + 1}</span>
-                  </button>
-                `).join('')}
-              </div>
-            </div>
 
-            <div class="flex items-center gap-2">
-              <button onclick="decideKyc('${k.id}', 'approved')" class="flex-1 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
-                Approve Seller &amp; BIR
-              </button>
-              <button onclick="decideKyc('${k.id}', 'rejected')" class="px-3.5 py-2 rounded-xl bg-white border border-[#EF4444]/40 text-[#EF4444] text-xs font-extrabold cursor-pointer">
-                Request Re-upload
-              </button>
+              <div class="flex items-center gap-2">
+                <button onclick="decideKyc('${k.id}', 'approved')" class="flex-1 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+                  Approve Seller &amp; BIR
+                </button>
+                <button onclick="decideKyc('${k.id}', 'rejected')" class="px-3.5 py-2 rounded-xl bg-white border border-[#EF4444]/40 text-[#EF4444] text-xs font-extrabold cursor-pointer">
+                  Request Re-upload
+                </button>
+              </div>
             </div>
-          </div>
-        `).join('');
+          `).join('');
+        }
       }
 
+      // 5. Registered Buyer & Seller Accounts
       const buyersList = document.getElementById('admin-buyers-list');
       if (buyersList) {
-        buyersList.innerHTML = adminState.buyerAccounts.map(b => `
-          <div class="p-3.5 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div class="flex items-start gap-3">
-              ${
-                b.idPhoto
-                  ? `<div class="flex items-center gap-1.5 shrink-0">
-                      <button onclick="openBuyerDocModal('${b.id}')" class="relative w-12 h-12 rounded-xl overflow-hidden border border-[#CBD5E1] bg-white cursor-pointer" title="View Primary ID">
-                        <img src="${b.idPhoto}" alt="Primary ID" class="w-full h-full object-cover" />
-                        <span class="absolute bottom-0 inset-x-0 bg-[#070D17]/85 text-white text-[7px] font-bold text-center">ID</span>
-                      </button>
-                      <button onclick="openBuyerDocModal('${b.id}')" class="relative w-12 h-12 rounded-xl overflow-hidden border border-[#CBD5E1] bg-white cursor-pointer" title="View Selfie">
-                        <img src="${b.selfiePhoto || DEFAULT_DOCS.selfieSample}" alt="Selfie" class="w-full h-full object-cover" />
-                        <span class="absolute bottom-0 inset-x-0 bg-[#10B981] text-[#070D17] text-[7px] font-extrabold text-center">Selfie</span>
-                      </button>
-                    </div>`
-                  : `<div class="w-12 h-12 rounded-xl bg-slate-200 text-slate-500 text-[9px] font-bold flex items-center justify-center text-center p-1 shrink-0">No ID</div>`
-              }
-              <div class="space-y-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-extrabold text-[#070D17]">${escapeHtml(b.name)}</span>
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                    b.idStatus === 'verified' ? 'bg-[#10B981]/15 text-[#065F46]' :
-                    b.idStatus === 'pending' ? 'bg-[#F59E0B]/20 text-[#070D17]' :
-                    'bg-[#EF4444]/15 text-[#EF4444]'
-                  }">ID: ${escapeHtml(b.idStatus.toUpperCase())}</span>
-                  ${b.accountStatus === 'suspended' ? `<span class="px-2 py-0.5 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold">SUSPENDED</span>` : ''}
+        if (!regUsers.length) {
+          buyersList.innerHTML = `<div class="p-8 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] text-center text-xs text-slate-500">No registered accounts yet. Register a Buyer in the Marketplace to see the account here.</div>`;
+        } else {
+          buyersList.innerHTML = regUsers.map(b => `
+            <div class="p-3.5 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <img src="${b.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}" alt="${escapeHtml(b.name)}" class="w-12 h-12 rounded-2xl object-cover border border-[#CBD5E1] bg-white shrink-0" />
+                <div class="space-y-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-extrabold text-[#070D17]">${escapeHtml(b.name)}</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${b.isSeller ? 'bg-[#F59E0B] text-[#070D17]' : 'bg-[#070D17] text-white'}">
+                      ${b.isSeller ? 'SELLER (' + escapeHtml(b.shopName || 'Shop') + ')' : 'BUYER'}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                      b.verificationStatus === 'verified' ? 'bg-[#10B981]/15 text-[#065F46]' : 'bg-slate-200 text-slate-700'
+                    }">ID: ${escapeHtml((b.verificationStatus || 'unverified').toUpperCase())}</span>
+                  </div>
+                  <div class="text-xs text-slate-600">
+                    ${escapeHtml(b.email)} • ${escapeHtml(b.phone || 'No Phone')} • ${escapeHtml(b.city || b.address || 'Philippines')}
+                  </div>
                 </div>
-                <div class="text-xs text-slate-600">
-                  ${escapeHtml(b.city)} • ${escapeHtml(b.idType || 'No ID')} (${escapeHtml(b.idNumber || '—')}) • Unpaid Locks: <strong class="${b.unpaidMines >= 3 ? 'text-[#EF4444]' : 'text-[#070D17]'}">${b.unpaidMines}</strong>
-                </div>
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <button onclick="verifyBuyerId('${b.id}')" class="px-3 py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer">
+                  Verify Account ID
+                </button>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 6. Ukay Paborito Manager
+      const paboritoGrid = document.getElementById('admin-paborito-grid');
+      if (paboritoGrid) {
+        paboritoGrid.innerHTML = paboritos.map((cat, idx) => `
+          <div class="p-4 rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] space-y-3">
+            <div class="flex items-center gap-3">
+              <img src="${cat.image}" alt="${escapeHtml(cat.label)}" class="w-16 h-16 rounded-2xl object-cover border border-[#CBD5E1] bg-white shrink-0" />
+              <div class="flex-1 min-w-0 space-y-1">
+                <span class="px-2 py-0.5 rounded bg-[#070D17] text-white text-[9px] font-extrabold uppercase">Category #${idx + 1}</span>
+                <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(cat.label)}</div>
+              </div>
+              <button type="button" onclick="deletePaboritoCategory(${idx})" class="p-2 rounded-xl bg-white border border-[#E2E8F0] text-slate-400 hover:text-[#EF4444] cursor-pointer" title="Remove Category">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Ukay Paborito Title</label>
+              <input type="text" id="pab-label-${idx}" value="${escapeHtml(cat.label)}" class="w-full px-3 py-2 rounded-xl bg-white border border-[#CBD5E1] text-xs font-bold text-[#070D17]" />
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Image URL or Upload New Photo</label>
+              <div class="flex gap-1.5">
+                <input type="text" id="pab-img-${idx}" value="${escapeHtml(cat.image)}" placeholder="https://..." class="flex-1 min-w-0 px-3 py-2 rounded-xl bg-white border border-[#CBD5E1] text-xs font-medium text-[#070D17]" />
+                <label class="px-3 py-2 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0 inline-flex items-center gap-1">
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" onchange="handlePaboritoImageUpload(event, ${idx})" class="hidden" />
+                </label>
               </div>
             </div>
 
-            <div class="flex items-center gap-2 shrink-0">
-              ${b.idPhoto ? `<button onclick="openBuyerDocModal('${b.id}')" class="px-3 py-2 rounded-xl bg-white border border-[#CBD5E1] text-[#070D17] text-xs font-extrabold cursor-pointer">View ID &amp; Selfie</button>` : ''}
-              <button onclick="verifyBuyerId('${b.id}')" class="px-3 py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer">
-                Verify Primary ID
-              </button>
-              <button onclick="toggleSuspendBuyer('${b.id}')" class="px-3 py-2 rounded-xl ${
-                b.accountStatus === 'suspended' ? 'bg-[#10B981] text-white' : 'bg-[#EF4444]/15 text-[#EF4444]'
-              } text-xs font-extrabold cursor-pointer">
-                ${b.accountStatus === 'suspended' ? 'Lift Ban' : 'Flag Joy-Reserver'}
-              </button>
-            </div>
+            <button type="button" onclick="savePaboritoCategory(${idx})" class="w-full py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+              Save Title &amp; Image
+            </button>
           </div>
         `).join('');
       }
 
+      // 7. Customer Service Support Inbox (Vertical Left List + Active Right Thread)
+      renderAdminSupportInbox();
+
+      // 8. Live Rooms & Feed Moderation
       const liveList = document.getElementById('admin-live-rooms-list');
       if (liveList) {
-        liveList.innerHTML = sellers.map(s => `
+        liveList.innerHTML = sellers.length ? sellers.map(s => `
           <div class="p-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between gap-2">
             <div class="min-w-0">
               <div class="flex items-center gap-1.5">
@@ -1104,27 +1163,28 @@
               ✓ Safe-Harbor Protected
             </span>
           </div>
-        `).join('');
+        `).join('') : `<div class="p-4 rounded-2xl bg-[#F8FAFC] text-center text-xs text-slate-500">No active live streams yet.</div>`;
       }
 
       const feedList = document.getElementById('admin-feed-posts-list');
       if (feedList) {
-        feedList.innerHTML = feedPosts.map(p => `
+        feedList.innerHTML = feedPosts.length ? feedPosts.map(p => `
           <div class="p-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between gap-2">
             <div class="min-w-0">
               <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(p.itemTitle)} <span class="text-[#10B981]">(₱${p.price})</span></div>
               <div class="text-[10px] text-slate-500 truncate">Posted by ${escapeHtml(p.authorName)}</div>
             </div>
             <button onclick="removeFlaggedFeedPost('${p.id}')" class="px-2.5 py-1.5 rounded-xl bg-white border border-[#CBD5E1] hover:border-[#EF4444] hover:text-[#EF4444] text-[10px] font-extrabold shrink-0 cursor-pointer">
-              Remove Spam
+              Remove Post
             </button>
           </div>
-        `).join('');
+        `).join('') : `<div class="p-4 rounded-2xl bg-[#F8FAFC] text-center text-xs text-slate-500">No Ukay Feed posts yet.</div>`;
       }
 
+      // 9. Orders & Payouts
       const ordersList = document.getElementById('admin-orders-list');
       if (ordersList) {
-        ordersList.innerHTML = orders.map(o => `
+        ordersList.innerHTML = orders.length ? orders.map(o => `
           <div class="p-3.5 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div class="space-y-0.5">
               <div class="flex items-center gap-2">
@@ -1132,7 +1192,7 @@
                 <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-white text-[9px] font-extrabold">${escapeHtml(o.stage)}</span>
               </div>
               <div class="text-[11px] text-slate-600">
-                Seller: <strong>${escapeHtml(o.sellerName || "Mika's Ukay Closet")}</strong> → Miner: <strong>${escapeHtml(o.buyerName)}</strong> • ${escapeHtml(o.courier)} • ${escapeHtml(o.paymentMethod)}
+                Seller: <strong>${escapeHtml(o.sellerName)}</strong> → Miner: <strong>${escapeHtml(o.buyerName)}</strong> • ${escapeHtml(o.courier)} • ${escapeHtml(o.paymentMethod)}
               </div>
               ${o.trackingNumber ? `<div class="text-[10px] font-mono font-bold text-[#10B981]">A6 Waybill Tracking: ${escapeHtml(o.trackingNumber)}</div>` : ''}
             </div>
@@ -1141,16 +1201,16 @@
               ${o.stage !== 'TO_RATE' ? `<button onclick="adminForceCompleteOrder('${o.id}')" class="px-3 py-1.5 rounded-xl bg-[#10B981] text-white text-[11px] font-extrabold cursor-pointer">Mark Completed</button>` : ''}
             </div>
           </div>
-        `).join('');
+        `).join('') : `<div class="p-6 rounded-2xl bg-[#F8FAFC] text-center text-xs text-slate-500">No orders placed yet.</div>`;
       }
 
       const payoutsList = document.getElementById('admin-payouts-list');
       if (payoutsList) {
-        payoutsList.innerHTML = adminState.payoutRequests.map(p => `
+        payoutsList.innerHTML = payouts.length ? payouts.map(p => `
           <div class="p-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between gap-2">
             <div>
-              <div class="text-xs font-extrabold text-[#070D17]">${escapeHtml(p.shopName)} • <span class="text-[#10B981]">₱${p.grossAmount.toLocaleString()}</span></div>
-              <div class="text-[10px] text-slate-600">${escapeHtml(p.channel)} (${escapeHtml(p.account)}) • ${escapeHtml(p.taxNote)}</div>
+              <div class="text-xs font-extrabold text-[#070D17]">${escapeHtml(p.shopName)} • <span class="text-[#10B981]">₱${Number(p.grossAmount || 0).toLocaleString()}</span></div>
+              <div class="text-[10px] text-slate-600">${escapeHtml(p.channel)} (${escapeHtml(p.account)}) • ${escapeHtml(p.taxNote || 'Starter Tier')}</div>
             </div>
             ${
               p.status === 'pending'
@@ -1158,84 +1218,252 @@
                 : `<span class="px-2.5 py-1 rounded-full bg-[#10B981]/15 text-[#065F46] text-[10px] font-extrabold">✓ Released</span>`
             }
           </div>
-        `).join('');
+        `).join('') : `<div class="p-4 rounded-2xl bg-[#F8FAFC] text-center text-xs text-slate-500">No seller payout requests yet.</div>`;
       }
 
       const vouchersList = document.getElementById('admin-vouchers-list');
       if (vouchersList) {
-        vouchersList.innerHTML = adminState.platformVouchers.map(v => `
+        vouchersList.innerHTML = vouchers.length ? vouchers.map(v => `
           <div class="p-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
             <div>
               <div class="text-xs font-extrabold text-[#070D17]">${escapeHtml(v.code)}</div>
-              <div class="text-[10px] text-slate-600">${escapeHtml(v.desc)} • ${v.claims} redeemed</div>
+              <div class="text-[10px] text-slate-600">${escapeHtml(v.desc)} • ${v.claims || 0} redeemed</div>
             </div>
             <span class="px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#065F46] text-[10px] font-extrabold">Active</span>
           </div>
-        `).join('');
+        `).join('') : `<div class="p-4 rounded-2xl bg-[#F8FAFC] text-center text-xs text-slate-500">No platform vouchers created yet.</div>`;
       }
 
       if (window.lucide) lucide.createIcons();
     }
 
+    // =====================================================================
+    // UKAY PABORITO TITLE & IMAGE CUSTOMIZATION FUNCTIONS
+    // =====================================================================
+    async function handlePaboritoImageUpload(e, idx) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const dataUrl = await compressDataUrl(file, 450, 0.8);
+      const inp = document.getElementById(`pab-img-${idx}`);
+      if (inp) inp.value = dataUrl;
+      savePaboritoCategory(idx);
+    }
+
+    function savePaboritoCategory(idx) {
+      const list = adminState.sharedApp.ukayPaborito || [...DEFAULT_UKAY_PABORITO];
+      if (!list[idx]) return;
+      const newLabel = (document.getElementById(`pab-label-${idx}`)?.value || '').trim();
+      const newImg = (document.getElementById(`pab-img-${idx}`)?.value || '').trim();
+      if (newLabel) list[idx].label = newLabel;
+      if (newImg) list[idx].image = newImg;
+      adminState.sharedApp.ukayPaborito = list;
+      saveBackToEcosystem();
+      renderAdminDashboard();
+      showAdminToast(`Updated Ukay Paborito "${list[idx].label}" on Marketplace!`);
+    }
+
+    function addNewPaboritoCategory() {
+      const list = adminState.sharedApp.ukayPaborito || [...DEFAULT_UKAY_PABORITO];
+      list.push({
+        id: 'Cat_' + Date.now(),
+        label: 'New Ukay Paborito',
+        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=320&q=80'
+      });
+      adminState.sharedApp.ukayPaborito = list;
+      saveBackToEcosystem();
+      renderAdminDashboard();
+      showAdminToast('Added new Ukay Paborito category!');
+    }
+
+    function deletePaboritoCategory(idx) {
+      const list = adminState.sharedApp.ukayPaborito || [...DEFAULT_UKAY_PABORITO];
+      if (list.length <= 1) {
+        showAdminToast('Keep at least 1 Ukay Paborito category.', true);
+        return;
+      }
+      const removed = list.splice(idx, 1)[0];
+      adminState.sharedApp.ukayPaborito = list;
+      saveBackToEcosystem();
+      renderAdminDashboard();
+      showAdminToast(`Removed "${removed.label}" from Ukay Paborito.`);
+    }
+
+    // =====================================================================
+    // CUSTOMER SERVICE HELPDESK (BUYER & SELLER SUPPORT INBOX)
+    // =====================================================================
+    function selectAdminSupportThread(threadId) {
+      adminState.activeSupportThreadId = threadId;
+      renderAdminSupportInbox();
+    }
+
+    function renderAdminSupportInbox() {
+      const threads = adminState.sharedApp.supportThreads || [];
+      const leftEl = document.getElementById('admin-support-threads-left');
+      const boxEl = document.getElementById('admin-support-messages-box');
+      const nameEl = document.getElementById('admin-support-active-name');
+      const roleEl = document.getElementById('admin-support-active-role');
+
+      if (!leftEl || !boxEl) return;
+
+      if (!threads.length) {
+        leftEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-500">No messages yet. When a Buyer or Seller clicks the Customer Service icon, their conversation appears here vertically.</div>`;
+        if (nameEl) nameEl.textContent = 'No active Customer Service thread';
+        if (roleEl) roleEl.textContent = 'Waiting for Buyer or Seller inquiry';
+        boxEl.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-slate-400">Customer Service inbox is ready.</div>`;
+        return;
+      }
+
+      if (!threads.some(t => t.id === adminState.activeSupportThreadId)) {
+        adminState.activeSupportThreadId = threads[0].id;
+      }
+
+      const activeThread = threads.find(t => t.id === adminState.activeSupportThreadId) || threads[0];
+
+      leftEl.innerHTML = threads.map(t => {
+        const isSelected = activeThread && t.id === activeThread.id;
+        const lastMsg = (t.messages || [])[t.messages.length - 1];
+        return `
+          <button type="button" onclick="selectAdminSupportThread('${t.id}')" class="w-full p-3 text-left transition cursor-pointer ${
+            isSelected ? 'bg-white border-l-4 border-[#10B981]' : 'hover:bg-white/70'
+          }">
+            <div class="flex items-center justify-between gap-1">
+              <span class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(t.userName)}</span>
+              <span class="px-1.5 py-0.2 rounded text-[8px] font-extrabold ${
+                t.userRole === 'SELLER' ? 'bg-[#F59E0B] text-[#070D17]' : 'bg-[#070D17] text-white'
+              }">${escapeHtml(t.userRole)}</span>
+            </div>
+            <div class="text-[11px] text-slate-500 truncate mt-1">${lastMsg ? escapeHtml(lastMsg.text) : 'No messages'}</div>
+          </button>
+        `;
+      }).join('');
+
+      if (nameEl && activeThread) nameEl.textContent = activeThread.userName;
+      if (roleEl && activeThread) roleEl.textContent = `${activeThread.userRole} Account • Live Support Thread`;
+
+      if (activeThread) {
+        boxEl.innerHTML = (activeThread.messages || []).map(m => {
+          const isFromAdmin = m.from === 'seller';
+          return `
+            <div class="flex ${isFromAdmin ? 'justify-end' : 'justify-start'}">
+              <div class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs ${
+                isFromAdmin
+                  ? 'bg-[#070D17] text-white rounded-br-xs'
+                  : 'bg-white border border-[#CBD5E1] text-[#070D17] rounded-bl-xs'
+              }">
+                <div class="text-[9px] font-extrabold uppercase mb-0.5 ${isFromAdmin ? 'text-[#10B981]' : 'text-slate-400'}">
+                  ${isFromAdmin ? 'UKAYO Admin Support' : escapeHtml(activeThread.userName)}
+                </div>
+                <p>${escapeHtml(m.text)}</p>
+                <div class="text-[9px] opacity-60 mt-1 text-right">${escapeHtml(m.time)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        boxEl.scrollTop = boxEl.scrollHeight;
+      }
+    }
+
+    function sendAdminSupportReply(e) {
+      e.preventDefault();
+      const inp = document.getElementById('admin-support-input');
+      if (!inp || !inp.value.trim()) return;
+      const text = inp.value.trim();
+
+      const threads = adminState.sharedApp.supportThreads || [];
+      const activeThread = threads.find(t => t.id === adminState.activeSupportThreadId) || threads[0];
+      if (!activeThread) {
+        showAdminToast('Select a Buyer or Seller conversation first.', true);
+        return;
+      }
+
+      const replyMsg = {
+        from: 'seller',
+        text,
+        time: 'Just now'
+      };
+      activeThread.messages.push(replyMsg);
+
+      // Also sync into directChats.admin_support so Buyer App sees Admin reply immediately
+      if (!adminState.sharedApp.directChats) adminState.sharedApp.directChats = {};
+      if (!Array.isArray(adminState.sharedApp.directChats.admin_support)) {
+        adminState.sharedApp.directChats.admin_support = [];
+      }
+      adminState.sharedApp.directChats.admin_support.push(replyMsg);
+
+      inp.value = '';
+      saveBackToEcosystem();
+      renderAdminSupportInbox();
+      showAdminToast(`Sent reply to ${activeThread.userName}!`);
+    }
+
+    // =====================================================================
+    // KYC, ACCOUNT VERIFICATION & ORDER ACTIONS
+    // =====================================================================
     function decideKyc(kycId, decision) {
-      const k = adminState.kycApplications.find(x => x.id === kycId);
+      const kycApps = adminState.sharedApp.kycApplications || [];
+      const k = kycApps.find(x => x.id === kycId);
       if (!k) return;
       k.status = decision;
-      if (kycId === 'kyc_mika' && adminState.sharedApp?.user) {
-        adminState.sharedApp.user.verificationStatus = decision === 'approved' ? 'verified' : 'unverified';
-        adminState.sharedApp.user.verified = decision === 'approved';
-        if (decision === 'approved') {
-          adminState.sharedApp.role = 'seller';
-          adminState.sharedApp.user.isSeller = true;
-        }
-        saveBackToEcosystem();
+
+      const isApproved = decision === 'approved';
+      if (adminState.sharedApp.user && (adminState.sharedApp.user.id === k.userId || adminState.sharedApp.user.shopName === k.shopName)) {
+        adminState.sharedApp.user.verificationStatus = isApproved ? 'verified' : 'unverified';
+        adminState.sharedApp.user.verified = isApproved;
+        adminState.sharedApp.user.sellerStatus = isApproved ? 'approved' : 'pending';
+        if (isApproved) adminState.sharedApp.user.isSeller = true;
       }
+
+      (adminState.sharedApp.registeredUsers || []).forEach(u => {
+        if (u.id === k.userId || u.shopName === k.shopName) {
+          u.verificationStatus = isApproved ? 'verified' : 'unverified';
+          u.verified = isApproved;
+          u.sellerStatus = isApproved ? 'approved' : 'pending';
+          if (isApproved) u.isSeller = true;
+        }
+      });
+
+      (adminState.sharedApp.sellers || []).forEach(s => {
+        if (s.name === k.shopName || `kyc_${s.id}` === k.id) {
+          s.verified = isApproved;
+        }
+      });
+
+      saveBackToEcosystem();
       renderAdminDashboard();
       showAdminToast(
-        decision === 'approved'
+        isApproved
           ? `Approved ${k.shopName}'s Primary ID & BIR compliance!`
           : `Requested document re-upload from ${k.shopName}.`,
-        decision !== 'approved'
+        !isApproved
       );
     }
 
-    function verifyBuyerId(buyerId) {
-      const b = adminState.buyerAccounts.find(x => x.id === buyerId);
-      if (!b) return;
-      b.idStatus = 'verified';
-      if (buyerId === 'buyer_mika' && adminState.sharedApp?.user) {
+    function verifyBuyerId(userId) {
+      const regUsers = adminState.sharedApp.registeredUsers || [];
+      const u = regUsers.find(x => x.id === userId);
+      if (!u) return;
+      u.verificationStatus = 'verified';
+      u.verified = true;
+      if (adminState.sharedApp.user && adminState.sharedApp.user.id === userId) {
         adminState.sharedApp.user.verificationStatus = 'verified';
         adminState.sharedApp.user.verified = true;
-        saveBackToEcosystem();
       }
+      saveBackToEcosystem();
       renderAdminDashboard();
-      showAdminToast(`Verified Philippine Primary ID for ${b.name}!`);
-    }
-
-    function toggleSuspendBuyer(buyerId) {
-      const b = adminState.buyerAccounts.find(x => x.id === buyerId);
-      if (!b) return;
-      b.accountStatus = b.accountStatus === 'suspended' ? 'active' : 'suspended';
-      renderAdminDashboard();
-      showAdminToast(
-        b.accountStatus === 'suspended'
-          ? `Suspended ${b.name} for repeat unpaid Mine locks.`
-          : `Restored ${b.name}'s buyer account.`,
-        b.accountStatus === 'suspended'
-      );
+      showAdminToast(`Verified Philippine Primary ID for ${u.name}!`);
     }
 
     function removeFlaggedFeedPost(postId) {
-      if (adminState.sharedApp?.feedPosts) {
+      if (adminState.sharedApp.feedPosts) {
         adminState.sharedApp.feedPosts = adminState.sharedApp.feedPosts.filter(p => p.id !== postId);
         saveBackToEcosystem();
       }
       renderAdminDashboard();
-      showAdminToast('Removed flagged post from Ukay Feed.');
+      showAdminToast('Removed post from Ukay Feed.');
     }
 
     function adminForceCompleteOrder(orderId) {
-      if (adminState.sharedApp?.minedOrders) {
+      if (adminState.sharedApp.minedOrders) {
         const o = adminState.sharedApp.minedOrders.find(x => x.id === orderId);
         if (o) {
           o.stage = 'TO_RATE';
@@ -1248,29 +1476,35 @@
     }
 
     function releaseSellerPayout(payId) {
-      const p = adminState.payoutRequests.find(x => x.id === payId);
+      const payouts = adminState.sharedApp.payoutRequests || [];
+      const p = payouts.find(x => x.id === payId);
       if (!p) return;
       p.status = 'released';
+      saveBackToEcosystem();
       renderAdminDashboard();
-      showAdminToast(`Released ₱${p.grossAmount.toLocaleString()} to ${p.shopName} (${p.channel})!`);
+      showAdminToast(`Released ₱${Number(p.grossAmount || 0).toLocaleString()} to ${p.shopName} (${p.channel})!`);
     }
 
     function createPlatformVoucher(e) {
       e.preventDefault();
       const code = document.getElementById('new-voucher-code').value.trim().toUpperCase();
       const desc = document.getElementById('new-voucher-desc').value.trim();
-      adminState.platformVouchers.unshift({ code, desc, claims: 0, active: true });
+      if (!Array.isArray(adminState.sharedApp.platformVouchers)) {
+        adminState.sharedApp.platformVouchers = [];
+      }
+      adminState.sharedApp.platformVouchers.unshift({ code, desc, claims: 0, active: true });
       document.getElementById('new-voucher-code').value = '';
       document.getElementById('new-voucher-desc').value = '';
+      saveBackToEcosystem();
       renderAdminDashboard();
       showAdminToast(`Published platform voucher ${code}!`);
     }
 
     function openKycDocModal(kycId) {
-      const k = adminState.kycApplications.find(x => x.id === kycId);
+      const k = (adminState.sharedApp.kycApplications || []).find(x => x.id === kycId);
       if (!k) return;
       document.getElementById('doc-review-title').textContent = `${k.shopName} — Owner: ${k.ownerName}`;
-      const birList = (k.birPhotos && k.birPhotos.length) ? k.birPhotos : [DEFAULT_DOCS.birSample1];
+      const birList = Array.isArray(k.birPhotos) ? k.birPhotos : [];
 
       document.getElementById('doc-review-body').innerHTML = `
         <div class="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs">
@@ -1283,25 +1517,27 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="space-y-1">
             <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Philippine Primary Government ID</div>
-            <img src="${k.idPhoto || DEFAULT_DOCS.idSample}" alt="Primary ID" class="w-full h-48 object-cover rounded-2xl border border-[#CBD5E1]" />
+            <img src="${k.idPhoto}" alt="Primary ID" class="w-full h-48 object-cover rounded-2xl border border-[#CBD5E1]" />
           </div>
           <div class="space-y-1">
             <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Applicant Selfie Holding ID</div>
-            <img src="${k.selfiePhoto || DEFAULT_DOCS.selfieSample}" alt="Selfie" class="w-full h-48 object-cover rounded-2xl border border-[#CBD5E1]" />
+            <img src="${k.selfiePhoto}" alt="Selfie" class="w-full h-48 object-cover rounded-2xl border border-[#CBD5E1]" />
           </div>
         </div>
 
-        <div class="space-y-1.5">
-          <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Uploaded BIR Form 2303 / DTI Documents (${birList.length} Photos)</div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            ${birList.map((src, idx) => `
-              <div class="space-y-1">
-                <img src="${src}" alt="BIR Document ${idx + 1}" class="w-full h-40 object-cover rounded-2xl border border-[#CBD5E1]" />
-                <div class="text-[10px] font-bold text-center text-slate-600">BIR Document #${idx + 1}</div>
-              </div>
-            `).join('')}
+        ${birList.length ? `
+          <div class="space-y-1.5">
+            <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Uploaded BIR Form 2303 / DTI Documents (${birList.length})</div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              ${birList.map((src, idx) => `
+                <div class="space-y-1">
+                  <img src="${src}" alt="BIR Document ${idx + 1}" class="w-full h-40 object-cover rounded-2xl border border-[#CBD5E1]" />
+                  <div class="text-[10px] font-bold text-center text-slate-600">BIR Document #${idx + 1}</div>
+                </div>
+              `).join('')}
+            </div>
           </div>
-        </div>
+        ` : ''}
       `;
 
       document.getElementById('doc-review-footer').innerHTML = `
@@ -1313,36 +1549,6 @@
         </button>
       `;
 
-      const modal = document.getElementById('doc-review-modal');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      if (window.lucide) lucide.createIcons();
-    }
-
-    function openBuyerDocModal(buyerId) {
-      const b = adminState.buyerAccounts.find(x => x.id === buyerId);
-      if (!b) return;
-      document.getElementById('doc-review-title').textContent = `Buyer Identity Check — ${b.name}`;
-      document.getElementById('doc-review-body').innerHTML = `
-        <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs flex flex-wrap gap-4">
-          <div><span class="text-slate-500">ID Type:</span> <strong>${escapeHtml(b.idType)}</strong></div>
-          <div><span class="text-slate-500">ID Number:</span> <strong class="font-mono">${escapeHtml(b.idNumber)}</strong></div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Primary Government ID</div>
-            <img src="${b.idPhoto || DEFAULT_DOCS.idSample}" alt="Buyer ID" class="w-full h-52 object-cover rounded-2xl border border-[#CBD5E1]" />
-          </div>
-          <div class="space-y-1">
-            <div class="text-[11px] font-extrabold uppercase text-[#070D17]">Buyer Selfie Holding ID</div>
-            <img src="${b.selfiePhoto || DEFAULT_DOCS.selfieSample}" alt="Buyer Selfie" class="w-full h-52 object-cover rounded-2xl border border-[#CBD5E1]" />
-          </div>
-        </div>
-      `;
-      document.getElementById('doc-review-footer').innerHTML = `
-        <button onclick="closeDocReviewModal()" class="px-4 py-2 rounded-xl bg-white border border-[#CBD5E1] text-xs font-extrabold cursor-pointer">Close</button>
-        <button onclick="verifyBuyerId('${b.id}'); closeDocReviewModal();" class="px-4 py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer">Verify Primary ID</button>
-      `;
       const modal = document.getElementById('doc-review-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -1362,7 +1568,6 @@
       syncFromEcosystem(false);
     });
 
-    // Real-time cross-tab sync with UKAYO Marketplace & Seller Center
     window.addEventListener('storage', (e) => {
       if (e.key === SHARED_STORAGE_KEY && e.newValue) {
         syncFromEcosystem(false);

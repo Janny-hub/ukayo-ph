@@ -35,6 +35,8 @@ import {
   User,
   ShieldCheck,
   LogOut,
+  LogIn,
+  UserPlus,
   Home,
   LayoutGrid,
   UploadCloud,
@@ -43,9 +45,11 @@ import {
   CheckCircle2,
   Trash2,
   Minus,
+  Headset,
+  Edit3,
 } from 'lucide-react';
 
-const STORAGE_KEY = 'ukayo_marketplace_state_v10';
+export const STORAGE_KEY = 'ukayo_marketplace_state_v11';
 
 export interface UkayCategory {
   id: string;
@@ -53,7 +57,7 @@ export interface UkayCategory {
   image: string;
 }
 
-const UKAY_CATEGORIES: UkayCategory[] = [
+export const DEFAULT_UKAY_CATEGORIES: UkayCategory[] = [
   {
     id: 'Tops',
     label: 'Tops & Tees',
@@ -94,6 +98,7 @@ const UKAY_CATEGORIES: UkayCategory[] = [
 
 export interface Product {
   id: string;
+  code?: string;
   title: string;
   price: number;
   category: string;
@@ -102,6 +107,7 @@ export interface Product {
   status: string;
   rating: number;
   image: string;
+  images?: string[];
   description: string;
   reviews: { user: string; text: string }[];
 }
@@ -112,6 +118,7 @@ export interface Seller {
   handle: string;
   city: string;
   bio: string;
+  avatar?: string;
   followers: number;
   followed: boolean;
   rating: number;
@@ -147,6 +154,7 @@ export interface FeedPost {
   id: string;
   sellerId: string;
   authorName: string;
+  authorAvatar?: string;
   authorRole: string;
   timeAgo: string;
   category: string;
@@ -179,24 +187,90 @@ export interface MinedOrder {
   image: string;
   sellerId: string;
   sellerName: string;
+  buyerId?: string;
   buyerName: string;
   buyerAddress?: string;
+  buyerPhone?: string;
   courier: string;
   paymentMethod: string;
   stage: 'TO_PAY' | 'TO_SHIP' | 'TO_RECEIVE' | 'TO_RATE';
   status: string;
   timestamp: string;
   trackingNumber?: string;
+  waybillDate?: string;
+  waybillGeneratedAt?: string;
   trackingEvents: TrackingEvent[];
 }
 
 export interface DirectMessage {
-  from: 'buyer' | 'seller';
+  from: 'buyer' | 'seller' | 'admin';
+  senderName?: string;
   text: string;
   time: string;
 }
 
+export interface SupportThread {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: 'BUYER' | 'SELLER';
+  userAvatar?: string;
+  subject: string;
+  unreadAdmin: number;
+  unreadUser: number;
+  messages: DirectMessage[];
+}
+
+export interface RegisteredAccount {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  city: string;
+  address: string;
+  avatar: string;
+  verified: boolean;
+  verificationStatus: 'unverified' | 'pending' | 'verified';
+  idType: string;
+  idNumber: string;
+  idImageData: string;
+  selfieImageData: string;
+  isSeller: boolean;
+  sellerStatus?: 'none' | 'pending' | 'approved';
+  shopName: string;
+  gcash: string;
+  ownSellerId: string;
+  taxTier?: string;
+  tin?: string;
+  birImages?: string[];
+  unpaidMines?: number;
+  accountStatus?: 'active' | 'suspended';
+}
+
+export interface KycApplication {
+  id: string;
+  userId: string;
+  shopName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  city: string;
+  idType: string;
+  idNumber: string;
+  taxTier: string;
+  tin: string;
+  idPhoto: string;
+  selfiePhoto: string;
+  birPhotos: string[];
+  payoutChannel: string;
+  payoutAccount: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+}
+
 export interface AppState {
+  isAuthenticated: boolean;
   role: 'buyer' | 'seller';
   activeTab: 'home' | 'feed' | 'mine' | 'store' | 'bag' | 'chat' | 'account';
   activeFeedCategory: string;
@@ -206,9 +280,15 @@ export interface AppState {
   activeChatSellerId: string;
   activePurchaseFilter: 'ALL' | 'TO_PAY' | 'TO_SHIP' | 'TO_RECEIVE' | 'TO_RATE';
   searchQuery: string;
+  ukayPaborito: UkayCategory[];
   user: {
+    id: string;
     name: string;
     email: string;
+    password?: string;
+    phone: string;
+    address: string;
+    avatar: string;
     verified: boolean;
     verificationStatus: 'unverified' | 'pending' | 'verified';
     idType: string;
@@ -216,33 +296,96 @@ export interface AppState {
     idImageData: string;
     selfieImageData: string;
     isSeller: boolean;
+    sellerStatus?: 'none' | 'pending' | 'approved';
     shopName: string;
     city: string;
     gcash: string;
     ownSellerId: string;
+    taxTier?: string;
+    tin?: string;
+    birImages?: string[];
   };
+  registeredUsers: RegisteredAccount[];
+  kycApplications: KycApplication[];
   sellers: Seller[];
   liveItems: LiveItem[];
   liveChat: LiveChatMessage[];
   feedPosts: FeedPost[];
   minedOrders: MinedOrder[];
   directChats: Record<string, DirectMessage[]>;
+  supportThreads: SupportThread[];
+  platformVouchers?: { code: string; desc: string; claims: number; active: boolean }[];
+  sellerVouchers?: { code: string; type: string; amount: number; minSpend: number; limit: number; used: number }[];
+  payoutRequests?: {
+    id: string;
+    shopName: string;
+    channel: string;
+    account: string;
+    grossAmount: number;
+    withholdingTax: number;
+    taxNote: string;
+    status: 'pending' | 'released';
+    date?: string;
+  }[];
+}
+
+export function compressImageFile(file: File, maxWidth = 600, quality = 0.78): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result;
+      if (typeof src !== 'string') {
+        resolve('');
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(src);
+        }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
 }
 
 function getDefaultState(): AppState {
   return {
+    isAuthenticated: false,
     role: 'buyer',
     activeTab: 'home',
     activeFeedCategory: 'ALL',
-    activeStoreId: 'seller_joy',
-    activeLiveSellerId: 'seller_joy',
-    activePinnedItemId: 'live_1',
-    activeChatSellerId: 'seller_joy',
+    activeStoreId: '',
+    activeLiveSellerId: '',
+    activePinnedItemId: '',
+    activeChatSellerId: 'admin_support',
     activePurchaseFilter: 'ALL',
     searchQuery: '',
+    ukayPaborito: DEFAULT_UKAY_CATEGORIES,
     user: {
-      name: 'Mika Santos',
-      email: 'mika.santos@ukayo.ph',
+      id: '',
+      name: '',
+      email: '',
+      password: '',
+      phone: '',
+      address: '',
+      avatar: '',
       verified: false,
       verificationStatus: 'unverified',
       idType: '',
@@ -250,403 +393,27 @@ function getDefaultState(): AppState {
       idImageData: '',
       selfieImageData: '',
       isSeller: false,
-      shopName: "Mika's Ukay Closet",
-      city: 'Cebu City',
-      gcash: '0917-555-0192',
-      ownSellerId: 'seller_joy',
+      sellerStatus: 'none',
+      shopName: '',
+      city: '',
+      gcash: '',
+      ownSellerId: '',
+      taxTier: 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+      tin: '',
+      birImages: [],
     },
-    sellers: [
-      {
-        id: 'seller_joy',
-        name: "Ate Joy's Bale Closet",
-        handle: '@atejoyukay',
-        city: 'Cebu City',
-        bio: 'Fresh Class A Korean & US bales opened every night! No joy reservers pls.',
-        followers: 2480,
-        followed: false,
-        rating: 4.9,
-        isLive: true,
-        liveCategory: 'Jackets & Hoodies',
-        liveTitle: 'Class A Korean Windbreakers & Hoodies Bale Drop!',
-        liveStreamPreview:
-          'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80',
-        gcash: '0917-882-3310',
-        products: [
-          {
-            id: 'prod_1',
-            title: 'Vintage 90s Colorblock Windbreaker Jacket',
-            price: 280,
-            category: 'Jackets',
-            size: 'Large (23" x 27")',
-            condition: '10/10 Like New',
-            status: 'Available',
-            rating: 5.0,
-            image:
-              'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80',
-            description:
-              'Authentic preloved 90s nylon windbreaker from Korean Class A bale. Crisp zipper, zero flaws.',
-            reviews: [],
-          },
-          {
-            id: 'prod_2',
-            title: 'Oversized Korean Washed Graphic Hoodie',
-            price: 220,
-            category: 'Jackets',
-            size: 'XL (24" x 28")',
-            condition: '9.5/10 EUC',
-            status: 'Available',
-            rating: 4.9,
-            image:
-              'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=600&q=80',
-            description:
-              'Thick fleece cotton pullover hoodie in washed charcoal. Heavyweight drip.',
-            reviews: [],
-          },
-        ],
-      },
-      {
-        id: 'seller_vince',
-        name: 'Kuya Vince Vintage',
-        handle: '@vincevintagebaguio',
-        city: 'Baguio City',
-        bio: 'Handpicked Baguio Hilltop vintage denim, Carhartt workwear & flannel drops.',
-        followers: 4120,
-        followed: true,
-        rating: 5.0,
-        isLive: true,
-        liveCategory: 'Jackets & Hoodies',
-        liveTitle: 'Baguio Hilltop Heavy Jackets & Workwear Steals!',
-        liveStreamPreview:
-          'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=800&q=80',
-        gcash: '0918-401-7721',
-        products: [
-          {
-            id: 'prod_3',
-            title: 'Baguio Heavyweight Duck Canvas Work Jacket',
-            price: 450,
-            category: 'Jackets',
-            size: 'Large (23.5" x 27.5")',
-            condition: '9.5/10 Vintage Fade',
-            status: 'Available',
-            rating: 5.0,
-            image:
-              'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=600&q=80',
-            description:
-              'Rugged tan canvas workwear jacket sourced from Baguio hilltop bale.',
-            reviews: [],
-          },
-          {
-            id: 'prod_4',
-            title: 'Vintage 501 Straight-Cut Selvedge Denim',
-            price: 380,
-            category: 'Denim',
-            size: 'W32 L30',
-            condition: '9/10 Good Vintage',
-            status: 'Available',
-            rating: 4.9,
-            image:
-              'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=600&q=80',
-            description:
-              'Classic medium-wash straight-leg denim jeans with authentic vintage whiskering.',
-            reviews: [],
-          },
-        ],
-      },
-      {
-        id: 'seller_mhel',
-        name: "Tita Mhel's Luxury Thrift",
-        handle: '@titamhelbags',
-        city: 'Makati City',
-        bio: 'Curated Japan & Korea leather bags, loafers, and classy office tops.',
-        followers: 1890,
-        followed: false,
-        rating: 4.8,
-        isLive: true,
-        liveCategory: 'Bags & Wallets',
-        liveTitle: 'Japan Bale Leather Bags & Silk Tops Live!',
-        liveStreamPreview:
-          'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80',
-        gcash: '0919-330-9914',
-        products: [
-          {
-            id: 'prod_5',
-            title: 'Structured Faux-Croc Vintage Shoulder Bag',
-            price: 350,
-            category: 'Bags',
-            size: 'Medium (11" x 7")',
-            condition: '10/10 Like New',
-            status: 'Available',
-            rating: 4.9,
-            image:
-              'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80',
-            description:
-              'Glossy espresso shoulder bag from Japan box bale. Clean gold hardware.',
-            reviews: [],
-          },
-        ],
-      },
-    ],
-    liveItems: [
-      {
-        id: 'live_1',
-        sellerId: 'seller_joy',
-        code: 'A01',
-        title: 'Vintage 90s Colorblock Windbreaker',
-        price: 280,
-        size: 'L (23"x27")',
-        condition: '10/10 Like New',
-        image:
-          'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80',
-        winner: null,
-        steals: [],
-      },
-      {
-        id: 'live_2',
-        sellerId: 'seller_joy',
-        code: 'A02',
-        title: 'Oversized Korean Graphic Hoodie',
-        price: 220,
-        size: 'XL (24"x28")',
-        condition: '9.5/10 EUC',
-        image:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
-        winner: null,
-        steals: [],
-      },
-      {
-        id: 'live_3',
-        sellerId: 'seller_vince',
-        code: 'B01',
-        title: 'Baguio Duck Canvas Work Jacket',
-        price: 450,
-        size: 'L (23.5"x27.5")',
-        condition: '9.5/10 Vintage',
-        image:
-          'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=400&q=80',
-        winner: null,
-        steals: [],
-      },
-      {
-        id: 'live_4',
-        sellerId: 'seller_mhel',
-        code: 'C01',
-        title: 'Japan Bale Faux-Croc Shoulder Bag',
-        price: 350,
-        size: 'Medium',
-        condition: '10/10 Like New',
-        image:
-          'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80',
-        winner: null,
-        steals: [],
-      },
-    ],
-    liveChat: [
-      {
-        sender: "Ate Joy's Bale Closet",
-        badge: 'HOST',
-        text: 'Welcome miners! Tap MINE NA! on A01 para walang agawan sa comments!',
-        isHost: true,
-      },
-      {
-        sender: 'Carla M.',
-        badge: 'VIP',
-        text: 'Ganda ng colorblock windbreaker Ate Joy!!',
-        isHost: false,
-      },
-      {
-        sender: 'Jomar R.',
-        badge: 'MINER',
-        text: 'Anong chest measurement ng A01 po?',
-        isHost: false,
-      },
-    ],
-    feedPosts: [
-      {
-        id: 'post_1',
-        sellerId: 'seller_joy',
-        authorName: "Ate Joy's Bale Closet",
-        authorRole: 'Verified Seller • Cebu City',
-        timeAgo: '14 mins ago',
-        category: 'Jackets',
-        caption:
-          'Fresh Korean Class A Windbreaker drop! Zero flaws, freshly steamed. Tap Mine Na! below before tonight’s live.',
-        tags: ['#BaleDrop', '#VintageUkay', '#AuthenticPreloved'],
-        itemTitle: 'Vintage 90s Colorblock Windbreaker',
-        price: 280,
-        condition: '10/10 Like New',
-        image:
-          'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=700&q=80',
-        likes: 34,
-        liked: false,
-        minedBy: null,
-        comments: [
-          {
-            user: 'Bea L.',
-            text: 'Available pa po ba ito for Cebu City delivery?',
-          },
-        ],
-      },
-      {
-        id: 'post_2',
-        sellerId: 'seller_vince',
-        authorName: 'Kuya Vince Vintage',
-        authorRole: 'Verified Seller • Baguio City',
-        timeAgo: '1 hr ago',
-        category: 'Denim',
-        caption:
-          'Freshly sorted vintage straight-cut denim from Baguio Hilltop! Thick cotton, nice natural fade.',
-        tags: ['#BaguioUkay', '#VintageDenim', '#Thrifted'],
-        itemTitle: 'Vintage 501 Straight-Cut Denim (W32)',
-        price: 380,
-        condition: '9/10 Vintage',
-        image:
-          'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=700&q=80',
-        likes: 51,
-        liked: true,
-        minedBy: null,
-        comments: [],
-      },
-    ],
-    minedOrders: [
-      {
-        id: 'ord_seed_1',
-        itemCode: 'A02',
-        title: 'Oversized Korean Washed Graphic Hoodie',
-        price: 220,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
-        sellerId: 'seller_joy',
-        sellerName: "Ate Joy's Bale Closet",
-        buyerName: 'Mika Santos',
-        courier: 'J&T Express',
-        paymentMethod: 'GCash',
-        stage: 'TO_PAY',
-        status: 'To Pay — Pending GCash',
-        timestamp: 'Today, 8:14 PM',
-        trackingEvents: [
-          {
-            time: 'Today, 8:14 PM',
-            title: 'Locked via Mine Na!',
-            desc: 'Awaiting buyer checkout',
-            done: true,
-            current: true,
-          },
-        ],
-      },
-      {
-        id: 'ord_seed_2',
-        itemCode: 'B04',
-        title: 'Baguio Heavyweight Duck Canvas Work Jacket',
-        price: 450,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=400&q=80',
-        sellerId: 'seller_vince',
-        sellerName: 'Kuya Vince Vintage',
-        buyerName: 'Mika Santos',
-        courier: 'J&T Express',
-        paymentMethod: 'GCash',
-        stage: 'TO_SHIP',
-        status: 'To Ship — Seller Packing',
-        timestamp: 'Yesterday, 6:30 PM',
-        trackingEvents: [
-          {
-            time: 'Yesterday, 6:30 PM',
-            title: 'Payment Verified (₱450)',
-            desc: 'Seller confirmed GCash receipt',
-            done: true,
-          },
-        ],
-      },
-      {
-        id: 'ord_seed_3',
-        itemCode: 'C01',
-        title: 'Structured Faux-Croc Vintage Shoulder Bag',
-        price: 350,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80',
-        sellerId: 'seller_mhel',
-        sellerName: "Tita Mhel's Luxury Thrift",
-        buyerName: 'Mika Santos',
-        courier: 'J&T Express',
-        paymentMethod: 'COD',
-        stage: 'TO_RECEIVE',
-        status: 'In Transit — Out for Delivery',
-        timestamp: 'Nov 10, 4:15 PM',
-        trackingNumber: 'JT884920194PH',
-        trackingEvents: [
-          {
-            time: 'Nov 13, 7:45 AM',
-            title: 'Out for Delivery • Cebu City Hub',
-            desc: 'Rider Kuya Carlo (0918-442-1190) is on the way to your address',
-            done: true,
-            current: true,
-          },
-          {
-            time: 'Nov 12, 11:20 PM',
-            title: 'Arrived at Mandaue Sorting Center',
-            desc: 'Parcel unloaded and scanned at Cebu distribution hub',
-            done: true,
-          },
-          {
-            time: 'Nov 10, 6:05 PM',
-            title: 'Picked up by J&T Express',
-            desc: 'Tita Mhel handed over parcel in Makati City',
-            done: true,
-          },
-        ],
-      },
-      {
-        id: 'ord_seed_4',
-        itemCode: 'A09',
-        title: 'Classic Striped Oxford Button-Down Polo',
-        price: 180,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80',
-        sellerId: 'seller_joy',
-        sellerName: "Ate Joy's Bale Closet",
-        buyerName: 'Mika Santos',
-        courier: 'Maxim',
-        paymentMethod: 'GCash',
-        stage: 'TO_RATE',
-        status: 'Delivered — Rate Seller',
-        timestamp: 'Nov 8, 2:10 PM',
-        trackingEvents: [
-          {
-            time: 'Nov 8, 4:30 PM',
-            title: 'Delivered',
-            desc: 'Received by Mika Santos',
-            done: true,
-          },
-        ],
-      },
-    ],
-    directChats: {
-      seller_joy: [
-        {
-          from: 'seller',
-          text: 'Hi Mika! Salamat sa pag-mine sa live kanina. Ready for J&T or Maxim po!',
-          time: '8:15 PM',
-        },
-      ],
-      seller_vince: [
-        {
-          from: 'seller',
-          text: 'Good evening! Packing your Baguio work jacket now, shipout bukas morning.',
-          time: '6:40 PM',
-        },
-      ],
-      seller_mhel: [
-        {
-          from: 'seller',
-          text: 'Hi dear, out for delivery na yung Japan shoulder bag mo today via J&T!',
-          time: '8:05 AM',
-        },
-      ],
-    },
+    registeredUsers: [],
+    kycApplications: [],
+    sellers: [],
+    liveItems: [],
+    liveChat: [],
+    feedPosts: [],
+    minedOrders: [],
+    directChats: {},
+    supportThreads: [],
+    platformVouchers: [],
+    sellerVouchers: [],
+    payoutRequests: [],
   };
 }
 
@@ -667,7 +434,16 @@ export default function App() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return { ...getDefaultState(), ...parsed };
+        const def = getDefaultState();
+        return {
+          ...def,
+          ...parsed,
+          user: { ...def.user, ...(parsed.user || {}) },
+          ukayPaborito:
+            Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
+              ? parsed.ukayPaborito
+              : DEFAULT_UKAY_CATEGORIES,
+        };
       }
     } catch {
       // fallback
@@ -677,94 +453,97 @@ export default function App() {
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [hearts, setHearts] = useState<FloatingHeart[]>([]);
-  const [isLoggedOut, setIsLoggedOut] = useState(false);
 
-  // Modals state
-  const [becomeSellerOpen, setBecomeSellerOpen] = useState(false);
+  // Auth & Profile Modals
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Buyer Registration fields
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regCity, setRegCity] = useState('');
+  const [regAddress, setRegAddress] = useState('');
+  const [regAvatar, setRegAvatar] = useState('');
+
+  // Edit Buyer Profile Modal
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
+
+  // Other Modals
   const [feedComposerOpen, setFeedComposerOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [liveSetupOpen, setLiveSetupOpen] = useState(false);
   const [idVerifyOpen, setIdVerifyOpen] = useState(false);
+  const [liveDropModalOpen, setLiveDropModalOpen] = useState(false);
 
-  // Form states for Become Seller
-  const [applyShopName, setApplyShopName] = useState(
-    () => state.user.shopName || "Mika's Ukay Closet"
-  );
-  const [applyShopCity, setApplyShopCity] = useState(
-    () => state.user.city || 'Cebu City'
-  );
-  const [applyShopGcash, setApplyShopGcash] = useState(
-    () => state.user.gcash || '0917-555-0192'
-  );
-
-  // Form states for Feed Composer
+  // Feed Composer states
   const [postTitle, setPostTitle] = useState('');
-  const [postPrice, setPostPrice] = useState('220');
+  const [postPrice, setPostPrice] = useState('250');
   const [postCategory, setPostCategory] = useState('Tops');
+  const [postCondition, setPostCondition] = useState('10/10 Like New');
   const [postCaption, setPostCaption] = useState('');
+  const [postImage, setPostImage] = useState('');
 
-  // Form states for Checkout
-  const [checkoutAddress, setCheckoutAddress] = useState(
-    'Lahug, Cebu City, Central Visayas'
-  );
+  // Live Flash Drop Modal states
+  const [dropCode, setDropCode] = useState('A01');
+  const [dropTitle, setDropTitle] = useState('');
+  const [dropPrice, setDropPrice] = useState('250');
+  const [dropSize, setDropSize] = useState('Large (23"x27")');
+  const [dropCondition, setDropCondition] = useState('10/10 Like New');
+  const [dropImage, setDropImage] = useState('');
+
+  // Checkout states
+  const [checkoutAddress, setCheckoutAddress] = useState('');
   const [checkoutCourier, setCheckoutCourier] = useState('J&T Express');
-  const [checkoutPayMethod, setCheckoutPayMethod] = useState<
-    'COD' | 'BAYAD_AGAD'
-  >('COD');
+  const [checkoutPayMethod, setCheckoutPayMethod] = useState<'COD' | 'BAYAD_AGAD'>('COD');
   const [selectedEWallet, setSelectedEWallet] = useState('GCash');
-  const [ewalletSenderRef, setEwalletSenderRef] = useState('0917-555-0192');
+  const [ewalletSenderRef, setEwalletSenderRef] = useState('');
 
-  // Form states for Live Setup
-  const [liveSetupTitle, setLiveSetupTitle] = useState(
-    'Class A Korean Windbreakers & Hoodies Bale Drop!'
-  );
-  const [liveSetupCategory, setLiveSetupCategory] =
-    useState('Jackets & Hoodies');
-  const [liveSetupCamera, setLiveSetupCamera] = useState<'environment' | 'user'>(
-    'environment'
-  );
-  const [liveSetupPinnedId, setLiveSetupPinnedId] = useState('live_1');
-  const [liveSetupTimer, setLiveSetupTimer] = useState(
-    'First Tap Locks (Instant)'
-  );
+  // Live Setup states
+  const [liveSetupTitle, setLiveSetupTitle] = useState('');
+  const [liveSetupCategory, setLiveSetupCategory] = useState('Jackets & Hoodies');
+  const [liveSetupCamera, setLiveSetupCamera] = useState<'environment' | 'user'>('environment');
+  const [liveSetupPinnedId, setLiveSetupPinnedId] = useState('');
+  const [liveSetupTimer, setLiveSetupTimer] = useState('First Tap Locks (Instant)');
   const [liveSetupRule, setLiveSetupRule] = useState(
     'No joy reservers! Checkout within 12 hrs via Bayad Agad or COD.'
   );
   const [pendingLiveCoverData, setPendingLiveCoverData] = useState('');
 
-  // Form states for ID Verification
+  // ID Verification states
   const [verifyIdType, setVerifyIdType] = useState(
     'Philippine National ID (PhilSys / ePhilID)'
   );
-  const [verifyFullName, setVerifyFullName] = useState(state.user.name);
-  const [verifyIdNumber, setVerifyIdNumber] = useState(state.user.idNumber);
+  const [verifyFullName, setVerifyFullName] = useState('');
+  const [verifyIdNumber, setVerifyIdNumber] = useState('');
   const [verifyIdFileLabel, setVerifyIdFileLabel] = useState(
     'Tap to upload Primary ID photo (JPG / PNG)'
   );
   const [verifySelfieFileLabel, setVerifySelfieFileLabel] = useState(
     'Tap to upload Selfie with ID'
   );
-  const [verifyIdPreview, setVerifyIdPreview] = useState(
-    state.user.idImageData || ''
-  );
-  const [verifySelfiePreview, setVerifySelfiePreview] = useState(
-    state.user.selfieImageData || ''
-  );
+  const [verifyIdPreview, setVerifyIdPreview] = useState('');
+  const [verifySelfiePreview, setVerifySelfiePreview] = useState('');
 
   // Inputs for Live Chat, Feed Comments, Direct Chat
   const [liveChatInput, setLiveChatInput] = useState('');
-  const [feedCommentInputs, setFeedCommentInputs] = useState<
-    Record<string, string>
-  >({});
+  const [feedCommentInputs, setFeedCommentInputs] = useState<Record<string, string>>({});
   const [directChatInput, setDirectChatInput] = useState('');
 
   // Camera stream refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState(false);
-  const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>(
-    'environment'
-  );
+  const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>('environment');
 
   // Touch & wheel refs for Mine Na! swipe
   const touchStartYRef = useRef(0);
@@ -801,7 +580,16 @@ export default function App() {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          setState({ ...getDefaultState(), ...parsed });
+          const def = getDefaultState();
+          setState({
+            ...def,
+            ...parsed,
+            user: { ...def.user, ...(parsed.user || {}) },
+            ukayPaborito:
+              Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
+                ? parsed.ukayPaborito
+                : DEFAULT_UKAY_CATEGORIES,
+          });
         } catch {
           // ignore
         }
@@ -819,20 +607,16 @@ export default function App() {
 
   useEffect(() => {
     if (directChatBoxRef.current) {
-      directChatBoxRef.current.scrollTop =
-        directChatBoxRef.current.scrollHeight;
+      directChatBoxRef.current.scrollTop = directChatBoxRef.current.scrollHeight;
     }
-  }, [state.directChats, state.activeChatSellerId, state.activeTab]);
+  }, [state.directChats, state.supportThreads, state.activeChatSellerId, state.activeTab]);
 
-  const showToast = (
-    message: string,
-    type: 'success' | 'error' = 'success'
-  ) => {
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2600);
+    }, 2700);
   };
 
   const switchTab = (tab: AppState['activeTab']) => {
@@ -840,8 +624,272 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openAuthModal = (mode: 'login' | 'register' = 'login') => {
+    setAuthTab(mode);
+    setAuthModalOpen(true);
+  };
+
+  // =======================================================================
+  // BUYER LOGIN / REGISTRATION / LOGOUT / PROFILE PICTURE UPLOAD
+  // =======================================================================
+  const handleBuyerRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = regName.trim();
+    const email = regEmail.trim().toLowerCase();
+    const password = regPassword.trim();
+    const phone = regPhone.trim();
+    const city = regCity.trim() || 'Metro Manila';
+    const address = regAddress.trim() || city;
+
+    if (!name || !email || !password) {
+      showToast('Please complete your name, email, and password.', 'error');
+      return;
+    }
+
+    const exists = state.registeredUsers.find(
+      (u) => u.email.toLowerCase() === email
+    );
+    if (exists) {
+      showToast('Email is already registered. Please log in instead.', 'error');
+      setAuthTab('login');
+      setLoginEmail(email);
+      return;
+    }
+
+    const userId = 'usr_' + Date.now();
+    const newAccount: RegisteredAccount = {
+      id: userId,
+      name,
+      email,
+      password,
+      phone,
+      city,
+      address,
+      avatar: regAvatar,
+      verified: false,
+      verificationStatus: 'unverified',
+      idType: '',
+      idNumber: '',
+      idImageData: '',
+      selfieImageData: '',
+      isSeller: false,
+      sellerStatus: 'none',
+      shopName: '',
+      gcash: phone,
+      ownSellerId: '',
+      taxTier: 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+      tin: '',
+      birImages: [],
+      unpaidMines: 0,
+      accountStatus: 'active',
+    };
+
+    setState((prev) => ({
+      ...prev,
+      isAuthenticated: true,
+      role: 'buyer',
+      user: {
+        id: newAccount.id,
+        name: newAccount.name,
+        email: newAccount.email,
+        password: newAccount.password,
+        phone: newAccount.phone,
+        address: newAccount.address,
+        avatar: newAccount.avatar,
+        verified: false,
+        verificationStatus: 'unverified',
+        idType: '',
+        idNumber: '',
+        idImageData: '',
+        selfieImageData: '',
+        isSeller: false,
+        sellerStatus: 'none',
+        shopName: '',
+        city: newAccount.city,
+        gcash: newAccount.gcash,
+        ownSellerId: '',
+        taxTier: newAccount.taxTier,
+        tin: '',
+        birImages: [],
+      },
+      registeredUsers: [...prev.registeredUsers, newAccount],
+    }));
+
+    setRegName('');
+    setRegEmail('');
+    setRegPassword('');
+    setRegPhone('');
+    setRegCity('');
+    setRegAddress('');
+    setRegAvatar('');
+    setAuthModalOpen(false);
+    showToast(`Welcome to UKAYO, ${name}! Your buyer account is active.`);
+  };
+
+  const handleBuyerLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailInput = loginEmail.trim().toLowerCase();
+    const passInput = loginPassword.trim();
+
+    const found = state.registeredUsers.find(
+      (u) =>
+        (u.email.toLowerCase() === emailInput ||
+          u.name.toLowerCase() === emailInput) &&
+        u.password === passInput
+    );
+
+    if (!found) {
+      showToast('Invalid email/username or password. Please register first if new.', 'error');
+      return;
+    }
+
+    if (found.accountStatus === 'suspended') {
+      showToast('This account is currently suspended by Admin Ops.', 'error');
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      isAuthenticated: true,
+      role: found.isSeller ? prev.role : 'buyer',
+      user: {
+        id: found.id,
+        name: found.name,
+        email: found.email,
+        password: found.password,
+        phone: found.phone,
+        address: found.address,
+        avatar: found.avatar,
+        verified: found.verified,
+        verificationStatus: found.verificationStatus,
+        idType: found.idType,
+        idNumber: found.idNumber,
+        idImageData: found.idImageData,
+        selfieImageData: found.selfieImageData,
+        isSeller: found.isSeller,
+        sellerStatus: found.sellerStatus || (found.isSeller ? 'approved' : 'none'),
+        shopName: found.shopName,
+        city: found.city,
+        gcash: found.gcash,
+        ownSellerId: found.ownSellerId,
+        taxTier: found.taxTier,
+        tin: found.tin,
+        birImages: found.birImages || [],
+      },
+    }));
+
+    setLoginPassword('');
+    setAuthModalOpen(false);
+    showToast(`Welcome back, ${found.name}!`);
+  };
+
+  const handleAccountLogout = () => {
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      isAuthenticated: false,
+      role: 'buyer',
+      user: getDefaultState().user,
+    }));
+    showToast('You have been logged out of UKAYO Marketplace.');
+  };
+
+  const handleProfileAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'reg' | 'edit' | 'direct') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, 400, 0.8);
+    if (!dataUrl) return;
+
+    if (target === 'reg') {
+      setRegAvatar(dataUrl);
+    } else if (target === 'edit') {
+      setEditAvatar(dataUrl);
+    } else {
+      if (!state.isAuthenticated) {
+        openAuthModal('register');
+        return;
+      }
+      setState((prev) => ({
+        ...prev,
+        user: { ...prev.user, avatar: dataUrl },
+        registeredUsers: prev.registeredUsers.map((u) =>
+          u.id === prev.user.id ? { ...u, avatar: dataUrl } : u
+        ),
+      }));
+      showToast('Profile picture updated!');
+    }
+  };
+
+  const openEditProfileModal = () => {
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
+    setEditName(state.user.name);
+    setEditEmail(state.user.email);
+    setEditPhone(state.user.phone || state.user.gcash);
+    setEditCity(state.user.city);
+    setEditAddress(state.user.address || state.user.city);
+    setEditAvatar(state.user.avatar || '');
+    setEditProfileOpen(true);
+  };
+
+  const saveBuyerProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nextName = editName.trim() || state.user.name;
+    const nextEmail = editEmail.trim() || state.user.email;
+    const nextPhone = editPhone.trim() || state.user.phone;
+    const nextCity = editCity.trim() || state.user.city;
+    const nextAddress = editAddress.trim() || nextCity;
+
+    setState((prev) => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        name: nextName,
+        email: nextEmail,
+        phone: nextPhone,
+        city: nextCity,
+        address: nextAddress,
+        gcash: nextPhone || prev.user.gcash,
+        avatar: editAvatar,
+      },
+      registeredUsers: prev.registeredUsers.map((u) =>
+        u.id === prev.user.id
+          ? {
+              ...u,
+              name: nextName,
+              email: nextEmail,
+              phone: nextPhone,
+              city: nextCity,
+              address: nextAddress,
+              gcash: nextPhone || u.gcash,
+              avatar: editAvatar,
+            }
+          : u
+      ),
+    }));
+    setEditProfileOpen(false);
+    showToast('Buyer profile & picture saved!');
+  };
+
+  // =======================================================================
+  // SEARCH, SELLER REGISTRATION REDIRECT & PORTAL ACCESS RULES
+  // =======================================================================
   const handleGlobalSearch = (val: string) => {
     const q = val.trim().toLowerCase();
+    if (q === '@admin' || q === '/admin' || q === 'jazran25') {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // ignore
+      }
+      window.location.href = '/ukayo_admin_ops.html';
+      return;
+    }
     setState((prev) => ({
       ...prev,
       searchQuery: q,
@@ -873,74 +921,115 @@ export default function App() {
   };
 
   const openSellerStore = (sellerId?: string) => {
+    const targetId = sellerId || state.user.ownSellerId || state.sellers[0]?.id || '';
+    if (!targetId) {
+      showToast('No seller storefront available yet.', 'error');
+      return;
+    }
     setState((prev) => ({
       ...prev,
-      activeStoreId: sellerId || prev.user.ownSellerId,
+      activeStoreId: targetId,
       activeTab: 'store',
     }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Only registered sellers can access Seller Center portal
   const openSellerCenterPortal = () => {
+    if (!state.isAuthenticated) {
+      showToast('Please log in or register as a buyer first.', 'error');
+      openAuthModal('login');
+      return;
+    }
+    if (!state.user.isSeller) {
+      showToast('Only registered sellers can access Seller Center. Redirecting to Seller Registration...', 'error');
+      goToSellerRegistrationPage();
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      // ignore storage errors
+      // ignore
     }
     window.location.href = '/ukayo_seller_center.html';
   };
 
-  const handleBecomeSellerAction = () => {
-    const isSellerAccount =
-      state.role === 'seller' || Boolean(state.user && state.user.isSeller);
-    if (isSellerAccount) {
-      openSellerStore(state.user.ownSellerId);
+  // Directs buyer to the Seller Registration Page when "Apply Now" is clicked
+  const goToSellerRegistrationPage = () => {
+    if (!state.isAuthenticated) {
+      showToast('Please register or log in to your Buyer account first before applying as a Seller.', 'error');
+      openAuthModal('register');
       return;
     }
-    openSellerCenterPortal();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // ignore
+    }
+    window.location.href = '/ukayo_seller_center.html?mode=register';
   };
 
-  const submitSellerApplication = (e: React.FormEvent) => {
-    e.preventDefault();
-    const shopName = applyShopName.trim() || state.user.shopName;
-    const city = applyShopCity.trim() || state.user.city;
-    const gcash = applyShopGcash.trim() || state.user.gcash;
-
-    setState((prev) => ({
-      ...prev,
-      role: 'seller',
-      user: {
-        ...prev.user,
-        isSeller: true,
-        shopName,
-        city,
-        gcash,
-      },
-    }));
-    setBecomeSellerOpen(false);
-    showToast(`Welcome Seller! "${shopName}" is now active.`);
+  const handleBecomeSellerAction = () => {
+    if (!state.isAuthenticated) {
+      showToast('Please register or log in as a Buyer first.', 'error');
+      openAuthModal('register');
+      return;
+    }
+    if (state.user.isSeller) {
+      openSellerCenterPortal();
+      return;
+    }
+    goToSellerRegistrationPage();
   };
 
   const setMarketplaceMode = (mode: 'buyer' | 'seller') => {
+    if (mode === 'seller' && !state.user.isSeller) {
+      goToSellerRegistrationPage();
+      return;
+    }
     setState((prev) => ({ ...prev, role: mode }));
   };
 
+  // =======================================================================
+  // CUSTOMER SERVICE (CONNECT BUYER & SELLER WITH ADMIN FOR HELP)
+  // =======================================================================
+  const openCustomerServiceChat = () => {
+    setState((prev) => ({
+      ...prev,
+      activeChatSellerId: 'admin_support',
+      activeTab: 'chat',
+    }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // =======================================================================
+  // LIVE SELLING & UKAY FEED FUNCTIONS
+  // =======================================================================
   const openLiveSetupModal = () => {
+    if (!state.isAuthenticated || !state.user.isSeller) {
+      showToast('Only registered sellers can host a Live stream. Apply as a seller first!', 'error');
+      if (!state.isAuthenticated) openAuthModal('login');
+      else goToSellerRegistrationPage();
+      return;
+    }
     const seller =
-      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
+      state.sellers.find((s) => s.id === state.user.ownSellerId) ||
       state.sellers[0];
     setLiveSetupTitle(
-      seller.liveTitle || `${state.user.shopName || seller.name} Live Ukay Drop!`
+      seller?.liveTitle || `${state.user.shopName || state.user.name} Live Ukay Drop!`
     );
-    if (seller.liveCategory) setLiveSetupCategory(seller.liveCategory);
+    if (seller?.liveCategory) setLiveSetupCategory(seller.liveCategory);
     setLiveSetupPinnedId(state.activePinnedItemId);
     setLiveSetupOpen(true);
   };
 
   const launchSellerLiveInApp = () => {
-    const targetSellerId = state.user.ownSellerId || 'seller_joy';
-    const seller =
-      state.sellers.find((s) => s.id === targetSellerId) || state.sellers[0];
+    if (!state.isAuthenticated || !state.user.isSeller) {
+      goToSellerRegistrationPage();
+      return;
+    }
+    const targetSellerId = state.user.ownSellerId || state.sellers[0]?.id || '';
+    const seller = state.sellers.find((s) => s.id === targetSellerId);
     setState((prev) => ({
       ...prev,
       role: 'seller',
@@ -948,48 +1037,69 @@ export default function App() {
       activeTab: 'mine',
     }));
     setLiveSetupTitle(
-      seller.liveTitle || `${state.user.shopName || seller.name} Live Ukay Drop!`
+      seller?.liveTitle || `${state.user.shopName || state.user.name} Live Ukay Drop!`
     );
-    if (seller.liveCategory) setLiveSetupCategory(seller.liveCategory);
+    if (seller?.liveCategory) setLiveSetupCategory(seller.liveCategory);
     setLiveSetupPinnedId(state.activePinnedItemId);
     setLiveSetupOpen(true);
   };
 
   const launchSellerPostInApp = () => {
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
     setState((prev) => ({
       ...prev,
-      role: 'seller',
+      role: prev.user.isSeller ? 'seller' : 'buyer',
       activeTab: 'feed',
     }));
     setFeedComposerOpen(true);
   };
 
+  const handleFeedPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, 650, 0.8);
+    if (dataUrl) setPostImage(dataUrl);
+  };
+
   const submitNewFeedPost = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!state.isAuthenticated) {
+      setFeedComposerOpen(false);
+      openAuthModal('login');
+      return;
+    }
     const title = postTitle.trim();
     const price = Number(postPrice) || 200;
     const category = postCategory;
     const caption = postCaption.trim();
 
+    const defaultImg =
+      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=700&q=80';
+
     const newPost: FeedPost = {
       id: 'post_' + Date.now(),
-      sellerId: state.user.ownSellerId,
+      sellerId: state.user.ownSellerId || state.user.id,
       authorName:
-        state.role === 'seller' ? state.user.shopName : state.user.name,
+        state.user.isSeller && state.user.shopName
+          ? state.user.shopName
+          : state.user.name,
+      authorAvatar: state.user.avatar || '',
       authorRole: `${
-        state.role === 'seller' ? 'Verified Seller' : 'Community Member'
-      } • ${state.user.city}`,
+        state.user.isSeller ? 'Verified Seller' : 'Community Miner'
+      } • ${state.user.city || 'Philippines'}`,
       timeAgo: 'Just now',
       category,
       caption,
       tags: ['#UkayDrop', `#${category.replace(/\s+/g, '')}`, '#Thrifted'],
       itemTitle: title,
       price,
-      condition: '9.5/10 Preloved',
-      image:
-        'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=700&q=80',
-      likes: 1,
-      liked: true,
+      condition: postCondition || '9.5/10 Preloved',
+      image: postImage || defaultImg,
+      likes: 0,
+      liked: false,
       minedBy: null,
       comments: [],
     };
@@ -1000,8 +1110,9 @@ export default function App() {
     }));
 
     setPostTitle('');
-    setPostPrice('220');
+    setPostPrice('250');
     setPostCaption('');
+    setPostImage('');
     setFeedComposerOpen(false);
     showToast('Posted to Ukay Feed!');
   };
@@ -1023,6 +1134,10 @@ export default function App() {
 
   const addFeedComment = (e: React.FormEvent, postId: string) => {
     e.preventDefault();
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
     const text = (feedCommentInputs[postId] || '').trim();
     if (!text) return;
 
@@ -1041,6 +1156,11 @@ export default function App() {
   };
 
   const claimFeedPost = (postId: string) => {
+    if (!state.isAuthenticated) {
+      showToast('Please log in or register as a Buyer to Mine items!', 'error');
+      openAuthModal('login');
+      return;
+    }
     const post = state.feedPosts.find((p) => p.id === postId);
     if (!post || post.minedBy) return;
 
@@ -1053,7 +1173,10 @@ export default function App() {
       image: post.image,
       sellerId: post.sellerId,
       sellerName: post.authorName,
+      buyerId: state.user.id,
       buyerName: state.user.name,
+      buyerAddress: state.user.address || state.user.city,
+      buyerPhone: state.user.phone || state.user.gcash,
       courier: 'J&T Express',
       paymentMethod: 'COD',
       stage: 'TO_PAY',
@@ -1082,6 +1205,11 @@ export default function App() {
   };
 
   const claimLiveItem = (itemId: string) => {
+    if (!state.isAuthenticated) {
+      showToast('Please log in or register as a Buyer to Mine live items!', 'error');
+      openAuthModal('login');
+      return;
+    }
     const item = state.liveItems.find((i) => i.id === itemId);
     if (!item) return;
     const seller =
@@ -1095,9 +1223,12 @@ export default function App() {
         price: item.price,
         quantity: 1,
         image: item.image,
-        sellerId: seller.id,
-        sellerName: seller.name,
+        sellerId: seller ? seller.id : item.sellerId,
+        sellerName: seller ? seller.name : state.user.shopName || 'Ukay Seller',
+        buyerId: state.user.id,
         buyerName: state.user.name,
+        buyerAddress: state.user.address || state.user.city,
+        buyerPhone: state.user.phone || state.user.gcash,
         courier: 'J&T Express',
         paymentMethod: 'COD',
         stage: 'TO_PAY',
@@ -1159,6 +1290,10 @@ export default function App() {
 
   const sendLiveChat = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
     const text = liveChatInput.trim();
     if (!text) return;
 
@@ -1167,7 +1302,10 @@ export default function App() {
       liveChat: [
         ...prev.liveChat,
         {
-          sender: prev.user.name,
+          sender:
+            prev.role === 'seller' && prev.user.shopName
+              ? prev.user.shopName
+              : prev.user.name,
           badge: prev.role === 'seller' ? 'HOST' : 'MINER',
           text,
           isHost: prev.role === 'seller',
@@ -1178,9 +1316,7 @@ export default function App() {
   };
 
   const toggleFollowCurrentLiveSeller = () => {
-    const seller = state.sellers.find(
-      (s) => s.id === state.activeLiveSellerId
-    );
+    const seller = state.sellers.find((s) => s.id === state.activeLiveSellerId);
     if (!seller) return;
     const nextFollowed = !seller.followed;
 
@@ -1191,20 +1327,20 @@ export default function App() {
           ? {
               ...s,
               followed: nextFollowed,
-              followers: s.followers + (nextFollowed ? 1 : -1),
+              followers: Math.max(0, s.followers + (nextFollowed ? 1 : -1)),
             }
           : s
       ),
     }));
-    showToast(
-      nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`
-    );
+    showToast(nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
   };
 
   const switchToNextRelatedLive = () => {
+    if (state.sellers.length <= 1) return;
     const current =
       state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
       state.sellers[0];
+    if (!current) return;
     const others = state.sellers.filter((s) => s.id !== current.id);
     if (!others.length) return;
     const related =
@@ -1241,16 +1377,11 @@ export default function App() {
     }, 1700);
   };
 
-  const handleLiveCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLiveCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (typeof ev.target?.result === 'string') {
-        setPendingLiveCoverData(ev.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file, 700, 0.8);
+    if (dataUrl) setPendingLiveCoverData(dataUrl);
   };
 
   const startCameraStreamDirect = async (facing: 'environment' | 'user') => {
@@ -1272,50 +1403,74 @@ export default function App() {
       showToast('You are now LIVE on Mine Na!');
     } catch {
       setIsCameraStreaming(false);
-      showToast(
-        'Live room configured! Camera preview unavailable on this browser.',
-        'error'
-      );
+      showToast('Live stream active! (Camera preview using cover backdrop).');
     }
   };
 
   const confirmStartLiveSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    const seller =
-      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
-      state.sellers[0];
-    const title = liveSetupTitle.trim();
+    const sellerId = state.user.ownSellerId || 'seller_' + state.user.id;
+    const existingSeller = state.sellers.find((s) => s.id === sellerId);
+    const title = liveSetupTitle.trim() || `${state.user.shopName || state.user.name} Live Drop!`;
     const category = liveSetupCategory;
     const cameraFacing = liveSetupCamera;
     const pinnedId = liveSetupPinnedId;
     const ruleText = liveSetupRule.trim();
+    const defaultCover =
+      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
 
     setLiveFacingMode(cameraFacing);
 
-    setState((prev) => ({
-      ...prev,
-      activePinnedItemId: pinnedId || prev.activePinnedItemId,
-      sellers: prev.sellers.map((s) =>
-        s.id === seller.id
-          ? {
-              ...s,
+    setState((prev) => {
+      const updatedSellers = existingSeller
+        ? prev.sellers.map((s) =>
+            s.id === sellerId
+              ? {
+                  ...s,
+                  isLive: true,
+                  liveTitle: title,
+                  liveCategory: category,
+                  liveStreamPreview: pendingLiveCoverData || s.liveStreamPreview || defaultCover,
+                }
+              : s
+          )
+        : [
+            {
+              id: sellerId,
+              name: prev.user.shopName || prev.user.name || 'Ukay Seller',
+              handle: '@' + (prev.user.shopName || 'ukayshop').toLowerCase().replace(/[^a-z0-9]/g, ''),
+              city: prev.user.city || 'Metro Manila',
+              bio: 'Verified UKAYO Live Seller',
+              avatar: prev.user.avatar,
+              followers: 1,
+              followed: false,
+              rating: 5.0,
               isLive: true,
-              liveTitle: title,
               liveCategory: category,
-              liveStreamPreview: pendingLiveCoverData || s.liveStreamPreview,
-            }
-          : s
-      ),
-      liveChat: [
-        ...prev.liveChat,
-        {
-          sender: seller.name,
-          badge: 'HOST',
-          text: `LIVE STARTED: "${title}" (${category}) — ${ruleText}`,
-          isHost: true,
-        },
-      ],
-    }));
+              liveTitle: title,
+              liveStreamPreview: pendingLiveCoverData || defaultCover,
+              gcash: prev.user.gcash,
+              products: [],
+            },
+            ...prev.sellers,
+          ];
+
+      return {
+        ...prev,
+        activeLiveSellerId: sellerId,
+        activePinnedItemId: pinnedId || prev.activePinnedItemId,
+        sellers: updatedSellers,
+        liveChat: [
+          ...prev.liveChat,
+          {
+            sender: prev.user.shopName || prev.user.name,
+            badge: 'HOST',
+            text: `LIVE STARTED: "${title}" (${category}) — ${ruleText}`,
+            isHost: true,
+          },
+        ],
+      };
+    });
 
     setLiveSetupOpen(false);
     await startCameraStreamDirect(cameraFacing);
@@ -1329,7 +1484,7 @@ export default function App() {
         videoRef.current.srcObject = null;
       }
       setIsCameraStreaming(false);
-      showToast('Live stream ended.');
+      showToast('Live camera stopped.');
       return;
     }
     openLiveSetupModal();
@@ -1341,33 +1496,80 @@ export default function App() {
     if (liveStreamRef.current) {
       await startCameraStreamDirect(nextFacing);
     } else {
-      showToast(
-        `Camera ready (${nextFacing === 'user' ? 'Front' : 'Rear'})`
-      );
+      showToast(`Camera ready (${nextFacing === 'user' ? 'Front' : 'Rear'})`);
     }
   };
 
   const openSellerDropModal = () => {
-    const code = 'A0' + (state.liveItems.length + 1);
+    if (!state.isAuthenticated || !state.user.isSeller) {
+      showToast('Only registered sellers can add live drops.', 'error');
+      return;
+    }
+    const nextCode = 'A0' + (state.liveItems.length + 1);
+    setDropCode(nextCode);
+    setDropTitle('');
+    setDropPrice('250');
+    setDropSize('Large (23"x27")');
+    setDropCondition('10/10 Like New');
+    setDropImage('');
+    setLiveDropModalOpen(true);
+  };
+
+  const handleDropImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, 600, 0.8);
+    if (dataUrl) setDropImage(dataUrl);
+  };
+
+  const submitLiveDropItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    const sellerId =
+      state.activeLiveSellerId ||
+      state.user.ownSellerId ||
+      state.sellers[0]?.id ||
+      'seller_' + state.user.id;
+    const defaultImg =
+      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=500&q=80';
     const newItem: LiveItem = {
       id: 'live_' + Date.now(),
-      sellerId: state.activeLiveSellerId,
-      code,
-      title: 'Flash Bale Drop Vintage Pullover',
-      price: 250,
-      size: 'Large (23"x27")',
-      condition: '10/10 Like New',
-      image:
-        'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80',
+      sellerId,
+      code: dropCode.trim() || 'A01',
+      title: dropTitle.trim() || 'Ukay Live Flash Drop',
+      price: Number(dropPrice) || 250,
+      size: dropSize.trim() || 'Free Size',
+      condition: dropCondition.trim() || '10/10 Like New',
+      image: dropImage || defaultImg,
       winner: null,
       steals: [],
     };
+
+    const newProduct: Product = {
+      id: 'prod_' + Date.now(),
+      code: newItem.code,
+      title: newItem.title,
+      price: newItem.price,
+      category: 'Jackets',
+      size: newItem.size,
+      condition: newItem.condition,
+      status: 'Available',
+      rating: 5.0,
+      image: newItem.image,
+      description: `${newItem.condition} • ${newItem.size}`,
+      reviews: [],
+    };
+
     setState((prev) => ({
       ...prev,
+      activeLiveSellerId: sellerId,
       liveItems: [newItem, ...prev.liveItems],
       activePinnedItemId: newItem.id,
+      sellers: prev.sellers.map((s) =>
+        s.id === sellerId ? { ...s, products: [newProduct, ...s.products] } : s
+      ),
     }));
-    showToast(`Pinned new live drop ${code} (₱250)!`);
+    setLiveDropModalOpen(false);
+    showToast(`Pinned [${newItem.code}] ${newItem.title} (₱${newItem.price}) to Live!`);
   };
 
   const toggleFollowStore = (sellerId: string) => {
@@ -1382,31 +1584,37 @@ export default function App() {
           ? {
               ...s,
               followed: nextFollowed,
-              followers: s.followers + (nextFollowed ? 1 : -1),
+              followers: Math.max(0, s.followers + (nextFollowed ? 1 : -1)),
             }
           : s
       ),
     }));
-    showToast(
-      nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`
-    );
+    showToast(nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
   };
 
   const claimStoreProduct = (sellerId: string, prodId: string) => {
+    if (!state.isAuthenticated) {
+      showToast('Please log in or register as a Buyer to Mine items!', 'error');
+      openAuthModal('login');
+      return;
+    }
     const seller = state.sellers.find((s) => s.id === sellerId);
     const prod = seller?.products.find((p) => p.id === prodId);
     if (!seller || !prod) return;
 
     const newOrder: MinedOrder = {
       id: 'ord_' + Date.now(),
-      itemCode: 'SHOP',
+      itemCode: prod.code || 'SHOP',
       title: prod.title,
       price: prod.price,
       quantity: 1,
       image: prod.image,
       sellerId: seller.id,
       sellerName: seller.name,
+      buyerId: state.user.id,
       buyerName: state.user.name,
+      buyerAddress: state.user.address || state.user.city,
+      buyerPhone: state.user.phone || state.user.gcash,
       courier: 'J&T Express',
       paymentMethod: 'COD',
       stage: 'TO_PAY',
@@ -1471,12 +1679,14 @@ export default function App() {
       showToast('Your Bayong is empty!', 'error');
       return;
     }
+    setCheckoutAddress(state.user.address || state.user.city || '');
+    setEwalletSenderRef(state.user.phone || state.user.gcash || '');
     setCheckoutOpen(true);
   };
 
   const submitBayongCheckout = (e: React.FormEvent) => {
     e.preventDefault();
-    const address = checkoutAddress.trim();
+    const address = checkoutAddress.trim() || state.user.city;
     const courier = checkoutCourier;
     const payMethod = checkoutPayMethod;
     const senderRef = ewalletSenderRef.trim();
@@ -1496,6 +1706,7 @@ export default function App() {
               stage: 'TO_SHIP',
               courier,
               buyerAddress: address,
+              buyerPhone: senderRef || prev.user.phone,
               paymentMethod: label,
               status:
                 payMethod === 'BAYAD_AGAD'
@@ -1527,6 +1738,9 @@ export default function App() {
     );
   };
 
+  // =======================================================================
+  // VERTICAL LEFT-SIDEBAR CHAT (SELLERS + ADMIN CUSTOMER SERVICE)
+  // =======================================================================
   const openDirectChatWithSeller = (sellerId: string) => {
     setState((prev) => ({
       ...prev,
@@ -1537,9 +1751,74 @@ export default function App() {
 
   const sendDirectChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!state.isAuthenticated) {
+      showToast('Please log in or register to send messages.', 'error');
+      openAuthModal('login');
+      return;
+    }
     const text = directChatInput.trim();
     if (!text) return;
-    const sid = state.activeChatSellerId || state.sellers[0].id;
+    const sid = state.activeChatSellerId || 'admin_support';
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (sid === 'admin_support') {
+      const threadId = 'sup_' + (state.user.id || 'guest');
+      const roleLabel: 'BUYER' | 'SELLER' = state.user.isSeller && state.role === 'seller' ? 'SELLER' : 'BUYER';
+      const senderDisplay =
+        roleLabel === 'SELLER' && state.user.shopName
+          ? `${state.user.shopName} (${state.user.name})`
+          : state.user.name;
+
+      const msgObj: DirectMessage = {
+        from: roleLabel === 'SELLER' ? 'seller' : 'buyer',
+        senderName: senderDisplay,
+        text,
+        time: nowTime,
+      };
+
+      setState((prev) => {
+        const existingThread = prev.supportThreads.find((t) => t.id === threadId);
+        const updatedThreads = existingThread
+          ? prev.supportThreads.map((t) =>
+              t.id === threadId
+                ? {
+                    ...t,
+                    userName: senderDisplay,
+                    userRole: roleLabel,
+                    userAvatar: prev.user.avatar,
+                    unreadAdmin: (t.unreadAdmin || 0) + 1,
+                    messages: [...t.messages, msgObj],
+                  }
+                : t
+            )
+          : [
+              {
+                id: threadId,
+                userId: prev.user.id,
+                userName: senderDisplay,
+                userRole: roleLabel,
+                userAvatar: prev.user.avatar,
+                subject: `${roleLabel} Support Help`,
+                unreadAdmin: 1,
+                unreadUser: 0,
+                messages: [msgObj],
+              },
+              ...prev.supportThreads,
+            ];
+
+        return {
+          ...prev,
+          supportThreads: updatedThreads,
+          directChats: {
+            ...prev.directChats,
+            admin_support: [...(prev.directChats.admin_support || []), msgObj],
+          },
+        };
+      });
+
+      setDirectChatInput('');
+      return;
+    }
 
     setState((prev) => ({
       ...prev,
@@ -1547,90 +1826,101 @@ export default function App() {
         ...prev.directChats,
         [sid]: [
           ...(prev.directChats[sid] || []),
-          { from: 'buyer', text, time: 'Just now' },
+          {
+            from: 'buyer',
+            senderName: prev.user.name,
+            text,
+            time: nowTime,
+          },
         ],
       },
     }));
     setDirectChatInput('');
   };
 
+  // =======================================================================
+  // PRIMARY ID VERIFICATION
+  // =======================================================================
   const openIdVerifyModal = () => {
+    if (!state.isAuthenticated) {
+      openAuthModal('login');
+      return;
+    }
     if (state.user.idType) setVerifyIdType(state.user.idType);
     setVerifyFullName(state.user.name);
     if (state.user.idNumber) setVerifyIdNumber(state.user.idNumber);
+    setVerifyIdPreview(state.user.idImageData || '');
+    setVerifySelfiePreview(state.user.selfieImageData || '');
     setIdVerifyOpen(true);
   };
 
-  const handleVerifyFilePreview = (
+  const handleVerifyFilePreview = async (
     e: React.ChangeEvent<HTMLInputElement>,
     kind: 'id' | 'selfie'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result;
-      if (typeof dataUrl === 'string') {
-        if (kind === 'id') {
-          setVerifyIdPreview(dataUrl);
-          setVerifyIdFileLabel(`Selected: ${file.name}`);
-          setState((prev) => ({
-            ...prev,
-            user: { ...prev.user, idImageData: dataUrl },
-          }));
-        } else {
-          setVerifySelfiePreview(dataUrl);
-          setVerifySelfieFileLabel(`Selected: ${file.name}`);
-          setState((prev) => ({
-            ...prev,
-            user: { ...prev.user, selfieImageData: dataUrl },
-          }));
-        }
-      }
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file, 600, 0.8);
+    if (!dataUrl) return;
+    if (kind === 'id') {
+      setVerifyIdPreview(dataUrl);
+      setVerifyIdFileLabel(`Selected: ${file.name}`);
+    } else {
+      setVerifySelfiePreview(dataUrl);
+      setVerifySelfieFileLabel(`Selected: ${file.name}`);
+    }
   };
 
   const submitIdVerification = (e: React.FormEvent) => {
     e.preventDefault();
+    const nextName = verifyFullName.trim() || state.user.name;
+    const nextIdNum = verifyIdNumber.trim();
+
     setState((prev) => ({
       ...prev,
       user: {
         ...prev.user,
         idType: verifyIdType,
-        name: verifyFullName.trim() || prev.user.name,
-        idNumber: verifyIdNumber.trim(),
+        name: nextName,
+        idNumber: nextIdNum,
+        idImageData: verifyIdPreview || prev.user.idImageData,
+        selfieImageData: verifySelfiePreview || prev.user.selfieImageData,
         verificationStatus: 'pending',
       },
+      registeredUsers: prev.registeredUsers.map((u) =>
+        u.id === prev.user.id
+          ? {
+              ...u,
+              name: nextName,
+              idType: verifyIdType,
+              idNumber: nextIdNum,
+              idImageData: verifyIdPreview || u.idImageData,
+              selfieImageData: verifySelfiePreview || u.selfieImageData,
+              verificationStatus: 'pending',
+            }
+          : u
+      ),
     }));
     setIdVerifyOpen(false);
-    showToast('Philippine Primary ID submitted for verification!');
+    showToast('Philippine Primary ID submitted to Admin Ops for verification!');
   };
 
   const openPerksModal = (kind: 'referral' | 'discounts' | 'vouchers') => {
     showToast(
       kind === 'referral'
-        ? 'Your Referral Code: UKAYO-MIKA (Earn 50 pts per invited miner!)'
+        ? 'Invite friends to UKAYO and earn 50 Referral Points per verified miner!'
         : kind === 'discounts'
-        ? '20% OFF Bale Drops applied automatically on orders ₱500+!'
-        : 'Voucher UKAYOFREESHIP claimed! Ready in My Bayong.'
+        ? 'Ukay Bale Discounts apply automatically at Bayong Checkout!'
+        : 'Check Platform Vouchers in My Bayong Checkout.'
     );
   };
 
   const openAppReleaseModal = () => {
-    showToast('UKAYO PWA ready! Tap "Add to Home Screen" on iOS or Android.');
+    showToast('UKAYO Mobile Web App ready! Tap "Add to Home Screen" on iOS or Android.');
   };
 
   const openAgoraModal = () => {
-    showToast('Agora.io WebRTC Live Engine ready for your App ID.');
-  };
-
-  const handleAccountLogout = () => {
-    const nextLoggedOut = !isLoggedOut;
-    setIsLoggedOut(nextLoggedOut);
-    if (nextLoggedOut) {
-      setState((prev) => ({ ...prev, role: 'buyer' }));
-    }
+    showToast('WebRTC Live Streaming Engine active.');
   };
 
   // Derived values
@@ -1639,33 +1929,27 @@ export default function App() {
     (sum, o) => sum + o.price * (o.quantity || 1),
     0
   );
-  const bayongTotalQty = bayongItems.reduce(
-    (sum, o) => sum + (o.quantity || 1),
-    0
-  );
+  const bayongTotalQty = bayongItems.reduce((sum, o) => sum + (o.quantity || 1), 0);
 
-  const isSellerAccount =
-    state.role === 'seller' || Boolean(state.user && state.user.isSeller);
-  const isSellerMode = state.role === 'seller';
+  const isSellerAccount = Boolean(state.isAuthenticated && state.user.isSeller);
+  const isSellerMode = isSellerAccount && state.role === 'seller';
 
-  const activeLiveSeller =
-    state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
-    state.sellers[0];
-  const activePinnedItem =
+  const activeLiveSeller: Seller | undefined =
+    state.sellers.find((s) => s.id === state.activeLiveSellerId) || state.sellers[0];
+
+  const activePinnedItem: LiveItem | undefined =
     state.liveItems.find((i) => i.id === state.activePinnedItemId) ||
-    state.liveItems.find((i) => i.sellerId === activeLiveSeller.id) ||
+    (activeLiveSeller
+      ? state.liveItems.find((i) => i.sellerId === activeLiveSeller.id)
+      : undefined) ||
     state.liveItems[0];
 
-  const activeStoreSeller =
+  const activeStoreSeller: Seller | undefined =
     state.sellers.find((s) => s.id === state.activeStoreId) || state.sellers[0];
-  const activeChatSeller =
-    state.sellers.find((s) => s.id === state.activeChatSellerId) ||
-    state.sellers[0];
 
   const filteredFeedPosts = state.feedPosts.filter((p) => {
     const catOk =
-      state.activeFeedCategory === 'ALL' ||
-      p.category === state.activeFeedCategory;
+      state.activeFeedCategory === 'ALL' || p.category === state.activeFeedCategory;
     const searchOk =
       !state.searchQuery ||
       p.caption.toLowerCase().includes(state.searchQuery) ||
@@ -1679,12 +1963,40 @@ export default function App() {
       ? state.minedOrders
       : state.minedOrders.filter((o) => o.stage === state.activePurchaseFilter);
 
-  const userNameParts = state.user.name.trim().split(' ');
-  const userInitials = isLoggedOut
+  const userNameParts = (state.user.name || 'Guest Miner').trim().split(' ');
+  const userInitials = !state.isAuthenticated
     ? 'GU'
-    : (
-        (userNameParts[0]?.[0] || 'M') + (userNameParts[1]?.[0] || 'S')
-      ).toUpperCase();
+    : ((userNameParts[0]?.[0] || 'U') + (userNameParts[1]?.[0] || 'K')).toUpperCase();
+
+  // Build vertical chat thread list (Customer Service + All Sellers)
+  const mySupportThread = state.supportThreads.find(
+    (t) => t.id === 'sup_' + (state.user.id || 'guest')
+  );
+  const supportMessages: DirectMessage[] = mySupportThread
+    ? mySupportThread.messages
+    : state.directChats.admin_support || [];
+
+  const chatContacts = [
+    {
+      id: 'admin_support',
+      name: 'UKAYO Customer Service',
+      badge: 'ADMIN HELP',
+      city: '24/7 Buyer & Seller Help Desk',
+      isSupport: true,
+      messages: supportMessages,
+    },
+    ...state.sellers.map((s) => ({
+      id: s.id,
+      name: s.name,
+      badge: s.isLive ? 'LIVE SELLER' : 'SELLER',
+      city: s.city,
+      isSupport: false,
+      messages: state.directChats[s.id] || [],
+    })),
+  ];
+
+  const activeChatContact =
+    chatContacts.find((c) => c.id === state.activeChatSellerId) || chatContacts[0];
 
   return (
     <div className="bg-[#F4F6F9] text-[#1E293B] antialiased selection:bg-[#10B981]/20 min-h-[100dvh]">
@@ -1723,7 +2035,7 @@ export default function App() {
             id="main-app-header"
             className="sticky top-0 z-30 bg-[#070D17] text-white px-3 py-2.5 border-b border-slate-800/80"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {/* Crisp High-Contrast UKAYO Hanger Wordmark */}
               <button
                 onClick={() => switchTab('home')}
@@ -1731,7 +2043,7 @@ export default function App() {
                 title="UKAYO Home"
               >
                 <svg
-                  className="w-[78px] h-10 text-white"
+                  className="w-[70px] h-9 text-white"
                   viewBox="0 0 800 450"
                   fill="none"
                   stroke="currentColor"
@@ -1766,10 +2078,19 @@ export default function App() {
                   id="global-search-input"
                   value={state.searchQuery}
                   onChange={(e) => handleGlobalSearch(e.target.value)}
-                  placeholder="Search vintage hoodies, bales..."
+                  placeholder="Search ukay items, bales..."
                   className="w-full text-xs bg-transparent focus:outline-none truncate"
                 />
               </div>
+
+              {/* Customer Service Icon (Connect Buyer & Seller with Admin for Help) */}
+              <button
+                onClick={openCustomerServiceChat}
+                className="relative p-1.5 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#070D17] shrink-0 cursor-pointer transition"
+                title="Customer Service — Chat with Admin for Help"
+              >
+                <Headset className="w-4 h-4" />
+              </button>
 
               {/* My Bayong Shortcut */}
               <button
@@ -1786,26 +2107,80 @@ export default function App() {
                 </span>
               </button>
 
-              {/* Direct Seller Chat Shortcut */}
+              {/* Direct Chat Shortcut */}
               <button
                 onClick={() => switchTab('chat')}
                 className="relative p-1.5 text-white hover:text-[#10B981] shrink-0 cursor-pointer"
-                title="Seller Chat"
+                title="Messages"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981]" />
               </button>
+
+              {/* Header Login / User Status Pill */}
+              {!state.isAuthenticated ? (
+                <button
+                  onClick={() => openAuthModal('login')}
+                  className="px-2.5 py-1 rounded-full bg-[#10B981] text-[#070D17] text-[10px] font-extrabold shrink-0 cursor-pointer"
+                >
+                  Log In
+                </button>
+              ) : (
+                <button
+                  onClick={() => switchTab('account')}
+                  className="w-7 h-7 rounded-full overflow-hidden border border-[#10B981] bg-[#111827] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0 cursor-pointer"
+                  title={state.user.name}
+                >
+                  {state.user.avatar ? (
+                    <img
+                      src={state.user.avatar}
+                      alt={state.user.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    userInitials
+                  )}
+                </button>
+              )}
             </div>
           </header>
         )}
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 pb-20">
-          {/* TAB 1: "HOME" (SHOPEE-STYLE SUPER APP DASHBOARD) */}
+          {/* TAB 1: "HOME" */}
           {state.activeTab === 'home' && (
             <section id="tab-home" className="space-y-3 pb-4">
-              <div className="bg-[#070D17] px-3.5 pt-1 pb-5 rounded-b-3xl">
-                {/* 5 Uniform Brand-Palette Quick-Shortcut Icons Flush Below Search Bar */}
+              <div className="bg-[#070D17] px-3.5 pt-1 pb-5 rounded-b-3xl space-y-2.5">
+                {/* Auth Welcome Banner if Not Logged In */}
+                {!state.isAuthenticated && (
+                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-extrabold text-white">
+                        Welcome to UKAYO Marketplace!
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        Register a Buyer account first, then apply as a Seller.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => openAuthModal('register')}
+                        className="px-2.5 py-1.5 rounded-xl bg-[#10B981] text-[#070D17] text-[10px] font-extrabold cursor-pointer"
+                      >
+                        Register
+                      </button>
+                      <button
+                        onClick={() => openAuthModal('login')}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/10 text-white text-[10px] font-bold cursor-pointer"
+                      >
+                        Log In
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5 Uniform Brand-Palette Quick-Shortcut Icons */}
                 <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-xs">
                   <div className="grid grid-cols-5 gap-1.5 text-center">
                     <button
@@ -1863,9 +2238,9 @@ export default function App() {
                       >
                         {isSellerAccount ? (
                           <>
-                            My Seller
+                            Seller
                             <br />
-                            Tindahan
+                            Center
                           </>
                         ) : (
                           <>
@@ -1878,16 +2253,16 @@ export default function App() {
                     </button>
 
                     <button
-                      onClick={openAppReleaseModal}
+                      onClick={openCustomerServiceChat}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
                       <div className="w-10 h-10 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-[#070D17] flex items-center justify-center group-active:scale-95 transition">
-                        <Smartphone className="w-5 h-5" />
+                        <Headset className="w-5 h-5 text-[#10B981]" />
                       </div>
                       <span className="text-[10px] font-semibold text-[#1E293B] leading-tight">
-                        Get
+                        Customer
                         <br />
-                        Mobile App
+                        Service
                       </span>
                     </button>
                   </div>
@@ -1907,36 +2282,46 @@ export default function App() {
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-                    <div
-                      id="home-live-previews"
-                      className="grid grid-cols-2 gap-1.5"
-                    >
-                      {state.sellers.slice(0, 2).map((s) => (
-                        <button
-                          key={s.id}
-                          onClick={() => openLiveRoomForSeller(s.id)}
-                          className="relative rounded-xl overflow-hidden aspect-[4/5] bg-[#111827] text-left group cursor-pointer"
-                        >
-                          <img
-                            src={s.liveStreamPreview}
-                            alt={s.name}
-                            className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-                          <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase">
-                            LIVE
-                          </span>
-                          <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                            <div className="text-[10px] font-bold text-white truncate">
-                              {s.name}
+                    {state.sellers.length === 0 ? (
+                      <div
+                        onClick={() => switchTab('mine')}
+                        className="rounded-xl bg-[#070D17] text-white p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
+                      >
+                        <Radio className="w-5 h-5 text-[#EF4444] mb-1" />
+                        <div className="text-[10px] font-extrabold">No Live Streams Yet</div>
+                        <div className="text-[9px] text-slate-400">
+                          Register as Seller to Go LIVE
+                        </div>
+                      </div>
+                    ) : (
+                      <div id="home-live-previews" className="grid grid-cols-2 gap-1.5">
+                        {state.sellers.slice(0, 2).map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => openLiveRoomForSeller(s.id)}
+                            className="relative rounded-xl overflow-hidden aspect-[4/5] bg-[#111827] text-left group cursor-pointer"
+                          >
+                            <img
+                              src={s.liveStreamPreview}
+                              alt={s.name}
+                              className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase">
+                              LIVE
+                            </span>
+                            <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                              <div className="text-[10px] font-bold text-white truncate">
+                                {s.name}
+                              </div>
+                              <div className="text-[8px] text-[#10B981] font-semibold truncate">
+                                {s.liveCategory}
+                              </div>
                             </div>
-                            <div className="text-[8px] text-[#10B981] font-semibold truncate">
-                              {s.liveCategory}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs space-y-2">
@@ -1949,40 +2334,50 @@ export default function App() {
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-                    <div
-                      id="home-feed-previews"
-                      className="grid grid-cols-2 gap-1.5"
-                    >
-                      {state.feedPosts.slice(0, 2).map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => switchTab('feed')}
-                          className="relative rounded-xl overflow-hidden aspect-[4/5] bg-slate-100 text-left group cursor-pointer"
-                        >
-                          <img
-                            src={p.image}
-                            alt={p.itemTitle}
-                            className="w-full h-full object-cover group-hover:scale-105 transition"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                          <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#070D17]/85 text-[#10B981] text-[8px] font-extrabold tabular-price">
-                            ₱{p.price}
-                          </span>
-                          <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                            <div className="text-[10px] font-bold text-white truncate">
-                              {p.itemTitle}
+                    {state.feedPosts.length === 0 ? (
+                      <div
+                        onClick={() => switchTab('feed')}
+                        className="rounded-xl bg-[#F4F6F9] border border-dashed border-[#CBD5E1] p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
+                      >
+                        <ImageIcon className="w-5 h-5 text-[#10B981] mb-1" />
+                        <div className="text-[10px] font-extrabold text-[#070D17]">
+                          No Feed Drops Yet
+                        </div>
+                        <div className="text-[9px] text-slate-500">Tap to post first item</div>
+                      </div>
+                    ) : (
+                      <div id="home-feed-previews" className="grid grid-cols-2 gap-1.5">
+                        {state.feedPosts.slice(0, 2).map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => switchTab('feed')}
+                            className="relative rounded-xl overflow-hidden aspect-[4/5] bg-slate-100 text-left group cursor-pointer"
+                          >
+                            <img
+                              src={p.image}
+                              alt={p.itemTitle}
+                              className="w-full h-full object-cover group-hover:scale-105 transition"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#070D17]/85 text-[#10B981] text-[8px] font-extrabold tabular-price">
+                              ₱{p.price}
+                            </span>
+                            <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                              <div className="text-[10px] font-bold text-white truncate">
+                                {p.itemTitle}
+                              </div>
+                              <div className="text-[8px] text-slate-300 truncate">
+                                {p.authorName}
+                              </div>
                             </div>
-                            <div className="text-[8px] text-slate-300 truncate">
-                              {p.authorName}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Ukay Paborito Picture-Icon Grid */}
+                {/* Ukay Paborito Picture-Icon Grid (Synced & Editable in Admin Center) */}
                 <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
                   <div className="flex items-center justify-between">
                     <h2 className="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">
@@ -1995,11 +2390,8 @@ export default function App() {
                       Browse All
                     </button>
                   </div>
-                  <div
-                    id="home-categories-grid"
-                    className="grid grid-cols-3 gap-2"
-                  >
-                    {UKAY_CATEGORIES.map((c) => (
+                  <div id="home-categories-grid" className="grid grid-cols-3 gap-2">
+                    {state.ukayPaborito.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => browseUkayCategory(c.id)}
@@ -2023,56 +2415,82 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 2: "UKAY FEED" (FACEBOOK-GROUP-STYLE COMMUNITY POSTING WALL) */}
+          {/* TAB 2: "UKAY FEED" */}
           {state.activeTab === 'feed' && (
             <section id="tab-feed" className="px-3.5 pt-3 space-y-3 pb-4">
               {/* Compact Live Stories Strip */}
-              <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
-                    Live Bales &amp; Active Tindahan
-                  </span>
-                  <button
-                    onClick={() => switchTab('mine')}
-                    className="text-[10px] font-bold text-[#EF4444] cursor-pointer"
-                  >
-                    Watch All Live →
-                  </button>
-                </div>
-                <div
-                  id="feed-stories-strip"
-                  className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-0.5"
-                >
-                  {state.sellers.map((s) => (
+              {state.sellers.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
+                      Live Bales &amp; Active Tindahan
+                    </span>
                     <button
-                      key={s.id}
-                      onClick={() => openLiveRoomForSeller(s.id)}
-                      className="flex flex-col items-center gap-1 shrink-0 cursor-pointer"
+                      onClick={() => switchTab('mine')}
+                      className="text-[10px] font-bold text-[#EF4444] cursor-pointer"
                     >
-                      <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#EF4444] to-[#F59E0B]">
-                        <div className="w-10 h-10 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center border-2 border-white">
-                          {s.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded bg-[#EF4444] text-white text-[7px] font-extrabold uppercase">
-                          LIVE
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-semibold text-[#1E293B] max-w-[64px] truncate">
-                        {s.name.split(' ')[0]}
-                      </span>
+                      Watch All Live →
                     </button>
-                  ))}
+                  </div>
+                  <div
+                    id="feed-stories-strip"
+                    className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-0.5"
+                  >
+                    {state.sellers.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => openLiveRoomForSeller(s.id)}
+                        className="flex flex-col items-center gap-1 shrink-0 cursor-pointer"
+                      >
+                        <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#EF4444] to-[#F59E0B]">
+                          <div className="w-10 h-10 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center border-2 border-white overflow-hidden">
+                            {s.avatar ? (
+                              <img
+                                src={s.avatar}
+                                alt={s.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              s.name.slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          {s.isLive && (
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded bg-[#EF4444] text-white text-[7px] font-extrabold uppercase">
+                              LIVE
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-[#1E293B] max-w-[64px] truncate">
+                          {s.name.split(' ')[0]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Facebook-Style Community Composer */}
+              {/* Community Feed Composer */}
               <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
-                    MS
+                  <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                    {state.user.avatar ? (
+                      <img
+                        src={state.user.avatar}
+                        alt={state.user.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      userInitials
+                    )}
                   </div>
                   <button
-                    onClick={() => setFeedComposerOpen(true)}
+                    onClick={() => {
+                      if (!state.isAuthenticated) {
+                        openAuthModal('login');
+                        return;
+                      }
+                      setFeedComposerOpen(true);
+                    }}
                     className="flex-1 text-left px-3.5 py-2 rounded-full bg-[#F4F6F9] hover:bg-slate-200/70 text-xs text-slate-500 font-medium cursor-pointer transition"
                   >
                     What&apos;s your ukay drop or looking-for today?
@@ -2080,18 +2498,30 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100 text-[11px] font-bold text-[#1E293B]">
                   <button
-                    onClick={() => setFeedComposerOpen(true)}
+                    onClick={() => {
+                      if (!state.isAuthenticated) {
+                        openAuthModal('login');
+                        return;
+                      }
+                      setFeedComposerOpen(true);
+                    }}
                     className="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ImageIcon className="w-3.5 h-3.5 text-[#10B981]" />
                     <span>Photo / Bale</span>
                   </button>
                   <button
-                    onClick={() => setFeedComposerOpen(true)}
+                    onClick={() => {
+                      if (!state.isAuthenticated) {
+                        openAuthModal('login');
+                        return;
+                      }
+                      setFeedComposerOpen(true);
+                    }}
                     className="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Tag className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    <span>Sell Item</span>
+                    <span>Post Item</span>
                   </button>
                   <button
                     onClick={() => switchTab('mine')}
@@ -2108,16 +2538,9 @@ export default function App() {
                 id="feed-category-bar"
                 className="flex items-center gap-1.5 overflow-x-auto no-scrollbar"
               >
-                {[
-                  'ALL',
-                  'Tops',
-                  'Jackets',
-                  'Denim',
-                  'Bags',
-                  'Shoes',
-                  'Bundle Bales',
-                ].map((c) => {
+                {['ALL', ...state.ukayPaborito.map((u) => u.id)].map((c) => {
                   const active = state.activeFeedCategory === c;
+                  const catObj = state.ukayPaborito.find((u) => u.id === c);
                   return (
                     <button
                       key={c}
@@ -2130,7 +2553,7 @@ export default function App() {
                           : 'bg-white text-[#1E293B] border border-[#E2E8F0]'
                       }`}
                     >
-                      {c === 'ALL' ? 'All Drops' : c}
+                      {c === 'ALL' ? 'All Drops' : catObj?.label || c}
                     </button>
                   );
                 })}
@@ -2138,134 +2561,156 @@ export default function App() {
 
               {/* Community Posts Feed */}
               <div id="feed-posts-list" className="space-y-3">
-                {filteredFeedPosts.map((post) => (
-                  <article
-                    key={post.id}
-                    className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs"
-                  >
-                    <div className="p-3 flex items-center justify-between gap-2">
-                      <button
-                        onClick={() => openSellerStore(post.sellerId)}
-                        className="flex items-center gap-2.5 text-left min-w-0 cursor-pointer group"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0">
-                          {post.authorName.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-[#070D17] group-hover:underline truncate">
-                            {post.authorName}
-                          </div>
-                          <div className="text-[10px] text-slate-400 truncate">
-                            {post.authorRole} • {post.timeAgo}
-                          </div>
-                        </div>
-                      </button>
-                      <span className="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] text-[9px] font-extrabold shrink-0">
-                        {post.condition}
-                      </span>
+                {filteredFeedPosts.length === 0 ? (
+                  <div className="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F4F6F9] text-[#070D17] flex items-center justify-center mx-auto">
+                      <ImageIcon className="w-6 h-6 text-[#10B981]" />
                     </div>
-
-                    <div className="px-3 pb-2.5 space-y-1.5">
-                      <p className="text-xs text-[#1E293B] leading-relaxed">
-                        {post.caption}
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {(post.tags || []).map((t, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] font-bold text-[#10B981]"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="relative bg-[#F4F6F9]">
-                      <img
-                        src={post.image}
-                        alt={post.itemTitle}
-                        className="w-full max-h-72 object-cover"
-                      />
-                      <div className="p-2.5 bg-[#070D17] text-white flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold truncate">
-                            {post.itemTitle}
-                          </div>
-                          <div className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                            ₱{post.price}
-                          </div>
-                        </div>
-                        {post.minedBy ? (
-                          <span className="px-3 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold shrink-0">
-                            Mined by {post.minedBy}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => claimFeedPost(post.id)}
-                            className="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shrink-0 cursor-pointer"
-                          >
-                            MINE NA!
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="px-3 py-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-slate-500">
-                      <button
-                        onClick={() => toggleLikePost(post.id)}
-                        className={`inline-flex items-center gap-1 font-bold ${
-                          post.liked ? 'text-[#EF4444]' : 'text-slate-600'
-                        } cursor-pointer`}
-                      >
-                        <Heart
-                          className={`w-3.5 h-3.5 ${
-                            post.liked ? 'fill-current' : ''
-                          }`}
-                        />
-                        <span>{post.likes} Likes</span>
-                      </button>
-                      <span>{post.comments.length} Comments</span>
-                    </div>
-
-                    <div className="px-3 pb-3 space-y-1.5 border-t border-slate-100 pt-2">
-                      {post.comments.map((c, idx) => (
-                        <div
-                          key={idx}
-                          className="bg-[#F4F6F9] rounded-xl px-2.5 py-1.5 text-[11px]"
-                        >
-                          <span className="font-extrabold text-[#070D17]">
-                            {c.user}:
-                          </span>{' '}
-                          <span className="text-[#1E293B]">{c.text}</span>
-                        </div>
-                      ))}
-                      <form
-                        onSubmit={(e) => addFeedComment(e, post.id)}
-                        className="flex items-center gap-1.5 pt-1"
-                      >
-                        <input
-                          type="text"
-                          value={feedCommentInputs[post.id] || ''}
-                          onChange={(e) =>
-                            setFeedCommentInputs((prev) => ({
-                              ...prev,
-                              [post.id]: e.target.value,
-                            }))
-                          }
-                          placeholder="Ask measurements or comment..."
-                          className="flex-1 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-[11px] focus:outline-none"
-                        />
+                    <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                      No Ukay Feed Posts Yet
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Be the first to share an ukay piece or bale drop in the community feed!
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (!state.isAuthenticated) openAuthModal('login');
+                        else setFeedComposerOpen(true);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+                    >
+                      + Create First Feed Post
+                    </button>
+                  </div>
+                ) : (
+                  filteredFeedPosts.map((post) => (
+                    <article
+                      key={post.id}
+                      className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs"
+                    >
+                      <div className="p-3 flex items-center justify-between gap-2">
                         <button
-                          type="submit"
-                          className="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer"
+                          onClick={() => openSellerStore(post.sellerId)}
+                          className="flex items-center gap-2.5 text-left min-w-0 cursor-pointer group"
                         >
-                          Post
+                          <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                            {post.authorAvatar ? (
+                              <img
+                                src={post.authorAvatar}
+                                alt={post.authorName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              post.authorName.slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-xs font-extrabold text-[#070D17] group-hover:underline truncate">
+                              {post.authorName}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {post.authorRole} • {post.timeAgo}
+                            </div>
+                          </div>
                         </button>
-                      </form>
-                    </div>
-                  </article>
-                ))}
+                        <span className="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] text-[9px] font-extrabold shrink-0">
+                          {post.condition}
+                        </span>
+                      </div>
+
+                      <div className="px-3 pb-2.5 space-y-1.5">
+                        <p className="text-xs text-[#1E293B] leading-relaxed">
+                          {post.caption}
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(post.tags || []).map((t, i) => (
+                            <span key={i} className="text-[10px] font-bold text-[#10B981]">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="relative bg-[#F4F6F9]">
+                        <img
+                          src={post.image}
+                          alt={post.itemTitle}
+                          className="w-full max-h-72 object-cover"
+                        />
+                        <div className="p-2.5 bg-[#070D17] text-white flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold truncate">{post.itemTitle}</div>
+                            <div className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
+                              ₱{post.price}
+                            </div>
+                          </div>
+                          {post.minedBy ? (
+                            <span className="px-3 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold shrink-0">
+                              Mined by {post.minedBy}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => claimFeedPost(post.id)}
+                              className="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shrink-0 cursor-pointer"
+                            >
+                              MINE NA!
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="px-3 py-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-slate-500">
+                        <button
+                          onClick={() => toggleLikePost(post.id)}
+                          className={`inline-flex items-center gap-1 font-bold ${
+                            post.liked ? 'text-[#EF4444]' : 'text-slate-600'
+                          } cursor-pointer`}
+                        >
+                          <Heart
+                            className={`w-3.5 h-3.5 ${post.liked ? 'fill-current' : ''}`}
+                          />
+                          <span>{post.likes} Likes</span>
+                        </button>
+                        <span>{post.comments.length} Comments</span>
+                      </div>
+
+                      <div className="px-3 pb-3 space-y-1.5 border-t border-slate-100 pt-2">
+                        {post.comments.map((c, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-[#F4F6F9] rounded-xl px-2.5 py-1.5 text-[11px]"
+                          >
+                            <span className="font-extrabold text-[#070D17]">{c.user}:</span>{' '}
+                            <span className="text-[#1E293B]">{c.text}</span>
+                          </div>
+                        ))}
+                        <form
+                          onSubmit={(e) => addFeedComment(e, post.id)}
+                          className="flex items-center gap-1.5 pt-1"
+                        >
+                          <input
+                            type="text"
+                            value={feedCommentInputs[post.id] || ''}
+                            onChange={(e) =>
+                              setFeedCommentInputs((prev) => ({
+                                ...prev,
+                                [post.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Ask measurements or comment..."
+                            className="flex-1 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-[11px] focus:outline-none"
+                          />
+                          <button
+                            type="submit"
+                            className="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer"
+                          >
+                            Post
+                          </button>
+                        </form>
+                      </div>
+                    </article>
+                  ))
+                )}
               </div>
             </section>
           )}
@@ -2280,14 +2725,16 @@ export default function App() {
               className="fixed inset-0 z-20 max-w-md mx-auto bg-[#070D17] text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
               {/* Video / Visual Backdrop */}
-              <img
-                id="live-fallback-bg"
-                src={activeLiveSeller.liveStreamPreview}
-                alt="Live Ukay Stream"
-                className={`absolute inset-0 w-full h-full object-cover opacity-80 ${
-                  isCameraStreaming ? 'hidden' : ''
-                }`}
-              />
+              {activeLiveSeller && (
+                <img
+                  id="live-fallback-bg"
+                  src={activeLiveSeller.liveStreamPreview}
+                  alt="Live Ukay Stream"
+                  className={`absolute inset-0 w-full h-full object-cover opacity-80 ${
+                    isCameraStreaming ? 'hidden' : ''
+                  }`}
+                />
+              )}
               <video
                 ref={videoRef}
                 id="live-camera-video"
@@ -2302,45 +2749,61 @@ export default function App() {
 
               {/* Top TikTok Live Overlay */}
               <div className="relative z-10 p-3 pt-3.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full pl-1.5 pr-2 py-1 border border-white/15 min-w-0">
-                  <button
-                    onClick={() => openSellerStore(state.activeLiveSellerId)}
-                    className="flex items-center gap-2 text-left min-w-0 cursor-pointer"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-[#F59E0B] text-[#070D17] font-display font-extrabold text-xs flex items-center justify-center shrink-0">
-                      {activeLiveSeller.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div
-                        id="live-host-name"
-                        className="text-[11px] font-extrabold text-white truncate"
-                      >
-                        {activeLiveSeller.name}
+                {activeLiveSeller ? (
+                  <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full pl-1.5 pr-2 py-1 border border-white/15 min-w-0">
+                    <button
+                      onClick={() => openSellerStore(activeLiveSeller.id)}
+                      className="flex items-center gap-2 text-left min-w-0 cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-[#F59E0B] text-[#070D17] font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                        {activeLiveSeller.avatar ? (
+                          <img
+                            src={activeLiveSeller.avatar}
+                            alt={activeLiveSeller.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          activeLiveSeller.name.slice(0, 2).toUpperCase()
+                        )}
                       </div>
-                      <div
-                        id="live-host-category"
-                        className="text-[9px] text-[#10B981] font-bold truncate"
-                      >
-                        {activeLiveSeller.liveTitle ||
-                          activeLiveSeller.liveCategory ||
-                          'Ukay Live'}
+                      <div className="min-w-0">
+                        <div
+                          id="live-host-name"
+                          className="text-[11px] font-extrabold text-white truncate"
+                        >
+                          {activeLiveSeller.name}
+                        </div>
+                        <div
+                          id="live-host-category"
+                          className="text-[9px] text-[#10B981] font-bold truncate"
+                        >
+                          {activeLiveSeller.liveTitle ||
+                            activeLiveSeller.liveCategory ||
+                            'Ukay Live'}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={toggleFollowCurrentLiveSeller}
-                    id="live-follow-btn"
-                    className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold shrink-0 cursor-pointer"
-                  >
-                    {activeLiveSeller.followed ? 'Following' : 'Follow'}
-                  </button>
-                </div>
+                    </button>
+                    <button
+                      onClick={toggleFollowCurrentLiveSeller}
+                      id="live-follow-btn"
+                      className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold shrink-0 cursor-pointer"
+                    >
+                      {activeLiveSeller.followed ? 'Following' : 'Follow'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-xs font-extrabold">
+                    UKAYO Live Studio
+                  </div>
+                )}
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
-                    <span>342</span>
-                  </div>
+                  {activeLiveSeller && (
+                    <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
+                      <span>LIVE</span>
+                    </div>
+                  )}
                   <button
                     onClick={() => switchTab('home')}
                     className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
@@ -2351,16 +2814,57 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Swipe-Up Related Live Indicator */}
-              <div className="relative z-10 flex justify-center">
-                <button
-                  onClick={switchToNextRelatedLive}
-                  className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-bold text-slate-200 inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <ChevronsUp className="w-3.5 h-3.5 text-[#10B981]" />
-                  <span>Swipe up for next related live</span>
-                </button>
-              </div>
+              {/* Center Empty State if No Seller is Live Yet */}
+              {!activeLiveSeller && !isCameraStreaming ? (
+                <div className="relative z-10 px-6 text-center space-y-3 my-auto">
+                  <div className="w-14 h-14 rounded-3xl bg-white/10 border border-white/15 flex items-center justify-center mx-auto text-[#EF4444]">
+                    <Radio className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-base font-display font-extrabold">
+                    No Active Live Streams Right Now
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {isSellerAccount
+                      ? 'Your seller account is ready! Tap below to configure your stream title, camera, and first pinned ukay item.'
+                      : 'Register as a Buyer and apply as an Ukayo Seller to launch your own Live Selling room!'}
+                  </p>
+                  <div className="flex flex-col gap-2 pt-1">
+                    {isSellerAccount ? (
+                      <button
+                        onClick={openLiveSetupModal}
+                        className="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                      >
+                        Start My Live Stream Now
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleBecomeSellerAction}
+                        className="w-full py-3 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                      >
+                        Register as Ukayo Seller
+                      </button>
+                    )}
+                    <button
+                      onClick={() => switchTab('feed')}
+                      className="w-full py-2.5 rounded-2xl bg-white/10 text-white text-xs font-bold cursor-pointer"
+                    >
+                      Browse Ukay Feed Instead
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                state.sellers.length > 1 && (
+                  <div className="relative z-10 flex justify-center">
+                    <button
+                      onClick={switchToNextRelatedLive}
+                      className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-bold text-slate-200 inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <ChevronsUp className="w-3.5 h-3.5 text-[#10B981]" />
+                      <span>Swipe up for next live room</span>
+                    </button>
+                  </div>
+                )
+              )}
 
               {/* Bottom TikTok Live HUD */}
               <div className="relative z-10 px-3 pb-20 space-y-2.5">
@@ -2400,9 +2904,7 @@ export default function App() {
                           {m.badge}
                         </span>
                         <p className="text-white leading-snug break-words">
-                          <span className="font-bold text-slate-200">
-                            {m.sender}:
-                          </span>{' '}
+                          <span className="font-bold text-slate-200">{m.sender}:</span>{' '}
                           {m.text}
                         </p>
                       </div>
@@ -2411,37 +2913,39 @@ export default function App() {
 
                   {/* Right Vertical Action Rail */}
                   <div className="flex flex-col items-center gap-2.5 shrink-0">
-                    <button
-                      onClick={toggleCameraLive}
-                      id="tiktok-cam-btn"
-                      className={`w-9 h-9 rounded-full ${
-                        isCameraStreaming ? 'bg-[#EF4444]' : 'bg-black/50'
-                      } backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer`}
-                      title="Go Live Camera"
-                    >
-                      <Video className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={flipLiveCamera}
-                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                      title="Flip Camera"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    {state.role === 'seller' && (
-                      <button
-                        onClick={openSellerDropModal}
-                        id="tiktok-seller-drop-btn"
-                        className="flex w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer"
-                        title="Seller Flash Drop"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                    {isSellerAccount && (
+                      <>
+                        <button
+                          onClick={toggleCameraLive}
+                          id="tiktok-cam-btn"
+                          className={`w-9 h-9 rounded-full ${
+                            isCameraStreaming ? 'bg-[#EF4444]' : 'bg-black/50'
+                          } backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer`}
+                          title="Go Live Camera"
+                        >
+                          <Video className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={flipLiveCamera}
+                          className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
+                          title="Flip Camera"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={openSellerDropModal}
+                          id="tiktok-seller-drop-btn"
+                          className="flex w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer"
+                          title="Pin New Live Item"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={openAgoraModal}
                       className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                      title="Agora Live Settings"
+                      title="Live Stream Info"
                     >
                       <Settings className="w-4 h-4" />
                     </button>
@@ -2456,7 +2960,7 @@ export default function App() {
                 </div>
 
                 {/* Pinned Item Card with Unique MINE NA! Button */}
-                {activePinnedItem && (
+                {activePinnedItem ? (
                   <div id="live-pinned-item-card">
                     <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-xl border border-white flex items-center gap-2.5">
                       <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 shrink-0">
@@ -2509,13 +3013,19 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                ) : (
+                  isSellerAccount && (
+                    <button
+                      onClick={openSellerDropModal}
+                      className="w-full py-2.5 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold cursor-pointer shadow-md"
+                    >
+                      + Pin First Item to Live Rack
+                    </button>
+                  )
                 )}
 
                 {/* Live Comment Input Bar */}
-                <form
-                  onSubmit={sendLiveChat}
-                  className="flex items-center gap-2"
-                >
+                <form onSubmit={sendLiveChat} className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => switchTab('bag')}
@@ -2557,7 +3067,7 @@ export default function App() {
                 <span className="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">
                   Nasa Tindahan
                 </span>
-                {state.role === 'seller' ? (
+                {isSellerAccount ? (
                   <button
                     onClick={openSellerDropModal}
                     id="store-add-product-btn"
@@ -2570,124 +3080,142 @@ export default function App() {
                 )}
               </div>
 
-              <div id="storefront-hero">
-                <div className="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-[#111827] border border-slate-700 text-[#F59E0B] font-display font-extrabold text-base flex items-center justify-center shrink-0">
-                        {activeStoreSeller.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h2 className="text-sm font-display font-extrabold truncate">
-                            {activeStoreSeller.name}
-                          </h2>
-                          {activeStoreSeller.isLive && (
-                            <span className="px-1.5 py-0.2 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase shrink-0">
-                              LIVE
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          {activeStoreSeller.city} • {activeStoreSeller.rating}{' '}
-                          ★ • {activeStoreSeller.followers.toLocaleString()}{' '}
-                          Followers
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => toggleFollowStore(activeStoreSeller.id)}
-                      className={`px-3.5 py-1.5 rounded-xl ${
-                        activeStoreSeller.followed
-                          ? 'bg-white/15 text-white'
-                          : 'bg-[#10B981] text-white'
-                      } text-xs font-extrabold shrink-0 cursor-pointer`}
-                    >
-                      {activeStoreSeller.followed ? 'Following' : 'Follow'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {activeStoreSeller.bio}
+              {!activeStoreSeller ? (
+                <div className="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
+                  <Store className="w-8 h-8 text-[#F59E0B] mx-auto" />
+                  <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                    No Active Seller Storefront Yet
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Register as a Seller to launch your own Nasa Tindahan storefront!
                   </p>
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => openLiveRoomForSeller(activeStoreSeller.id)}
-                      className="flex-1 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold cursor-pointer"
-                    >
-                      Watch Live Room
-                    </button>
-                    <button
-                      onClick={() =>
-                        openDirectChatWithSeller(activeStoreSeller.id)
-                      }
-                      className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold cursor-pointer"
-                    >
-                      Chat Seller
-                    </button>
-                  </div>
                 </div>
-              </div>
-
-              <div
-                id="storefront-products-grid"
-                className="grid grid-cols-2 gap-2.5"
-              >
-                {activeStoreSeller.products.map((prod) => (
-                  <div
-                    key={prod.id}
-                    className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col"
-                  >
-                    <button
-                      onClick={() =>
-                        claimStoreProduct(activeStoreSeller.id, prod.id)
-                      }
-                      className="relative aspect-square bg-[#F4F6F9] overflow-hidden cursor-pointer text-left"
-                    >
-                      <img
-                        src={prod.image}
-                        alt={prod.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <span
-                        className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-                          prod.status === 'Available'
-                            ? 'bg-[#10B981] text-white'
-                            : 'bg-[#F59E0B] text-[#070D17]'
-                        }`}
-                      >
-                        {prod.status}
-                      </span>
-                    </button>
-                    <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
-                      <div>
-                        <div className="text-xs font-bold text-[#070D17] line-clamp-2">
-                          {prod.title}
+              ) : (
+                <>
+                  <div id="storefront-hero">
+                    <div className="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-[#111827] border border-slate-700 text-[#F59E0B] font-display font-extrabold text-base flex items-center justify-center shrink-0 overflow-hidden">
+                            {activeStoreSeller.avatar ? (
+                              <img
+                                src={activeStoreSeller.avatar}
+                                alt={activeStoreSeller.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              activeStoreSeller.name.slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h2 className="text-sm font-display font-extrabold truncate">
+                                {activeStoreSeller.name}
+                              </h2>
+                              {activeStoreSeller.isLive && (
+                                <span className="px-1.5 py-0.2 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase shrink-0">
+                                  LIVE
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-400 truncate">
+                              {activeStoreSeller.city} • {activeStoreSeller.rating} ★ •{' '}
+                              {activeStoreSeller.followers.toLocaleString()} Followers
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {prod.size}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-1 pt-1">
-                        <span className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                          ₱{prod.price}
-                        </span>
                         <button
-                          onClick={() =>
-                            claimStoreProduct(activeStoreSeller.id, prod.id)
-                          }
-                          className="px-2.5 py-1 rounded-lg bg-[#070D17] hover:bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition"
+                          onClick={() => toggleFollowStore(activeStoreSeller.id)}
+                          className={`px-3.5 py-1.5 rounded-xl ${
+                            activeStoreSeller.followed
+                              ? 'bg-white/15 text-white'
+                              : 'bg-[#10B981] text-white'
+                          } text-xs font-extrabold shrink-0 cursor-pointer`}
                         >
-                          MINE NA!
+                          {activeStoreSeller.followed ? 'Following' : 'Follow'}
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {activeStoreSeller.bio}
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => openLiveRoomForSeller(activeStoreSeller.id)}
+                          className="flex-1 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold cursor-pointer"
+                        >
+                          Watch Live Room
+                        </button>
+                        <button
+                          onClick={() => openDirectChatWithSeller(activeStoreSeller.id)}
+                          className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold cursor-pointer"
+                        >
+                          Chat Seller
                         </button>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  {activeStoreSeller.products.length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">
+                      No items listed in this Tindahan rack yet.
+                    </div>
+                  ) : (
+                    <div id="storefront-products-grid" className="grid grid-cols-2 gap-2.5">
+                      {activeStoreSeller.products.map((prod) => (
+                        <div
+                          key={prod.id}
+                          className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col"
+                        >
+                          <button
+                            onClick={() => claimStoreProduct(activeStoreSeller.id, prod.id)}
+                            className="relative aspect-square bg-[#F4F6F9] overflow-hidden cursor-pointer text-left"
+                          >
+                            <img
+                              src={prod.image}
+                              alt={prod.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <span
+                              className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                                prod.status === 'Available'
+                                  ? 'bg-[#10B981] text-white'
+                                  : 'bg-[#F59E0B] text-[#070D17]'
+                              }`}
+                            >
+                              {prod.status}
+                            </span>
+                          </button>
+                          <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
+                            <div>
+                              <div className="text-xs font-bold text-[#070D17] line-clamp-2">
+                                {prod.title}
+                              </div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {prod.size}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-1 pt-1">
+                              <span className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
+                                ₱{prod.price}
+                              </span>
+                              <button
+                                onClick={() => claimStoreProduct(activeStoreSeller.id, prod.id)}
+                                className="px-2.5 py-1 rounded-lg bg-[#070D17] hover:bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition"
+                              >
+                                MINE NA!
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </section>
           )}
 
-          {/* TAB 5: "MY BAYONG" (CART, +/- QUANTITY, DELETE & CHECKOUT) */}
+          {/* TAB 5: "MY BAYONG" */}
           {state.activeTab === 'bag' && (
             <section id="tab-bag" className="px-3.5 pt-3 space-y-3 pb-24">
               <div className="flex items-center justify-between">
@@ -2717,14 +3245,13 @@ export default function App() {
                       Your Bayong is empty
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Tap <strong>MINE NA!</strong> in live streams or Ukay Feed
-                      to add items here.
+                      Tap <strong>MINE NA!</strong> in live streams or Ukay Feed to add items here.
                     </p>
                     <button
-                      onClick={() => switchTab('mine')}
+                      onClick={() => switchTab('feed')}
                       className="px-4 py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
                     >
-                      Go to Mine Na! Live
+                      Browse Ukay Feed
                     </button>
                   </div>
                 ) : (
@@ -2791,7 +3318,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Sticky Proceed to Checkout Bar */}
               {bayongItems.length > 0 && (
                 <div
                   id="bayong-checkout-bar"
@@ -2819,122 +3345,222 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 6: "CHAT" (DIRECT MESSAGING WITH SELLERS) */}
+          {/* TAB 6: "CHAT" (TWO-COLUMN LAYOUT: PREVIOUS MESSAGES VERTICAL ON LEFT, ACTIVE THREAD ON RIGHT) */}
           {state.activeTab === 'chat' && (
             <section id="tab-chat" className="px-3.5 pt-3 space-y-3 pb-4">
-              <div>
-                <h2 className="text-base font-display font-extrabold text-[#070D17]">
-                  Seller Messages
-                </h2>
-                <p className="text-[11px] text-slate-500">
-                  Coordinate shipping, measurements &amp; payment proofs
-                </p>
-              </div>
-
-              <div
-                id="chat-sellers-strip"
-                className="flex items-center gap-1.5 overflow-x-auto no-scrollbar"
-              >
-                {state.sellers.map((s) => {
-                  const active = s.id === activeChatSeller.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => openDirectChatWithSeller(s.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
-                        active
-                          ? 'bg-[#070D17] text-white'
-                          : 'bg-white text-[#1E293B] border border-[#E2E8F0]'
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col h-[58dvh]">
-                <div className="px-3.5 py-2.5 bg-[#070D17] text-white flex items-center justify-between">
-                  <span
-                    id="chat-active-seller-name"
-                    className="text-xs font-extrabold"
-                  >
-                    {activeChatSeller.name}
-                  </span>
-                  <span className="text-[10px] text-[#10B981] font-bold">
-                    ● Online
-                  </span>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-display font-extrabold text-[#070D17]">
+                    Messages &amp; Customer Service
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Previous chats arranged vertically on the left • Chat with Sellers or Admin Help
+                  </p>
                 </div>
-                <div
-                  ref={directChatBoxRef}
-                  id="chat-messages-box"
-                  className="flex-1 p-3 overflow-y-auto space-y-2 bg-[#F4F6F9]"
+                <button
+                  onClick={openCustomerServiceChat}
+                  className="px-2.5 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-1 shrink-0 cursor-pointer"
                 >
-                  {(state.directChats[activeChatSeller.id] || []).map(
-                    (m, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex ${
-                          m.from === 'buyer' ? 'justify-end' : 'justify-start'
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-xs ${
-                            m.from === 'buyer'
-                              ? 'bg-[#070D17] text-white rounded-br-xs'
-                              : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
+                  <Headset className="w-3.5 h-3.5" />
+                  <span>Admin Help</span>
+                </button>
+              </div>
+
+              {/* TWO-COLUMN SPLIT INBOX: VERTICAL PREVIOUS CHATS ON LEFT, THREAD ON RIGHT */}
+              <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs grid grid-cols-12 h-[65dvh]">
+                {/* Left Column: Vertical List of Previous Conversations */}
+                <div className="col-span-5 border-r border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
+                  <div className="px-2.5 py-2 bg-[#070D17] text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between">
+                    <span>Previous Chats</span>
+                    <span className="px-1.5 py-0.2 rounded bg-white/15 text-[9px]">
+                      {chatContacts.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto divide-y divide-[#E2E8F0]">
+                    {chatContacts.map((c) => {
+                      const isSelected = c.id === activeChatContact.id;
+                      const lastMsg = c.messages[c.messages.length - 1];
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => openDirectChatWithSeller(c.id)}
+                          className={`w-full p-2.5 text-left transition cursor-pointer block ${
+                            isSelected
+                              ? 'bg-white border-l-4 border-[#10B981]'
+                              : 'hover:bg-white/70'
                           }`}
                         >
-                          <p>{m.text}</p>
-                          <div className="text-[9px] opacity-60 mt-1 text-right">
-                            {m.time}
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[11px] font-extrabold text-[#070D17] truncate">
+                              {c.name}
+                            </span>
                           </div>
-                        </div>
-                      </div>
-                    )
-                  )}
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <span
+                              className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${
+                                c.isSupport
+                                  ? 'bg-[#F59E0B] text-[#070D17]'
+                                  : 'bg-[#10B981]/15 text-[#065F46]'
+                              }`}
+                            >
+                              {c.badge}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate mt-1">
+                            {lastMsg
+                              ? lastMsg.text
+                              : c.isSupport
+                              ? 'Tap to ask Admin for help...'
+                              : 'No messages yet'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <form
-                  onSubmit={sendDirectChatMessage}
-                  className="p-2.5 bg-white border-t border-[#E2E8F0] flex items-center gap-2"
-                >
-                  <input
-                    type="text"
-                    id="direct-chat-input"
-                    value={directChatInput}
-                    onChange={(e) => setDirectChatInput(e.target.value)}
-                    placeholder="Message seller..."
-                    className="flex-1 px-3.5 py-2 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-full bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+
+                {/* Right Column: Active Conversation Messages */}
+                <div className="col-span-7 flex flex-col overflow-hidden">
+                  <div className="px-3 py-2 bg-[#070D17] text-white flex items-center justify-between border-l border-slate-800">
+                    <div className="min-w-0">
+                      <div
+                        id="chat-active-seller-name"
+                        className="text-xs font-extrabold truncate"
+                      >
+                        {activeChatContact.name}
+                      </div>
+                      <div className="text-[9px] text-slate-300 truncate">
+                        {activeChatContact.city}
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-[#10B981] font-bold shrink-0">
+                      ● Online
+                    </span>
+                  </div>
+
+                  <div
+                    ref={directChatBoxRef}
+                    id="chat-messages-box"
+                    className="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4F6F9]"
                   >
-                    Send
-                  </button>
-                </form>
+                    {activeChatContact.messages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-3 text-slate-400 space-y-1">
+                        {activeChatContact.isSupport ? (
+                          <>
+                            <Headset className="w-6 h-6 text-[#F59E0B]" />
+                            <div className="text-xs font-bold text-[#070D17]">
+                              UKAYO Admin Customer Service
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Send a message below if you need help as a Buyer or Seller. Admin Ops will reply here!
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="w-6 h-6 text-slate-400" />
+                            <div className="text-xs font-bold text-[#070D17]">
+                              Start chatting with {activeChatContact.name}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      activeChatContact.messages.map((m, idx) => {
+                        const isMine = m.from === 'buyer' || (activeChatContact.isSupport && m.from !== 'admin');
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
+                                isMine
+                                  ? 'bg-[#070D17] text-white rounded-br-xs'
+                                  : m.from === 'admin'
+                                  ? 'bg-[#10B981]/15 border border-[#10B981] text-[#070D17] rounded-bl-xs'
+                                  : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
+                              }`}
+                            >
+                              {m.from === 'admin' && (
+                                <div className="text-[9px] font-extrabold uppercase text-[#065F46] mb-0.5">
+                                  UKAYO Admin Support
+                                </div>
+                              )}
+                              <p>{m.text}</p>
+                              <div className="text-[9px] opacity-60 mt-1 text-right">
+                                {m.time}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <form
+                    onSubmit={sendDirectChatMessage}
+                    className="p-2 bg-white border-t border-[#E2E8F0] flex items-center gap-1.5"
+                  >
+                    <input
+                      type="text"
+                      id="direct-chat-input"
+                      value={directChatInput}
+                      onChange={(e) => setDirectChatInput(e.target.value)}
+                      placeholder={
+                        activeChatContact.isSupport
+                          ? 'Ask Admin Customer Service for help...'
+                          : 'Message seller...'
+                      }
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-xs font-extrabold shrink-0 cursor-pointer"
+                    >
+                      Send
+                    </button>
+                  </form>
+                </div>
               </div>
             </section>
           )}
 
-          {/* TAB 7: "MY ACCOUNT" (PROFILE, SELLER MODE, PURCHASES & ID) */}
+          {/* TAB 7: "MY ACCOUNT" */}
           {state.activeTab === 'account' && (
-            <section
-              id="tab-account"
-              className="px-3.5 pt-3 space-y-3.5 pb-6"
-            >
-              {/* Profile Header Card */}
+            <section id="tab-account" className="px-3.5 pt-3 space-y-3.5 pb-6">
+              {/* Profile Header Card with Picture Upload */}
               <div className="bg-white rounded-3xl border border-[#E2E8F0] p-4 shadow-2xs">
                 <div className="flex items-center gap-3.5">
                   <div className="relative shrink-0">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-[#F59E0B] to-[#10B981] p-[2.5px]">
+                    <label
+                      className="block w-16 h-16 rounded-full bg-gradient-to-tr from-[#F59E0B] to-[#10B981] p-[2.5px] cursor-pointer group"
+                      title="Tap to upload buyer profile picture"
+                    >
                       <div
                         id="account-avatar-initials"
-                        className="w-full h-full rounded-full bg-[#070D17] text-white font-display font-extrabold text-lg flex items-center justify-center"
+                        className="w-full h-full rounded-full bg-[#070D17] text-white font-display font-extrabold text-lg flex items-center justify-center overflow-hidden relative"
                       >
-                        {userInitials}
+                        {state.user.avatar ? (
+                          <img
+                            src={state.user.avatar}
+                            alt={state.user.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          userInitials
+                        )}
+                        <span className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                          <Camera className="w-4 h-4 text-white" />
+                        </span>
                       </div>
-                    </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleProfileAvatarUpload(e, 'direct')}
+                        className="hidden"
+                      />
+                    </label>
                     <span
                       id="account-role-pill"
                       className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full ${
@@ -2943,59 +3569,100 @@ export default function App() {
                           : 'bg-[#F59E0B] text-[#070D17]'
                       } text-[8px] font-extrabold uppercase tracking-wider shadow-2xs`}
                     >
-                      {isSellerMode ? 'SELLER' : 'MINER'}
+                      {isSellerAccount ? 'SELLER' : 'MINER'}
                     </span>
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h3
-                      id="account-display-name"
-                      className="text-base font-display font-extrabold text-[#070D17] truncate"
-                    >
-                      {isLoggedOut
-                        ? 'Guest Miner'
-                        : `Hello, ${state.user.name.split(' ')[0]}!`}
-                    </h3>
-                    <p
-                      id="account-email-line"
-                      className="text-xs text-slate-500 truncate"
-                    >
-                      {isLoggedOut
-                        ? 'Signed out • Tap below to log back in'
-                        : state.user.email}
-                    </p>
-                    <button
-                      onClick={openIdVerifyModal}
-                      id="account-verified-badge"
-                      className={
-                        state.user.verificationStatus === 'verified' ||
-                        state.user.verificationStatus === 'pending'
-                          ? 'mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 text-[10px] font-bold cursor-pointer'
-                          : 'mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer'
-                      }
-                    >
-                      {state.user.verificationStatus === 'verified' ||
-                      state.user.verificationStatus === 'pending' ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>
-                            {state.user.verificationStatus === 'verified'
-                              ? 'Verified Primary ID'
-                              : 'Primary ID Submitted • Under Review'}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-3 h-3" />
-                          <span>Not Verified • Submit Primary ID</span>
-                        </>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3
+                        id="account-display-name"
+                        className="text-base font-display font-extrabold text-[#070D17] truncate"
+                      >
+                        {!state.isAuthenticated
+                          ? 'Guest Miner'
+                          : `Hello, ${state.user.name.split(' ')[0]}!`}
+                      </h3>
+                      {state.isAuthenticated && (
+                        <button
+                          onClick={openEditProfileModal}
+                          className="p-1.5 rounded-xl bg-[#F4F6F9] hover:bg-slate-200 text-[#070D17] text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          title="Edit Profile & Photo"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
+                    <p id="account-email-line" className="text-xs text-slate-500 truncate">
+                      {!state.isAuthenticated
+                        ? 'Not logged in • Register or sign in below'
+                        : `${state.user.email} • ${state.user.city}`}
+                    </p>
+
+                    {!state.isAuthenticated ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => openAuthModal('register')}
+                          className="px-3 py-1.5 rounded-xl bg-[#10B981] text-[#070D17] text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Register Buyer</span>
+                        </button>
+                        <button
+                          onClick={() => openAuthModal('login')}
+                          className="px-3 py-1.5 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <LogIn className="w-3.5 h-3.5" />
+                          <span>Log In</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <label className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer">
+                          <Camera className="w-3 h-3 text-[#F59E0B]" />
+                          <span>Upload Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleProfileAvatarUpload(e, 'direct')}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          onClick={openIdVerifyModal}
+                          id="account-verified-badge"
+                          className={
+                            state.user.verificationStatus === 'verified' ||
+                            state.user.verificationStatus === 'pending'
+                              ? 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 text-[10px] font-bold cursor-pointer'
+                              : 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer'
+                          }
+                        >
+                          {state.user.verificationStatus === 'verified' ||
+                          state.user.verificationStatus === 'pending' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>
+                                {state.user.verificationStatus === 'verified'
+                                  ? 'Verified ID'
+                                  : 'ID Pending'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Verify ID</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Become a Ukayo Seller / Active Seller Mode Switcher Card */}
+              {/* Become a Ukayo Seller Card (Directs to Seller Registration Page when Apply Now is clicked) */}
               <div className="rounded-2xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-4 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1 min-w-0">
@@ -3006,14 +3673,14 @@ export default function App() {
                       >
                         {isSellerAccount
                           ? state.user.shopName || 'Seller Mode Active'
-                          : 'Become a Ukayo Seller'}
+                          : 'Become an Ukayo Seller'}
                       </h3>
                       {isSellerAccount && (
                         <span
                           id="account-seller-status-badge"
                           className="px-2 py-0.5 rounded-full bg-[#10B981] text-white text-[9px] font-extrabold uppercase tracking-wider shrink-0"
                         >
-                          Active Shop
+                          Registered Seller
                         </span>
                       )}
                     </div>
@@ -3023,7 +3690,7 @@ export default function App() {
                     >
                       {isSellerAccount
                         ? 'Switch between shopping as a Miner or Live-Selling & Posting as a Seller.'
-                        : 'Apply to open your own Nasa Tindahan & go live on Mine Na!'}
+                        : 'Register your shop on the UKAYO Seller Registration Page to unlock Seller Center & Go Live!'}
                     </p>
                   </div>
                   <div className="w-11 h-11 rounded-2xl bg-white border border-[#E2E8F0] flex items-center justify-center text-[#070D17] shrink-0">
@@ -3034,11 +3701,12 @@ export default function App() {
                 {!isSellerAccount ? (
                   <div id="account-buyer-apply-actions">
                     <button
-                      onClick={handleBecomeSellerAction}
+                      onClick={goToSellerRegistrationPage}
                       id="account-seller-banner-btn"
-                      className="px-3.5 py-2 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-[11px] font-bold shadow-2xs cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
                     >
-                      Apply Now
+                      <span>Apply Now (Seller Registration)</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#F59E0B]" />
                     </button>
                   </div>
                 ) : (
@@ -3095,7 +3763,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* My Purchases Summary (To Pay, To Ship, To Receive, To Rate) */}
+              {/* My Purchases Summary */}
               <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-display font-extrabold text-[#070D17]">
@@ -3170,9 +3838,7 @@ export default function App() {
                           </span>
                         )}
                         <IconComp className="w-4 h-4" />
-                        <span className="text-[10px] font-bold">
-                          {st.label}
-                        </span>
+                        <span className="text-[10px] font-bold">{st.label}</span>
                       </button>
                     );
                   })}
@@ -3218,100 +3884,73 @@ export default function App() {
                               {o.title}
                             </div>
                             <div className="text-[10px] text-slate-500">
-                              Qty: {o.quantity || 1} • {o.courier} •{' '}
-                              {o.paymentMethod}
+                              Qty: {o.quantity || 1} • {o.courier} • {o.paymentMethod}
                             </div>
                             <div className="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">
                               ₱{(o.price * (o.quantity || 1)).toLocaleString()}
                             </div>
                           </div>
                         </div>
-
-                        {o.stage === 'TO_RECEIVE' && o.trackingEvents && (
-                          <div className="pt-2 border-t border-slate-200 space-y-2">
-                            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
-                              Live Parcel Timeline{' '}
-                              {o.trackingNumber ? `• ${o.trackingNumber}` : ''}
-                            </div>
-                            <div className="space-y-2 pl-2 border-l-2 border-[#10B981]">
-                              {o.trackingEvents.map((ev, idx) => (
-                                <div key={idx} className="relative pl-3">
-                                  <span
-                                    className={`absolute -left-[15px] top-1 w-2.5 h-2.5 rounded-full ${
-                                      ev.current
-                                        ? 'bg-[#10B981] ring-4 ring-[#10B981]/20'
-                                        : 'bg-slate-300'
-                                    }`}
-                                  />
-                                  <div className="text-[11px] font-bold text-[#070D17]">
-                                    {ev.title}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500">
-                                    {ev.desc}
-                                  </div>
-                                  <div className="text-[9px] text-slate-400">
-                                    {ev.time}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))
                   )}
                 </div>
               </div>
 
-              {/* Account Settings List */}
+              {/* Account Settings List (Seller Center Link STRICTLY Hidden Unless User is Registered as Seller) */}
               <div className="space-y-2">
                 <h3 className="text-xs font-display font-extrabold text-[#070D17] px-0.5">
                   Account Settings
                 </h3>
 
-                <button
-                  onClick={() => openSellerStore(state.user.ownSellerId)}
-                  className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
-                      <Store className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#070D17]">
-                        My Nasa Tindahan Shop
+                {/* ONLY REGISTERED SELLERS CAN SEE & ACCESS SELLER STOREFRONT & SELLER CENTER PORTAL */}
+                {isSellerAccount && (
+                  <>
+                    <button
+                      onClick={() => openSellerStore(state.user.ownSellerId)}
+                      className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
+                          <Store className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-[#070D17]">
+                            My Nasa Tindahan Shop
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            Manage your ukay listings &amp; live storefront
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        Manage your ukay listings &amp; live storefront
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openSellerCenterPortal}
+                      className="w-full bg-[#070D17] text-white rounded-2xl border border-[#070D17] p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#111827] transition cursor-pointer text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0">
+                          <LayoutDashboard className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-extrabold text-white">
+                            UKAYO Seller Center (Web Portal)
+                          </div>
+                          <div className="text-[10px] text-slate-300 truncate">
+                            Manage BIR docs, bulk rack, orders &amp; A6 waybills
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
+                      <ExternalLink className="w-4 h-4 text-[#F59E0B] shrink-0" />
+                    </button>
+                  </>
+                )}
 
                 <button
-                  type="button"
-                  onClick={openSellerCenterPortal}
-                  className="w-full bg-[#070D17] text-white rounded-2xl border border-[#070D17] p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#111827] transition cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0">
-                      <LayoutDashboard className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-white">
-                        UKAYO Seller Center (Web Portal)
-                      </div>
-                      <div className="text-[10px] text-slate-300 truncate">
-                        Manage BIR docs, bulk rack, orders &amp; A6 waybills
-                      </div>
-                    </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-[#F59E0B] shrink-0" />
-                </button>
-
-                <button
-                  onClick={openIdVerifyModal}
+                  onClick={openEditProfileModal}
                   className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -3320,10 +3959,10 @@ export default function App() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-[#070D17]">
-                        Personal Information
+                        Personal Information &amp; Profile Photo
                       </div>
                       <div className="text-[10px] text-slate-500 truncate">
-                        Manage your profile, city &amp; GCash/Maya details
+                        Upload profile picture, edit city, address &amp; contact
                       </div>
                     </div>
                   </div>
@@ -3352,62 +3991,87 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {state.user.verificationStatus !== 'verified' &&
-                      state.user.verificationStatus !== 'pending' && (
-                        <span
-                          id="settings-verify-dot"
-                          className="w-4 h-4 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center"
-                        >
-                          !
-                        </span>
-                      )}
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                 </button>
 
-                {/* Log Out Button */}
+                <button
+                  onClick={openCustomerServiceChat}
+                  className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
+                      <Headset className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[#070D17]">
+                        Customer Service (Connect with Admin)
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        Get live help from UKAYO Admin Ops for Buyer or Seller issues
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                </button>
+
+                {/* Log Out / Log In Button */}
                 <button
                   onClick={handleAccountLogout}
                   id="account-logout-btn"
-                  className="w-full bg-white rounded-2xl border border-[#EF4444]/30 p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#EF4444]/5 transition cursor-pointer text-left"
+                  className={`w-full bg-white rounded-2xl border ${
+                    state.isAuthenticated
+                      ? 'border-[#EF4444]/30 hover:bg-[#EF4444]/5'
+                      : 'border-[#10B981]/40 hover:bg-[#10B981]/5'
+                  } p-3 flex items-center justify-between gap-3 shadow-2xs transition cursor-pointer text-left`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0">
-                      <LogOut className="w-4 h-4" />
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                        state.isAuthenticated
+                          ? 'bg-[#EF4444]/10 text-[#EF4444]'
+                          : 'bg-[#10B981]/15 text-[#10B981]'
+                      }`}
+                    >
+                      {state.isAuthenticated ? (
+                        <LogOut className="w-4 h-4" />
+                      ) : (
+                        <LogIn className="w-4 h-4" />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div
-                        id="account-logout-title"
-                        className="text-xs font-extrabold text-[#EF4444]"
+                        id="account-logout-label"
+                        className={`text-xs font-bold ${
+                          state.isAuthenticated ? 'text-[#EF4444]' : 'text-[#10B981]'
+                        }`}
                       >
-                        {isLoggedOut
-                          ? 'Log Back In as Mika Santos'
-                          : 'Log Out'}
+                        {state.isAuthenticated ? 'Log Out' : 'Log In / Register Account'}
                       </div>
-                      <div
-                        id="account-logout-sub"
-                        className="text-[10px] text-slate-500 truncate"
-                      >
-                        {isLoggedOut
-                          ? 'Restore your saved bayong, orders & seller profile'
-                          : 'Sign out of your UKAYO buyer & seller session'}
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {state.isAuthenticated
+                          ? 'Sign out of your UKAYO account on this device'
+                          : 'Sign in with your Buyer or Seller account'}
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#EF4444] shrink-0" />
+                  <ChevronRight
+                    className={`w-4 h-4 shrink-0 ${
+                      state.isAuthenticated ? 'text-[#EF4444]' : 'text-[#10B981]'
+                    }`}
+                  />
                 </button>
               </div>
             </section>
           )}
         </main>
 
-        {/* DOCKED 5-TAB MOBILE BOTTOM NAVIGATION BAR */}
+        {/* DOCKED 5-TAB BOTTOM NAVIGATION BAR */}
         <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] px-2 pt-1.5 pb-safe">
           <div className="grid grid-cols-5 items-center text-center">
             <button
               onClick={() => switchTab('home')}
-              className={`bottom-nav-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              data-nav="home"
+              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
                 state.activeTab === 'home'
                   ? 'text-[#070D17] font-extrabold'
                   : 'text-slate-400 font-semibold'
@@ -3419,7 +4083,8 @@ export default function App() {
 
             <button
               onClick={() => switchTab('feed')}
-              className={`bottom-nav-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              data-nav="feed"
+              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
                 state.activeTab === 'feed'
                   ? 'text-[#070D17] font-extrabold'
                   : 'text-slate-400 font-semibold'
@@ -3429,23 +4094,26 @@ export default function App() {
               <span className="text-[10px]">Ukay Feed</span>
             </button>
 
+            {/* Center Elevated "Mine Na!" Live Tab */}
             <button
               onClick={() => switchTab('mine')}
-              className={`bottom-nav-btn flex flex-col items-center gap-0.5 py-0.5 cursor-pointer ${
+              data-nav="mine"
+              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-0.5 cursor-pointer ${
                 state.activeTab === 'mine'
                   ? 'text-[#070D17] font-extrabold'
                   : 'text-slate-400 font-semibold'
               }`}
             >
-              <div className="w-10 h-10 -mt-4 rounded-2xl bg-[#EF4444] text-white flex items-center justify-center shadow-md border-2 border-white">
-                <Radio className="w-5 h-5" />
+              <div className="w-10 h-10 -mt-4 rounded-2xl bg-[#070D17] text-white flex items-center justify-center shadow-md border-2 border-white">
+                <Radio className="w-5 h-5 text-[#10B981]" />
               </div>
               <span className="text-[10px]">Mine Na!</span>
             </button>
 
             <button
               onClick={() => switchTab('bag')}
-              className={`bottom-nav-btn relative flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              data-nav="bag"
+              className={`nav-tab-btn relative flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
                 state.activeTab === 'bag'
                   ? 'text-[#070D17] font-extrabold'
                   : 'text-slate-400 font-semibold'
@@ -3454,7 +4122,7 @@ export default function App() {
               {bayongTotalQty > 0 && (
                 <span
                   id="nav-bag-badge"
-                  className="absolute top-0.5 right-3 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center"
+                  className="absolute top-0.5 right-4 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center"
                 >
                   {bayongTotalQty}
                 </span>
@@ -3465,7 +4133,8 @@ export default function App() {
 
             <button
               onClick={() => switchTab('account')}
-              className={`bottom-nav-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              data-nav="account"
+              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
                 state.activeTab === 'account'
                   ? 'text-[#070D17] font-extrabold'
                   : 'text-slate-400 font-semibold'
@@ -3481,85 +4150,349 @@ export default function App() {
         {/* MODALS                                                              */}
         {/* =================================================================== */}
 
-        {/* Become Ukayo Seller Application Modal */}
-        {becomeSellerOpen && (
-          <div
-            id="become-seller-modal"
-            className="fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-3"
-          >
-            <form
-              onSubmit={submitSellerApplication}
-              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl"
-            >
+        {/* 1. BUYER LOGIN & REGISTRATION MODAL (WITH PROFILE PICTURE UPLOAD) */}
+        {authModalOpen && (
+          <div className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+            <div className="bg-white w-full rounded-3xl p-4 space-y-3.5 shadow-2xl max-h-[92dvh] overflow-y-auto">
               <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
                 <div>
                   <h3 className="text-sm font-display font-extrabold text-[#070D17]">
-                    Become a Ukayo Seller
+                    UKAYO Account Access
                   </h3>
                   <p className="text-[10px] text-slate-500">
-                    Activate your Nasa Tindahan &amp; go live on Mine Na!
+                    Sign in or register your Buyer account
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setBecomeSellerOpen(false)}
+                  onClick={() => setAuthModalOpen(false)}
                   className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('login')}
+                  className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                    authTab === 'login'
+                      ? 'bg-[#070D17] text-white'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('register')}
+                  className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer transition ${
+                    authTab === 'register'
+                      ? 'bg-[#10B981] text-[#070D17]'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  Register Buyer
+                </button>
+              </div>
+
+              {authTab === 'login' ? (
+                <form onSubmit={handleBuyerLogin} className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Email or Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      required
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+                  >
+                    Log In to UKAYO
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleBuyerRegister} className="space-y-2.5">
+                  <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                    <div className="w-12 h-12 rounded-full bg-[#070D17] text-white flex items-center justify-center overflow-hidden shrink-0">
+                      {regAvatar ? (
+                        <img
+                          src={regAvatar}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Camera className="w-5 h-5 text-[#10B981]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-extrabold text-[#070D17]">
+                        Buyer Profile Picture
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Upload a photo from your device
+                      </div>
+                    </div>
+                    <label className="px-2.5 py-1.5 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleProfileAvatarUpload(e, 'reg')}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="e.g. Juan Dela Cruz"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Mobile / GCash
+                      </label>
+                      <input
+                        type="text"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        placeholder="0917-XXX-XXXX"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        placeholder="you@email.com"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        placeholder="Create password"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        City / Province
+                      </label>
+                      <input
+                        type="text"
+                        value={regCity}
+                        onChange={(e) => setRegCity(e.target.value)}
+                        placeholder="e.g. Cebu City"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                        Delivery Address
+                      </label>
+                      <input
+                        type="text"
+                        value={regAddress}
+                        onChange={(e) => setRegAddress(e.target.value)}
+                        placeholder="Street / Barangay"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-[#070D17] text-xs font-extrabold cursor-pointer"
+                  >
+                    Create Buyer Account
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 2. EDIT BUYER PROFILE & PICTURE MODAL */}
+        {editProfileOpen && (
+          <div className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+            <form
+              onSubmit={saveBuyerProfile}
+              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                  Edit Buyer Profile &amp; Picture
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditProfileOpen(false)}
+                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                <div className="w-14 h-14 rounded-full bg-[#070D17] text-white flex items-center justify-center overflow-hidden shrink-0">
+                  {editAvatar ? (
+                    <img
+                      src={editAvatar}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-extrabold text-sm">{userInitials}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-extrabold text-[#070D17]">
+                    Profile Photo
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Upload a new picture for your buyer account
+                  </div>
+                </div>
+                <label className="px-3 py-1.5 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+                  Choose Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleProfileAvatarUpload(e, 'edit')}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Mobile / GCash
+                  </label>
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Tindahan / Shop Name
+                  Delivery Address
                 </label>
                 <input
                   type="text"
-                  id="apply-shop-name"
-                  value={applyShopName}
-                  onChange={(e) => setApplyShopName(e.target.value)}
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
                   required
                   className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    City / Location
-                  </label>
-                  <input
-                    type="text"
-                    id="apply-shop-city"
-                    value={applyShopCity}
-                    onChange={(e) => setApplyShopCity(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                    GCash / Maya Number
-                  </label>
-                  <input
-                    type="text"
-                    id="apply-shop-gcash"
-                    value={applyShopGcash}
-                    onChange={(e) => setApplyShopGcash(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
-                  />
-                </div>
-              </div>
+
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
               >
-                Activate My Seller Tindahan
+                Save Buyer Profile
               </button>
             </form>
           </div>
         )}
 
-        {/* Community Feed Composer Modal */}
+        {/* 3. COMMUNITY FEED COMPOSER MODAL (WITH PHOTO UPLOAD) */}
         {feedComposerOpen && (
           <div
             id="feed-composer-modal"
@@ -3567,7 +4500,7 @@ export default function App() {
           >
             <form
               onSubmit={submitNewFeedPost}
-              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl"
+              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
                 <h3 className="text-sm font-display font-extrabold text-[#070D17]">
@@ -3581,6 +4514,34 @@ export default function App() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Upload Item Photo
+                </label>
+                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] cursor-pointer">
+                  <span className="text-xs font-bold text-[#070D17]">
+                    {postImage ? '✓ Photo Attached' : 'Tap to upload ukay photo'}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">
+                    Choose Photo
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFeedPhotoUpload}
+                    className="hidden"
+                  />
+                </label>
+                {postImage && (
+                  <img
+                    src={postImage}
+                    alt="Feed Preview"
+                    className="w-full h-32 object-cover rounded-xl mt-2 border border-[#E2E8F0]"
+                  />
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
@@ -3611,24 +4572,40 @@ export default function App() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                  Category
-                </label>
-                <select
-                  id="post-item-category"
-                  value={postCategory}
-                  onChange={(e) => setPostCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
-                >
-                  <option value="Tops">Tops &amp; Tees</option>
-                  <option value="Jackets">Jackets &amp; Hoodies</option>
-                  <option value="Denim">Denim &amp; Pants</option>
-                  <option value="Bags">Bags &amp; Wallets</option>
-                  <option value="Shoes">Ukay Kicks</option>
-                  <option value="Bundle Bales">Bundle Bales</option>
-                </select>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Category
+                  </label>
+                  <select
+                    id="post-item-category"
+                    value={postCategory}
+                    onChange={(e) => setPostCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  >
+                    {state.ukayPaborito.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Condition
+                  </label>
+                  <input
+                    type="text"
+                    value={postCondition}
+                    onChange={(e) => setPostCondition(e.target.value)}
+                    placeholder="10/10 Like New"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
               </div>
+
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                   Caption &amp; Measurements
@@ -3647,13 +4624,138 @@ export default function App() {
                 type="submit"
                 className="w-full py-2.5 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
               >
-                Publish Post
+                Publish Post to Ukay Feed
               </button>
             </form>
           </div>
         )}
 
-        {/* My Bayong Checkout Modal (COD vs Bayad Agad + E-Wallet Selector) */}
+        {/* 4. SELLER FLASH DROP / PIN LIVE ITEM MODAL */}
+        {liveDropModalOpen && (
+          <div className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+            <form
+              onSubmit={submitLiveDropItem}
+              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                  Pin New Item to Live Stream
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setLiveDropModalOpen(false)}
+                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Item Photo
+                </label>
+                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] cursor-pointer">
+                  <span className="text-xs font-bold text-[#070D17]">
+                    {dropImage ? '✓ Photo Attached' : 'Upload item photo'}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">
+                    Choose File
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleDropImageUpload}
+                    className="hidden"
+                  />
+                </label>
+                {dropImage && (
+                  <img
+                    src={dropImage}
+                    alt="Drop Preview"
+                    className="w-full h-28 object-cover rounded-xl mt-2 border border-[#E2E8F0]"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Code
+                  </label>
+                  <input
+                    type="text"
+                    value={dropCode}
+                    onChange={(e) => setDropCode(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold uppercase"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Item Title
+                  </label>
+                  <input
+                    type="text"
+                    value={dropTitle}
+                    onChange={(e) => setDropTitle(e.target.value)}
+                    placeholder="e.g. Korean Fleece Hoodie"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Price (₱)
+                  </label>
+                  <input
+                    type="number"
+                    value={dropPrice}
+                    onChange={(e) => setDropPrice(e.target.value)}
+                    min="1"
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Size
+                  </label>
+                  <input
+                    type="text"
+                    value={dropSize}
+                    onChange={(e) => setDropSize(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                    Condition
+                  </label>
+                  <input
+                    type="text"
+                    value={dropCondition}
+                    onChange={(e) => setDropCondition(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
+              >
+                Pin Item to Live Stream
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* 5. MY BAYONG CHECKOUT MODAL */}
         {checkoutOpen && (
           <div
             id="checkout-modal"
@@ -3727,12 +4829,8 @@ export default function App() {
                       className="accent-[#070D17]"
                     />
                     <div>
-                      <div className="text-xs font-extrabold text-[#070D17]">
-                        COD
-                      </div>
-                      <div className="text-[9px] text-slate-500">
-                        Cash on Delivery
-                      </div>
+                      <div className="text-xs font-extrabold text-[#070D17]">COD</div>
+                      <div className="text-[9px] text-slate-500">Cash on Delivery</div>
                     </div>
                   </label>
                   <label className="p-2.5 rounded-xl border border-[#10B981]/40 bg-[#10B981]/10 flex items-center gap-2 cursor-pointer">
@@ -3755,53 +4853,17 @@ export default function App() {
                   </label>
                 </div>
 
-                {/* Bayad Agad E-Wallet Options Panel */}
                 {checkoutPayMethod === 'BAYAD_AGAD' && (
                   <div
                     id="bayad-agad-ewallet-box"
                     className="p-3 rounded-2xl bg-[#F4F6F9] border border-[#10B981]/40 space-y-2.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
-                        Select E-Wallet
-                      </span>
-                      <span className="text-[10px] font-bold text-[#10B981]">
-                        Instant Verification
-                      </span>
-                    </div>
-                    <div
-                      className="grid grid-cols-2 gap-1.5"
-                      id="ewallet-options-grid"
-                    >
+                    <div className="grid grid-cols-2 gap-1.5" id="ewallet-options-grid">
                       {[
-                        {
-                          name: 'GCash',
-                          label: 'GCash',
-                          sub: '0917-882-3310',
-                          badge: 'G',
-                          badgeCls: 'bg-[#070D17] text-white',
-                        },
-                        {
-                          name: 'Maya',
-                          label: 'Maya',
-                          sub: '0918-401-7721',
-                          badge: 'M',
-                          badgeCls: 'bg-[#10B981] text-white',
-                        },
-                        {
-                          name: 'GoTyme Bank',
-                          label: 'GoTyme',
-                          sub: 'Instant QRPH',
-                          badge: 'GT',
-                          badgeCls: 'bg-[#F59E0B] text-[#070D17]',
-                        },
-                        {
-                          name: 'ShopeePay',
-                          label: 'ShopeePay',
-                          sub: 'E-Wallet / QR',
-                          badge: 'SP',
-                          badgeCls: 'bg-[#EF4444] text-white',
-                        },
+                        { name: 'GCash', label: 'GCash', badge: 'G', badgeCls: 'bg-[#070D17] text-white' },
+                        { name: 'Maya', label: 'Maya', badge: 'M', badgeCls: 'bg-[#10B981] text-white' },
+                        { name: 'GoTyme Bank', label: 'GoTyme', badge: 'GT', badgeCls: 'bg-[#F59E0B] text-[#070D17]' },
+                        { name: 'ShopeePay', label: 'ShopeePay', badge: 'SP', badgeCls: 'bg-[#EF4444] text-white' },
                       ].map((w) => {
                         const isSelected = selectedEWallet === w.name;
                         return (
@@ -3809,10 +4871,8 @@ export default function App() {
                             key={w.name}
                             type="button"
                             onClick={() => setSelectedEWallet(w.name)}
-                            className={`ewallet-choice-btn p-2 rounded-xl ${
-                              isSelected
-                                ? 'border-2 border-[#070D17]'
-                                : 'border border-[#E2E8F0]'
+                            className={`p-2 rounded-xl ${
+                              isSelected ? 'border-2 border-[#070D17]' : 'border border-[#E2E8F0]'
                             } bg-white text-left flex items-center gap-2 cursor-pointer`}
                           >
                             <span
@@ -3820,13 +4880,8 @@ export default function App() {
                             >
                               {w.badge}
                             </span>
-                            <div className="min-w-0">
-                              <div className="text-xs font-extrabold text-[#070D17]">
-                                {w.label}
-                              </div>
-                              <div className="text-[9px] text-slate-500 truncate">
-                                {w.sub}
-                              </div>
+                            <div className="text-xs font-extrabold text-[#070D17]">
+                              {w.label}
                             </div>
                           </button>
                         );
@@ -3848,34 +4903,19 @@ export default function App() {
                     </div>
                   </div>
                 )}
-
-                <div
-                  id="checkout-payment-hint"
-                  className="p-2.5 rounded-xl bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[11px] text-[#1E293B] font-medium"
-                >
-                  {checkoutPayMethod === 'BAYAD_AGAD'
-                    ? `Pay instantly via ${selectedEWallet}. Your mined items will be marked Paid and queued for priority shipout.`
-                    : 'Prepare exact cash for the rider upon parcel delivery.'}
-                </div>
               </div>
 
               <div className="p-3 rounded-2xl bg-[#070D17] text-white flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-400">
-                    Total Amount (
-                    <span id="checkout-modal-count">{bayongTotalQty}</span>{' '}
-                    items)
+                    Total Amount ({bayongTotalQty} items)
                   </div>
-                  <div
-                    id="checkout-modal-total"
-                    className="text-base font-display font-extrabold text-[#10B981] tabular-price"
-                  >
+                  <div className="text-base font-display font-extrabold text-[#10B981] tabular-price">
                     ₱{bayongGrandTotal.toLocaleString()}
                   </div>
                 </div>
                 <button
                   type="submit"
-                  id="checkout-submit-btn"
                   className="px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer"
                 >
                   {checkoutPayMethod === 'BAYAD_AGAD'
@@ -3887,7 +4927,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TikTok-Style Pre-Live Setup Modal */}
+        {/* 6. TIKTOK-STYLE PRE-LIVE SETUP MODAL */}
         {liveSetupOpen && (
           <div
             id="live-setup-modal"
@@ -3918,13 +4958,14 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Cover Thumbnail + Live Title Card */}
               <div className="p-3 rounded-2xl bg-white/10 border border-white/10 flex items-center gap-3">
                 <label className="relative w-16 h-20 rounded-xl overflow-hidden bg-slate-800 border border-white/15 shrink-0 cursor-pointer group">
                   <img
                     id="live-setup-cover-preview"
                     src={
-                      pendingLiveCoverData || activeLiveSeller.liveStreamPreview
+                      pendingLiveCoverData ||
+                      activeLiveSeller?.liveStreamPreview ||
+                      'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80'
                     }
                     alt="Live Cover"
                     className="w-full h-full object-cover"
@@ -3948,7 +4989,7 @@ export default function App() {
                     id="live-setup-title"
                     value={liveSetupTitle}
                     onChange={(e) => setLiveSetupTitle(e.target.value)}
-                    placeholder="Add an engaging title to attract miners..."
+                    placeholder="Add an engaging title..."
                     required
                     className="w-full px-2.5 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-bold text-white placeholder-slate-400 focus:outline-none focus:border-[#10B981]"
                   />
@@ -3966,24 +5007,11 @@ export default function App() {
                     onChange={(e) => setLiveSetupCategory(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
-                    <option value="Jackets & Hoodies" className="text-[#070D17]">
-                      Jackets &amp; Hoodies
-                    </option>
-                    <option value="Tops & Tees" className="text-[#070D17]">
-                      Tops &amp; Tees
-                    </option>
-                    <option value="Denim & Pants" className="text-[#070D17]">
-                      Denim &amp; Pants
-                    </option>
-                    <option value="Bags & Wallets" className="text-[#070D17]">
-                      Bags &amp; Wallets
-                    </option>
-                    <option value="Ukay Kicks" className="text-[#070D17]">
-                      Ukay Kicks
-                    </option>
-                    <option value="Bundle Bales" className="text-[#070D17]">
-                      Bundle Bales
-                    </option>
+                    {state.ukayPaborito.map((c) => (
+                      <option key={c.id} value={c.label} className="text-[#070D17]">
+                        {c.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -3994,9 +5022,7 @@ export default function App() {
                     id="live-setup-camera"
                     value={liveSetupCamera}
                     onChange={(e) =>
-                      setLiveSetupCamera(
-                        e.target.value as 'environment' | 'user'
-                      )
+                      setLiveSetupCamera(e.target.value as 'environment' | 'user')
                     }
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
@@ -4021,15 +5047,21 @@ export default function App() {
                     onChange={(e) => setLiveSetupPinnedId(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
-                    {state.liveItems.map((item) => (
-                      <option
-                        key={item.id}
-                        value={item.id}
-                        className="text-[#070D17]"
-                      >
-                        {item.code} • {item.title} (₱{item.price})
+                    {state.liveItems.length === 0 ? (
+                      <option value="" className="text-[#070D17]">
+                        Add items in Live Room (+)
                       </option>
-                    ))}
+                    ) : (
+                      state.liveItems.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                          className="text-[#070D17]"
+                        >
+                          {item.code} • {item.title} (₱{item.price})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
                 <div>
@@ -4042,10 +5074,7 @@ export default function App() {
                     onChange={(e) => setLiveSetupTimer(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
-                    <option
-                      value="First Tap Locks (Instant)"
-                      className="text-[#070D17]"
-                    >
+                    <option value="First Tap Locks (Instant)" className="text-[#070D17]">
                       First Tap Locks (Instant)
                     </option>
                     <option value="15s Steal Window" className="text-[#070D17]">
@@ -4071,15 +5100,6 @@ export default function App() {
                 />
               </div>
 
-              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 text-[11px]">
-                <span className="font-bold text-[#10B981]">
-                  ✓ Zero Brand-Strike Safe-Harbor Active
-                </span>
-                <span className="text-slate-300 font-semibold">
-                  Notify Followers
-                </span>
-              </div>
-
               <button
                 type="submit"
                 className="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg cursor-pointer flex items-center justify-center gap-2"
@@ -4091,7 +5111,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Philippine Primary ID Identity Verification Modal */}
+        {/* 7. PHILIPPINE PRIMARY ID IDENTITY VERIFICATION MODAL */}
         {idVerifyOpen && (
           <div
             id="id-verify-modal"
@@ -4147,16 +5167,8 @@ export default function App() {
                   <option value="Unified Multi-Purpose ID (UMID)">
                     Unified Multi-Purpose ID (UMID)
                   </option>
-                  <option value="PRC Professional ID">
-                    PRC Professional ID
-                  </option>
-                  <option value="Postal ID (Digitized)">
-                    Postal ID (Digitized)
-                  </option>
-                  <option value="SSS / GSIS e-Card">SSS / GSIS e-Card</option>
-                  <option value="COMELEC Voter's ID">
-                    COMELEC Voter&apos;s ID
-                  </option>
+                  <option value="PRC Professional ID">PRC Professional ID</option>
+                  <option value="Postal ID (Digitized)">Postal ID (Digitized)</option>
                 </select>
               </div>
 
@@ -4170,7 +5182,6 @@ export default function App() {
                     id="verify-id-fullname"
                     value={verifyFullName}
                     onChange={(e) => setVerifyFullName(e.target.value)}
-                    placeholder="Mika Santos"
                     required
                     className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]"
                   />
@@ -4197,15 +5208,11 @@ export default function App() {
                 </label>
                 <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
                   <UploadCloud className="w-5 h-5 text-[#070D17] mb-1" />
-                  <span
-                    id="verify-id-file-label"
-                    className="text-[11px] font-bold text-[#070D17]"
-                  >
+                  <span className="text-[11px] font-bold text-[#070D17]">
                     {verifyIdFileLabel}
                   </span>
                   <input
                     type="file"
-                    id="verify-id-file"
                     accept="image/*"
                     onChange={(e) => handleVerifyFilePreview(e, 'id')}
                     className="hidden"
@@ -4213,7 +5220,6 @@ export default function App() {
                 </label>
                 {verifyIdPreview && (
                   <img
-                    id="verify-id-preview"
                     src={verifyIdPreview}
                     alt="Primary ID Preview"
                     className="w-full h-28 object-cover rounded-xl border border-[#E2E8F0]"
@@ -4227,15 +5233,11 @@ export default function App() {
                 </label>
                 <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
                   <Camera className="w-5 h-5 text-[#10B981] mb-1" />
-                  <span
-                    id="verify-selfie-file-label"
-                    className="text-[11px] font-bold text-[#070D17]"
-                  >
+                  <span className="text-[11px] font-bold text-[#070D17]">
                     {verifySelfieFileLabel}
                   </span>
                   <input
                     type="file"
-                    id="verify-selfie-file"
                     accept="image/*"
                     onChange={(e) => handleVerifyFilePreview(e, 'selfie')}
                     className="hidden"
@@ -4243,7 +5245,6 @@ export default function App() {
                 </label>
                 {verifySelfiePreview && (
                   <img
-                    id="verify-selfie-preview"
                     src={verifySelfiePreview}
                     alt="Selfie Preview"
                     className="w-full h-28 object-cover rounded-xl border border-[#E2E8F0]"
