@@ -48,6 +48,10 @@ import {
   Headset,
   Edit3,
 } from 'lucide-react';
+import {
+  startUkayoCloudSync,
+  normalizeAndMergeUkayoState,
+} from './firebase';
 
 export const STORAGE_KEY = 'ukayo_marketplace_state_v11';
 
@@ -329,7 +333,7 @@ export interface AppState {
   }[];
 }
 
-export function compressImageFile(file: File, maxWidth = 600, quality = 0.78): Promise<string> {
+export function compressImageFile(file: File, maxWidth = 320, quality = 0.65): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -430,26 +434,28 @@ interface FloatingHeart {
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
+    const def = getDefaultState();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        const def = getDefaultState();
-        return {
-          ...def,
+        return normalizeAndMergeUkayoState(def, {
           ...parsed,
           user: { ...def.user, ...(parsed.user || {}) },
           ukayPaborito:
             Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
               ? parsed.ukayPaborito
               : DEFAULT_UKAY_CATEGORIES,
-        };
+        });
       }
     } catch {
       // fallback
     }
-    return getDefaultState();
+    return def;
   });
+
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [hearts, setHearts] = useState<FloatingHeart[]>([]);
@@ -551,20 +557,51 @@ export default function App() {
   const liveChatBoxRef = useRef<HTMLDivElement | null>(null);
   const directChatBoxRef = useRef<HTMLDivElement | null>(null);
 
-  // Save state to localStorage & cross-tab sync
+  // Save state to localStorage & centralized Firestore real-time sync
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      let toSave = state;
+      const existingRaw = localStorage.getItem(STORAGE_KEY);
+      if (existingRaw) {
+        try {
+          const existingParsed = JSON.parse(existingRaw);
+          toSave = normalizeAndMergeUkayoState(state, existingParsed);
+        } catch {
+          // ignore
+        }
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
       const win = window as unknown as {
         ukayoCloudSyncPush?: (s: AppState) => void;
       };
       if (win.ukayoCloudSyncPush) {
-        win.ukayoCloudSyncPush(state);
+        win.ukayoCloudSyncPush(toSave);
       }
     } catch {
       // ignore storage errors
     }
   }, [state]);
+
+  // Connect to centralized Firebase Firestore (ukayo_sync/live_state)
+  useEffect(() => {
+    const unsubscribe = startUkayoCloudSync<AppState>(
+      STORAGE_KEY,
+      () => stateRef.current,
+      (merged) => {
+        const def = getDefaultState();
+        setState({
+          ...def,
+          ...merged,
+          user: { ...def.user, ...(merged.user || {}) },
+          ukayPaborito:
+            Array.isArray(merged.ukayPaborito) && merged.ukayPaborito.length > 0
+              ? merged.ukayPaborito
+              : DEFAULT_UKAY_CATEGORIES,
+        });
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -576,12 +613,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          const def = getDefaultState();
-          setState({
+    const syncFromLocalStorage = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const def = getDefaultState();
+        setState((prev) =>
+          normalizeAndMergeUkayoState(prev, {
             ...def,
             ...parsed,
             user: { ...def.user, ...(parsed.user || {}) },
@@ -589,14 +628,26 @@ export default function App() {
               Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
                 ? parsed.ukayPaborito
                 : DEFAULT_UKAY_CATEGORIES,
-          });
-        } catch {
-          // ignore
-        }
+          })
+        );
+      } catch {
+        // ignore
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        syncFromLocalStorage();
       }
     };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('focus', syncFromLocalStorage);
+    window.addEventListener('pageshow', syncFromLocalStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', syncFromLocalStorage);
+      window.removeEventListener('pageshow', syncFromLocalStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -879,14 +930,29 @@ export default function App() {
   // =======================================================================
   // SEARCH, SELLER REGISTRATION REDIRECT & PORTAL ACCESS RULES
   // =======================================================================
+  const persistMergedBeforeRedirect = () => {
+    try {
+      let merged = state;
+      const existingRaw = localStorage.getItem(STORAGE_KEY);
+      if (existingRaw) {
+        merged = normalizeAndMergeUkayoState(state, JSON.parse(existingRaw));
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const win = window as unknown as {
+        ukayoCloudSyncPush?: (s: AppState) => void;
+      };
+      if (win.ukayoCloudSyncPush) {
+        win.ukayoCloudSyncPush(merged);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handleGlobalSearch = (val: string) => {
     const q = val.trim().toLowerCase();
     if (q === '@admin' || q === '/admin' || q === 'jazran25') {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        // ignore
-      }
+      persistMergedBeforeRedirect();
       window.location.href = '/ukayo_admin_ops.html';
       return;
     }
@@ -946,11 +1012,7 @@ export default function App() {
       goToSellerRegistrationPage();
       return;
     }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore
-    }
+    persistMergedBeforeRedirect();
     window.location.href = '/ukayo_seller_center.html';
   };
 
@@ -961,11 +1023,7 @@ export default function App() {
       openAuthModal('register');
       return;
     }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore
-    }
+    persistMergedBeforeRedirect();
     window.location.href = '/ukayo_seller_center.html?mode=register';
   };
 

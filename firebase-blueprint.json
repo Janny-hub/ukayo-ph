@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "UkayoSyncDoc": {
+      "title": "UkayoSyncDoc",
+      "description": "Real-time synchronized ecosystem state shared across UKAYO Marketplace, UKAYO Seller Center, and UKAYO Admin Ops Command Center.",
+      "type": "object",
+      "properties": {
+        "payloadJson": {
+          "type": "string",
+          "description": "Serialized JSON state containing registeredUsers, kycApplications, sellers, liveItems, feedPosts, minedOrders, ukayPaborito, and supportThreads.",
+          "maxLength": 950000,
+          "minLength": 2
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of the latest sync push.",
+          "maxLength": 64,
+          "minLength": 10
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Identifier of the app that pushed the update (marketplace, seller_center, or admin_ops).",
+          "enum": ["marketplace", "seller_center", "admin_ops"],
+          "maxLength": 32,
+          "minLength": 5
+        }
+      },
+      "required": ["payloadJson", "updatedAt", "updatedBy"]
+    }
+  },
+  "firestore": {
+    "/ukayo_sync/{docId}": {
+      "schema": { "$ref": "#/entities/UkayoSyncDoc" },
+      "description": "Centralized real-time sync document (live_state) bridging Buyer Marketplace, Seller Center, and Admin Ops."
+    }
+  }
+}

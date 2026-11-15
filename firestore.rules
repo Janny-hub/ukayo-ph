@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUkayoSyncDoc(data) {
+      return data.keys().hasAll(['payloadJson', 'updatedAt', 'updatedBy'])
+        && data.keys().hasOnly(['payloadJson', 'updatedAt', 'updatedBy'])
+        && data.payloadJson is string
+        && data.payloadJson.size() >= 2
+        && data.payloadJson.size() <= 950000
+        && data.updatedAt is string
+        && data.updatedAt.size() >= 10
+        && data.updatedAt.size() <= 64
+        && data.updatedBy is string
+        && data.updatedBy.size() >= 5
+        && data.updatedBy.size() <= 32
+        && data.updatedBy in ['marketplace', 'seller_center', 'admin_ops'];
+    }
+
+    match /ukayo_sync/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if false;
+      allow create: if isValidId(docId) && isValidUkayoSyncDoc(incoming());
+      allow update: if isValidId(docId)
+        && isValidUkayoSyncDoc(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['payloadJson', 'updatedAt', 'updatedBy']);
+      allow delete: if false;
+    }
+  }
+}

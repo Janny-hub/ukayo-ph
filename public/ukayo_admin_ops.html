@@ -34,12 +34,13 @@
   </style>
   <script>
     window.UKAYO_FIREBASE_CONFIG = window.UKAYO_FIREBASE_CONFIG || {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+      apiKey: "AIzaSyAZ7LVjiNAcois_9CEiVnwHNsjgzUY5jlg",
+      authDomain: "gen-lang-client-0228719870.firebaseapp.com",
+      projectId: "gen-lang-client-0228719870",
+      storageBucket: "gen-lang-client-0228719870.firebasestorage.app",
+      messagingSenderId: "849489774174",
+      appId: "1:849489774174:web:05f08591d9d2c9554d16cf",
+      firestoreDatabaseId: "ai-studio-ukayoliveukaythr-7e542f44-9044-4b6c-a536-e368e0a76e63"
     };
   </script>
 </head>
@@ -841,27 +842,145 @@
       }, 2600);
     }
 
+    function normalizeEcosystemState(parsed) {
+      if (!parsed || typeof parsed !== 'object') return adminState.sharedApp;
+      const regUsers = Array.isArray(parsed.registeredUsers) ? [...parsed.registeredUsers] : [];
+      const sellers = Array.isArray(parsed.sellers) ? [...parsed.sellers] : [];
+      const kycApps = Array.isArray(parsed.kycApplications) ? [...parsed.kycApplications] : [];
+      const u = parsed.user || {};
+
+      // Backfill current logged-in user into registeredUsers if missing
+      if ((u.email || u.shopName) && (u.name || u.shopName)) {
+        const emailKey = (u.email || `${(u.shopName || 'seller').toLowerCase().replace(/[^a-z0-9]/g, '')}@ukayo.ph`).toLowerCase();
+        const existsIdx = regUsers.findIndex(r => (r.email || '').toLowerCase() === emailKey || (u.id && r.id === u.id));
+        const normalizedUser = {
+          id: u.id || 'usr_' + emailKey.replace(/[^a-z0-9]/g, ''),
+          name: u.name || u.shopName || 'Ukayo User',
+          email: emailKey,
+          password: u.password || 'ukayo123',
+          phone: u.phone || u.gcash || '',
+          city: u.city || u.address || 'Philippines',
+          address: u.address || u.city || 'Philippines',
+          avatar: u.avatar || '',
+          verified: Boolean(u.verified),
+          verificationStatus: u.verificationStatus || 'unverified',
+          idType: u.idType || '',
+          idNumber: u.idNumber || '',
+          isSeller: Boolean(u.isSeller || u.shopName),
+          sellerStatus: u.sellerStatus || (u.isSeller ? 'pending' : 'none'),
+          shopName: u.shopName || '',
+          gcash: u.gcash || u.phone || '',
+          ownSellerId: u.ownSellerId || (u.isSeller ? 'seller_' + (u.id || 'shop') : ''),
+          taxTier: u.taxTier || 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+          tin: u.tin || '',
+          accountStatus: 'active'
+        };
+        if (existsIdx >= 0) {
+          regUsers[existsIdx] = {
+            ...regUsers[existsIdx],
+            ...normalizedUser,
+            isSeller: Boolean(regUsers[existsIdx].isSeller || normalizedUser.isSeller),
+            shopName: normalizedUser.shopName || regUsers[existsIdx].shopName
+          };
+        } else {
+          regUsers.push(normalizedUser);
+        }
+      }
+
+      // Backfill sellers & kycApplications from registeredUsers with isSeller or shopName
+      regUsers.forEach(ru => {
+        if (ru.isSeller || ru.shopName) {
+          const shopName = ru.shopName || `${ru.name}'s Ukay Shop`;
+          const sellerId = ru.ownSellerId || `seller_${ru.id}`;
+          if (!sellers.some(s => s.id === sellerId || s.name === shopName)) {
+            sellers.unshift({
+              id: sellerId,
+              name: shopName,
+              handle: '@' + shopName.toLowerCase().replace(/[^a-z0-9]/g, ''),
+              city: ru.city || 'Philippines',
+              verified: ru.sellerStatus === 'approved',
+              rating: 5.0,
+              followers: 1,
+              isLive: true,
+              liveCategory: 'Jackets',
+              liveTitle: `${shopName} Live Ukay Drop!`,
+              avatar: ru.avatar || '',
+              liveStreamPreview: ru.avatar || 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80',
+              products: []
+            });
+          }
+          const kycId = `kyc_${sellerId}`;
+          if (!kycApps.some(k => k.id === kycId || k.shopName === shopName || k.userId === ru.id)) {
+            kycApps.unshift({
+              id: kycId,
+              userId: ru.id,
+              shopName: shopName,
+              ownerName: ru.name || shopName,
+              email: ru.email || '',
+              phone: ru.phone || ru.gcash || '',
+              city: ru.city || 'Philippines',
+              idType: ru.idType || 'Philippine National ID (PhilSys / ePhilID)',
+              idNumber: ru.idNumber || 'Submitted',
+              taxTier: ru.taxTier || 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+              tin: ru.tin || 'Starter Tier',
+              idPhoto: ru.idImageData || ru.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+              selfiePhoto: ru.selfieImageData || ru.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+              birPhotos: Array.isArray(ru.birImages) ? ru.birImages : [],
+              status: ru.sellerStatus === 'approved' ? 'approved' : 'pending',
+              submittedAt: 'Synced'
+            });
+          }
+        }
+      });
+
+      // Also ensure any seller in sellers[] has a matching kycApplications entry
+      sellers.forEach(s => {
+        if (!s || !s.name) return;
+        const kycId = `kyc_${s.id || s.name}`;
+        if (!kycApps.some(k => k.id === kycId || k.shopName === s.name)) {
+          kycApps.unshift({
+            id: kycId,
+            userId: s.id || 'seller',
+            shopName: s.name,
+            ownerName: s.name,
+            city: s.city || 'Philippines',
+            idType: 'Philippine National ID (PhilSys / ePhilID)',
+            idNumber: 'Submitted',
+            taxTier: 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+            tin: 'Starter Tier',
+            idPhoto: s.avatar || s.liveStreamPreview || '',
+            selfiePhoto: s.avatar || s.liveStreamPreview || '',
+            birPhotos: [],
+            status: s.verified ? 'approved' : 'pending',
+            submittedAt: 'Synced'
+          });
+        }
+      });
+
+      return {
+        ...adminState.sharedApp,
+        ...parsed,
+        ukayPaborito: Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length
+          ? parsed.ukayPaborito
+          : [...DEFAULT_UKAY_PABORITO],
+        registeredUsers: regUsers,
+        kycApplications: kycApps,
+        sellers: sellers,
+        liveItems: Array.isArray(parsed.liveItems) ? parsed.liveItems : [],
+        feedPosts: Array.isArray(parsed.feedPosts) ? parsed.feedPosts : [],
+        minedOrders: Array.isArray(parsed.minedOrders) ? parsed.minedOrders : [],
+        supportThreads: Array.isArray(parsed.supportThreads) ? parsed.supportThreads : [],
+        payoutRequests: Array.isArray(parsed.payoutRequests) ? parsed.payoutRequests : [],
+        platformVouchers: Array.isArray(parsed.platformVouchers) ? parsed.platformVouchers : []
+      };
+    }
+
     function syncFromEcosystem(notify = false) {
       try {
         const raw = localStorage.getItem(SHARED_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          adminState.sharedApp = {
-            ...adminState.sharedApp,
-            ...parsed,
-            ukayPaborito: Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length
-              ? parsed.ukayPaborito
-              : [...DEFAULT_UKAY_PABORITO],
-            registeredUsers: Array.isArray(parsed.registeredUsers) ? parsed.registeredUsers : [],
-            kycApplications: Array.isArray(parsed.kycApplications) ? parsed.kycApplications : [],
-            sellers: Array.isArray(parsed.sellers) ? parsed.sellers : [],
-            liveItems: Array.isArray(parsed.liveItems) ? parsed.liveItems : [],
-            feedPosts: Array.isArray(parsed.feedPosts) ? parsed.feedPosts : [],
-            minedOrders: Array.isArray(parsed.minedOrders) ? parsed.minedOrders : [],
-            supportThreads: Array.isArray(parsed.supportThreads) ? parsed.supportThreads : [],
-            payoutRequests: Array.isArray(parsed.payoutRequests) ? parsed.payoutRequests : [],
-            platformVouchers: Array.isArray(parsed.platformVouchers) ? parsed.platformVouchers : []
-          };
+          adminState.sharedApp = normalizeEcosystemState(parsed);
         }
       } catch (e) {}
 
@@ -1575,53 +1694,88 @@
     });
   </script>
 
-  <!-- Real-Time Cloud Bridge (Firestore Sync Across Devices) -->
+  <!-- Real-Time Cloud Bridge (Centralized Firestore Sync Across All 3 Apps) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ukayo-ph-ecosystem';
     const rawConfig = typeof __firebase_config !== 'undefined'
       ? JSON.parse(__firebase_config)
       : (window.UKAYO_FIREBASE_CONFIG || null);
 
+    function mergeByKey(baseList = [], incomingList = [], keyFn) {
+      const map = new Map();
+      baseList.forEach(item => {
+        if (!item) return;
+        const k = keyFn(item);
+        if (k) map.set(k, item);
+      });
+      incomingList.forEach(item => {
+        if (!item) return;
+        const k = keyFn(item);
+        if (!k) return;
+        const prev = map.get(k);
+        map.set(k, prev ? { ...prev, ...item, isSeller: Boolean(prev.isSeller || item.isSeller) } : item);
+      });
+      return Array.from(map.values());
+    }
+
     if (rawConfig && rawConfig.apiKey) {
-      (async () => {
-        try {
-          const app = initializeApp(rawConfig);
-          const auth = getAuth(app);
-          const db = getFirestore(app);
-          const cred = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
-            ? await signInWithCustomToken(auth, __initial_auth_token)
-            : await signInAnonymously(auth);
-          if (!cred.user) return;
+      try {
+        const app = initializeApp(rawConfig);
+        const db = rawConfig.firestoreDatabaseId
+          ? getFirestore(app, rawConfig.firestoreDatabaseId)
+          : getFirestore(app);
+        const docRef = doc(db, 'ukayo_sync', 'live_state');
+        let applyingRemote = false;
+        let lastPushedJson = '';
 
-          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ukayo_ecosystem', 'live_state');
-          let applyingRemote = false;
+        window.ukayoCloudSyncPush = async (nextSharedState) => {
+          if (applyingRemote) return;
+          try {
+            const normalized = normalizeEcosystemState(nextSharedState);
+            const payloadJson = JSON.stringify(normalized);
+            if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+            lastPushedJson = payloadJson;
+            await setDoc(docRef, {
+              payloadJson,
+              updatedAt: new Date().toISOString(),
+              updatedBy: 'admin_ops'
+            });
+          } catch (e) {
+            console.error('Admin Ops Firestore sync error:', e);
+          }
+        };
 
-          window.ukayoCloudSyncPush = async (nextSharedState) => {
-            if (applyingRemote) return;
-            try {
-              await setDoc(docRef, {
-                payloadJson: JSON.stringify(nextSharedState),
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-            } catch (e) {}
-          };
-
-          onSnapshot(docRef, (snap) => {
-            if (!snap.exists() || !snap.data().payloadJson) return;
-            applyingRemote = true;
-            try {
-              localStorage.setItem(SHARED_STORAGE_KEY, snap.data().payloadJson);
-              syncFromEcosystem(false);
-            } catch (e) {} finally {
-              applyingRemote = false;
-            }
-          }, () => {});
-        } catch (e) {}
-      })();
+        onSnapshot(docRef, (snap) => {
+          if (!snap.exists()) {
+            if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(adminState.sharedApp);
+            return;
+          }
+          const data = snap.data();
+          if (!data || !data.payloadJson || data.payloadJson === lastPushedJson) return;
+          applyingRemote = true;
+          try {
+            const remote = JSON.parse(data.payloadJson);
+            const local = adminState.sharedApp || {};
+            const combined = normalizeEcosystemState({
+              ...local,
+              ...remote,
+              registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
+              sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
+              kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
+              liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+              feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
+              minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
+            });
+            lastPushedJson = data.payloadJson;
+            localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(combined));
+            syncFromEcosystem(false);
+          } catch (e) {} finally {
+            setTimeout(() => { applyingRemote = false; }, 80);
+          }
+        }, () => {});
+      } catch (e) {}
     }
   </script>
 </body>

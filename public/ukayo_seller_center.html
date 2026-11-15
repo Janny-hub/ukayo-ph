@@ -41,12 +41,13 @@
   </style>
   <script>
     window.UKAYO_FIREBASE_CONFIG = window.UKAYO_FIREBASE_CONFIG || {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+      apiKey: "AIzaSyAZ7LVjiNAcois_9CEiVnwHNsjgzUY5jlg",
+      authDomain: "gen-lang-client-0228719870.firebaseapp.com",
+      projectId: "gen-lang-client-0228719870",
+      storageBucket: "gen-lang-client-0228719870.firebasestorage.app",
+      messagingSenderId: "849489774174",
+      appId: "1:849489774174:web:05f08591d9d2c9554d16cf",
+      firestoreDatabaseId: "ai-studio-ukayoliveukaythr-7e542f44-9044-4b6c-a536-e368e0a76e63"
     };
   </script>
 </head>
@@ -1187,7 +1188,7 @@
 
     let hostCamStream = null;
 
-    function compressDataUrl(file, maxW = 700, quality = 0.72) {
+    function compressDataUrl(file, maxW = 320, quality = 0.65) {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (ev) => {
@@ -1411,15 +1412,15 @@
       if (!Array.isArray(buyerApp.kycApplications)) buyerApp.kycApplications = [];
       if (!Array.isArray(buyerApp.minedOrders)) buyerApp.minedOrders = [];
 
-      if (scState.isOnboarded) {
-        if (!scState.userId) scState.userId = 'user_' + Date.now();
+      if (scState.isOnboarded || scState.shopName) {
+        if (!scState.userId) scState.userId = (buyerApp.user && buyerApp.user.id) || 'user_' + Date.now();
         if (!scState.ownSellerId) scState.ownSellerId = 'seller_' + scState.userId;
 
         const updatedUser = {
           ...(buyerApp.user || {}),
           id: scState.userId,
-          name: scState.ownerName || scState.shopName,
-          email: scState.email,
+          name: scState.ownerName || (buyerApp.user && buyerApp.user.name) || scState.shopName,
+          email: scState.email || (buyerApp.user && buyerApp.user.email) || `${(scState.shopName || 'seller').toLowerCase().replace(/[^a-z0-9]/g, '')}@ukayo.ph`,
           password: scState.password || (buyerApp.user && buyerApp.user.password) || 'seller123',
           phone: scState.gcash,
           address: scState.city,
@@ -1429,15 +1430,12 @@
           verificationStatus: scState.sellerStatus === 'approved' ? 'verified' : 'pending',
           idType: scState.idType,
           idNumber: scState.idNumber,
-          idImageData: scState.idImageData,
-          selfieImageData: scState.selfieImageData,
           isSeller: true,
           sellerStatus: scState.sellerStatus === 'approved' ? 'approved' : 'pending',
           shopName: scState.shopName,
           gcash: scState.gcash,
           taxTier: scState.taxTier,
           tin: scState.tin,
-          birImages: scState.birImages,
           ownSellerId: scState.ownSellerId
         };
 
@@ -1449,7 +1447,7 @@
           u => u.id === updatedUser.id || (u.email && u.email.toLowerCase() === (updatedUser.email || '').toLowerCase())
         );
         if (regIdx >= 0) {
-          buyerApp.registeredUsers[regIdx] = updatedUser;
+          buyerApp.registeredUsers[regIdx] = { ...buyerApp.registeredUsers[regIdx], ...updatedUser };
         } else {
           buyerApp.registeredUsers.push(updatedUser);
         }
@@ -1478,7 +1476,7 @@
           products: scState.products
         };
 
-        const sIdx = buyerApp.sellers.findIndex(s => s.id === scState.ownSellerId);
+        const sIdx = buyerApp.sellers.findIndex(s => s.id === scState.ownSellerId || s.name === scState.shopName);
         if (sIdx >= 0) {
           buyerApp.sellers[sIdx] = { ...buyerApp.sellers[sIdx], ...sellerObj, products: scState.products };
         } else {
@@ -1513,7 +1511,9 @@
           id: `kyc_${scState.ownSellerId}`,
           userId: scState.userId,
           shopName: scState.shopName,
-          ownerName: scState.ownerName || scState.shopName,
+          ownerName: scState.ownerName || updatedUser.name || scState.shopName,
+          email: updatedUser.email,
+          phone: scState.gcash,
           city: scState.city || 'Cebu City',
           idType: scState.idType,
           idNumber: scState.idNumber || 'Submitted',
@@ -1525,7 +1525,7 @@
           status: scState.sellerStatus === 'approved' ? 'approved' : 'pending',
           submittedAt: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
         };
-        const kIdx = buyerApp.kycApplications.findIndex(k => k.id === kycObj.id || k.userId === scState.userId);
+        const kIdx = buyerApp.kycApplications.findIndex(k => k.id === kycObj.id || k.userId === scState.userId || k.shopName === scState.shopName);
         if (kIdx >= 0) {
           buyerApp.kycApplications[kIdx] = { ...buyerApp.kycApplications[kIdx], ...kycObj };
         } else {
@@ -1724,6 +1724,7 @@
         scState.taxTier = document.getElementById('ob-tax-tier').value;
         scState.tin = document.getElementById('ob-tin-number').value.trim();
       }
+      pushUpdatesToSharedBuyerApp();
       goToOnboardingStep(nextStep);
     }
 
@@ -2985,54 +2986,90 @@
     });
   </script>
 
-  <!-- Real-Time Cloud Bridge (Firestore Sync Across Devices) -->
+  <!-- Real-Time Cloud Bridge (Centralized Firestore Sync Across All 3 Apps) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ukayo-ph-ecosystem';
     const rawConfig = typeof __firebase_config !== 'undefined'
       ? JSON.parse(__firebase_config)
       : (window.UKAYO_FIREBASE_CONFIG || null);
 
+    function mergeByKey(baseList = [], incomingList = [], keyFn) {
+      const map = new Map();
+      baseList.forEach(item => {
+        if (!item) return;
+        const k = keyFn(item);
+        if (k) map.set(k, item);
+      });
+      incomingList.forEach(item => {
+        if (!item) return;
+        const k = keyFn(item);
+        if (!k) return;
+        const prev = map.get(k);
+        map.set(k, prev ? { ...prev, ...item, isSeller: Boolean(prev.isSeller || item.isSeller) } : item);
+      });
+      return Array.from(map.values());
+    }
+
     if (rawConfig && rawConfig.apiKey) {
-      (async () => {
-        try {
-          const app = initializeApp(rawConfig);
-          const auth = getAuth(app);
-          const db = getFirestore(app);
-          const cred = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
-            ? await signInWithCustomToken(auth, __initial_auth_token)
-            : await signInAnonymously(auth);
-          if (!cred.user) return;
+      try {
+        const app = initializeApp(rawConfig);
+        const db = rawConfig.firestoreDatabaseId
+          ? getFirestore(app, rawConfig.firestoreDatabaseId)
+          : getFirestore(app);
+        const docRef = doc(db, 'ukayo_sync', 'live_state');
+        let applyingRemote = false;
+        let lastPushedJson = '';
 
-          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ukayo_ecosystem', 'live_state');
-          let applyingRemote = false;
+        window.ukayoCloudSyncPush = async (nextSharedState) => {
+          if (applyingRemote) return;
+          try {
+            const payloadJson = JSON.stringify(nextSharedState);
+            if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+            lastPushedJson = payloadJson;
+            await setDoc(docRef, {
+              payloadJson,
+              updatedAt: new Date().toISOString(),
+              updatedBy: 'seller_center'
+            });
+          } catch (e) {
+            console.error('Seller Center Firestore sync error:', e);
+          }
+        };
 
-          window.ukayoCloudSyncPush = async (nextSharedState) => {
-            if (applyingRemote) return;
-            try {
-              await setDoc(docRef, {
-                payloadJson: JSON.stringify(nextSharedState),
-                updatedAt: new Date().toISOString()
-              }, { merge: true });
-            } catch (e) {}
-          };
-
-          onSnapshot(docRef, (snap) => {
-            if (!snap.exists() || !snap.data().payloadJson) return;
-            applyingRemote = true;
-            try {
-              localStorage.setItem(SHARED_STORAGE_KEY, snap.data().payloadJson);
-              syncFromSharedBuyerApp();
-              renderAllSellerCenter();
-            } catch (e) {} finally {
-              applyingRemote = false;
-            }
-          }, () => {});
-        } catch (e) {}
-      })();
+        onSnapshot(docRef, (snap) => {
+          if (!snap.exists()) {
+            const current = getSharedAppState();
+            if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(current);
+            return;
+          }
+          const data = snap.data();
+          if (!data || !data.payloadJson || data.payloadJson === lastPushedJson) return;
+          applyingRemote = true;
+          try {
+            const remote = JSON.parse(data.payloadJson);
+            const local = getSharedAppState();
+            const merged = {
+              ...local,
+              ...remote,
+              user: local.user && local.user.email ? { ...(remote.user || {}), ...local.user } : (remote.user || local.user || {}),
+              registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
+              sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
+              kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
+              liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+              feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
+              minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
+            };
+            lastPushedJson = data.payloadJson;
+            localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(merged));
+            syncFromSharedBuyerApp();
+            renderAllSellerCenter();
+          } catch (e) {} finally {
+            setTimeout(() => { applyingRemote = false; }, 80);
+          }
+        }, () => {});
+      } catch (e) {}
     }
   </script>
 </body>
