@@ -1,5 +1,15 @@
 {
+  "framework": "vite",
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/seller", "destination": "/ukayo_seller_center.html" },
+    { "source": "/seller-center", "destination": "/ukayo_seller_center.html" },
+    { "source": "/admin", "destination": "/ukayo_admin_ops.html" },
+    { "source": "/admin-ops", "destination": "/ukayo_admin_ops.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
+
+

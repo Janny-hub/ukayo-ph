@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>UKAYO Seller Center — Live Selling &amp; Tindahan Hub</title>
+  <meta name="theme-color" content="#070D17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F4F6F9;
+      color: #1E293B;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+    .font-display {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      letter-spacing: -0.02em;
+    }
+    .tabular-price {
+      font-variant-numeric: tabular-nums;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .pb-safe {
+      padding-bottom: calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    }
+  </style>
+  <!-- Optional: Paste your Firebase Web Config below for cross-device live sync -->
+  <script>
+    window.UKAYO_FIREBASE_CONFIG = window.UKAYO_FIREBASE_CONFIG || {
+      apiKey: "",
+      authDomain: "",
+      projectId: "",
+      storageBucket: "",
+      messagingSenderId: "",
+      appId: ""
+    };
+  </script>
+</head>
+<body class="bg-[#F4F6F9] text-[#1E293B] antialiased selection:bg-[#10B981]/20">
+
+  <!-- Toast Banner -->
+  <div id="sc-toast-box" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm flex flex-col gap-1.5 pointer-events-none"></div>
+
+  <!-- Standalone UKAYO Seller Center Responsive Shell (Mobile / Laptop Toggleable) -->
+  <div id="sc-app-shell" class="max-w-md mx-auto min-h-[100dvh] bg-[#F4F6F9] flex flex-col relative shadow-sm transition-all duration-300">
+
+    <!-- =================================================================== -->
+    <!-- SELLER CENTER TOP HEADER (#070D17)                                  -->
+    <!-- =================================================================== -->
+    <header class="sticky top-0 z-30 bg-[#070D17] text-white px-3.5 py-2.5 border-b border-slate-800">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <!-- UKAYO Hanger Mark -->
+          <svg class="w-[62px] h-8 text-white shrink-0" viewBox="0 0 800 450" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="UKAYO Seller Center">
+            <g stroke-width="20">
+              <path d="M 378 82 C 378 52, 422 52, 422 82 C 422 102, 400 110, 400 128 L 400 142" />
+              <path d="M 400 142 L 155 178 C 132 182, 118 196, 112 218 L 78 345 C 72 368, 86 385, 110 385 L 690 385 C 714 385, 728 368, 722 345 L 688 218 C 682 196, 668 182, 645 178 Z" />
+            </g>
+            <g stroke-width="24" stroke-linecap="butt" stroke-linejoin="miter">
+              <path d="M 155 202 L 155 282 C 155 322, 225 322, 225 282 L 225 202" />
+              <path d="M 262 202 L 262 315" />
+              <path d="M 332 202 L 264 268" />
+              <path d="M 294 240 L 336 315" />
+              <path d="M 358 315 L 402 204 L 446 315" />
+              <path d="M 374 282 L 430 282" />
+              <path d="M 465 202 L 504 262" />
+              <path d="M 542 202 L 504 262 L 504 334 C 504 358, 468 358, 468 334 C 468 312, 492 302, 520 294 C 546 286, 560 272, 568 256" />
+              <circle cx="614" cy="258" r="54" />
+            </g>
+          </svg>
+          <div class="min-w-0">
+            <span class="px-2 py-0.5 rounded-md bg-[#F59E0B] text-[#070D17] text-[9px] font-extrabold uppercase tracking-wider">Seller Center</span>
+            <div id="sc-header-shop" class="text-[11px] font-bold text-slate-200 truncate mt-0.5">Mika's Ukay Closet</div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Mobile / Laptop Screen View Toggle -->
+          <div class="inline-flex items-center p-0.5 rounded-xl bg-white/10 border border-white/15" title="Switch Phone or Laptop Screen View">
+            <button type="button" id="sc-view-phone-btn" onclick="setScreenViewMode('phone')" class="px-2 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer transition">
+              <i data-lucide="smartphone" class="w-3 h-3"></i>
+              <span>Phone</span>
+            </button>
+            <button type="button" id="sc-view-laptop-btn" onclick="setScreenViewMode('laptop')" class="px-2 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition">
+              <i data-lucide="laptop" class="w-3 h-3"></i>
+              <span>Laptop</span>
+            </button>
+          </div>
+
+          <button onclick="switchSellerTab('chat')" class="relative p-2 rounded-xl bg-white/10 text-white hover:text-[#10B981] cursor-pointer" title="Buyer Messages">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#10B981]"></span>
+          </button>
+          <a href="/" class="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white inline-flex items-center gap-1" title="Open UKAYO Buyer App">
+            <span>Buyer App</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- =================================================================== -->
+    <!-- MAIN WORKSPACE                                                      -->
+    <!-- =================================================================== -->
+    <main class="flex-1 pb-24">
+
+      <!-- ================================================================= -->
+      <!-- STEP-BY-STEP SELLER APPLICATION WIZARD (SHOPEE & TIKTOK FLOW)      -->
+      <!-- ================================================================= -->
+      <section id="sc-onboarding-wizard" class="px-3.5 pt-3.5 space-y-3">
+        <!-- Onboarding Stepper Header -->
+        <div class="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold uppercase tracking-wider">
+              Seller Application
+            </span>
+            <span id="ob-step-counter" class="text-xs font-bold text-[#10B981]">Shop Info</span>
+          </div>
+
+          <!-- Clean Stepper Pills (No 1, 2, 3 Numbers) -->
+          <div class="grid grid-cols-3 gap-1.5">
+            <div id="ob-pill-1" class="p-2.5 rounded-xl bg-[#10B981] text-[#070D17] text-center">
+              <div class="text-[11px] font-extrabold">Shop Info</div>
+              <div class="text-[10px] font-semibold truncate">Tindahan &amp; Pickup</div>
+            </div>
+            <div id="ob-pill-2" class="p-2.5 rounded-xl bg-white/15 text-white text-center">
+              <div class="text-[11px] font-extrabold">ID &amp; BIR</div>
+              <div class="text-[10px] font-medium text-slate-200 truncate">Documents &amp; TIN</div>
+            </div>
+            <div id="ob-pill-3" class="p-2.5 rounded-xl bg-white/15 text-white text-center">
+              <div class="text-[11px] font-extrabold">Payout</div>
+              <div class="text-[10px] font-medium text-slate-200 truncate">GCash / Maya</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SHOP INFORMATION & PICKUP ADDRESS -->
+        <form id="ob-step-1" onsubmit="nextOnboardingStep(event, 2)" class="bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
+          <div class="border-b border-[#E2E8F0] pb-2">
+            <h2 class="text-sm font-display font-extrabold text-[#070D17]">Shop Information &amp; Pickup Address</h2>
+            <p class="text-xs text-[#334155]">Set up how buyers see your tindahan and where couriers pick up parcels.</p>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Tindahan / Shop Name</label>
+            <input type="text" id="ob-shop-name" value="Mika's Ukay Closet" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Seller Type</label>
+              <select id="ob-seller-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+                <option value="Individual / Home Ukay Seller">Individual / Home Seller</option>
+                <option value="Sole Proprietorship (DTI)">Sole Proprietorship (DTI)</option>
+                <option value="Bale Supplier / Warehouse">Bale Supplier / Warehouse</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Primary Ukay Niche</label>
+              <select id="ob-shop-niche" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+                <option value="Jackets & Hoodies">Jackets &amp; Hoodies</option>
+                <option value="Tops & Tees">Tops &amp; Tees</option>
+                <option value="Denim & Pants">Denim &amp; Pants</option>
+                <option value="Bags & Wallets">Bags &amp; Wallets</option>
+                <option value="Bundle Bales">Bundle Bales</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Pickup Address (J&amp;T / Lalamove / Maxim)</label>
+            <input type="text" id="ob-pickup-address" value="Lahug, Cebu City, Central Visayas" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Contact Mobile</label>
+              <input type="text" id="ob-contact-phone" value="0917-555-0192" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Email Address</label>
+              <input type="email" id="ob-contact-email" value="mika.santos@ukayo.ph" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
+            Next Step
+          </button>
+        </form>
+
+        <!-- IDENTITY & SINGLE-REGISTRATION BIR / DTI COMPLIANCE -->
+        <form id="ob-step-2" onsubmit="nextOnboardingStep(event, 3)" class="hidden bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
+          <div class="border-b border-[#E2E8F0] pb-2">
+            <h2 class="text-sm font-display font-extrabold text-[#070D17]">Identity &amp; BIR Compliance</h2>
+            <p class="text-xs text-[#334155]">Already registered on Shopee or TikTok? Reuse your existing DTI &amp; BIR Form 2303—no double BIR registration required.</p>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Philippine Primary Government ID</label>
+            <select id="ob-primary-id-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+              <option value="Philippine National ID (PhilSys / ePhilID)">Philippine National ID (PhilSys / ePhilID)</option>
+              <option value="LTO Driver's License">LTO Driver's License</option>
+              <option value="Philippine Passport (DFA)">Philippine Passport (DFA)</option>
+              <option value="Unified Multi-Purpose ID (UMID)">Unified Multi-Purpose ID (UMID)</option>
+              <option value="PRC Professional ID">PRC Professional ID</option>
+              <option value="Postal ID (Digitized)">Postal ID (Digitized)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Registered Full Name</label>
+              <input type="text" id="ob-owner-name" value="Mika Santos" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">ID Number</label>
+              <input type="text" id="ob-id-number" placeholder="e.g. 4829-1042-8812" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+          </div>
+
+          <!-- Upload Primary ID Photo -->
+          <div>
+            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Upload Primary ID Photo</label>
+            <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F8FAFC] hover:border-[#070D17] cursor-pointer">
+              <span id="ob-id-file-text" class="text-xs font-bold text-[#070D17] truncate">Tap to attach Primary ID (JPG/PNG)</span>
+              <span class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold shrink-0">Choose File</span>
+              <input type="file" accept="image/*" onchange="handleObFileChange(event, 'ob-id-file-text')" class="hidden" />
+            </label>
+          </div>
+
+          <!-- Single-Registration BIR Tier + Up to 3 BIR Photos + BIR Number -->
+          <div class="p-3 rounded-2xl bg-[#F8FAFC] border border-[#CBD5E1] space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-extrabold uppercase text-[#070D17]">BIR Tax &amp; DTI Documents</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/20 text-[#065F46] text-[10px] font-extrabold">1 BIR COR for All Apps</span>
+            </div>
+            <select id="ob-tax-tier" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+              <option value="Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)">Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)</option>
+              <option value="Verified Merchant (Existing BIR Form 2303 COR)">Verified Merchant (Existing BIR Form 2303 COR)</option>
+            </select>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">BIR Number / TIN (Form 2303)</label>
+              <input type="text" id="ob-tin-number" placeholder="e.g. 123-456-789-000" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Upload BIR Photos (Up to 3 Photos: COR / DTI / Sworn Dec.)</label>
+              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-white hover:border-[#070D17] cursor-pointer">
+                <span id="ob-bir-files-text" class="text-xs font-bold text-[#070D17] truncate">Tap to select up to 3 BIR photos</span>
+                <span class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold shrink-0">Add Photos (0/3)</span>
+                <input type="file" id="ob-bir-files-input" accept="image/*" multiple onchange="handleBirPhotosUpload(event)" class="hidden" />
+              </label>
+              <div id="ob-bir-previews" class="hidden grid grid-cols-3 gap-2 pt-2"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="goToOnboardingStep(1)" class="px-4 py-3 rounded-xl bg-[#E2E8F0] text-[#070D17] text-xs font-extrabold cursor-pointer">
+              Back
+            </button>
+            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
+              Next Step
+            </button>
+          </div>
+        </form>
+
+        <!-- PAYOUT E-WALLET SETUP -->
+        <form id="ob-step-3" onsubmit="completeSellerOnboarding(event)" class="hidden bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
+          <div class="border-b border-[#E2E8F0] pb-2">
+            <h2 class="text-sm font-display font-extrabold text-[#070D17]">Payout Wallet Setup</h2>
+            <p class="text-xs text-[#334155]">Connect your payout wallet for Bayad Agad &amp; COD remittances.</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Payout Channel</label>
+              <select id="ob-payout-channel" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+                <option value="GCash">GCash Instant Payout</option>
+                <option value="Maya">Maya Wallet</option>
+                <option value="GoTyme Bank">GoTyme Bank</option>
+                <option value="BPI / BDO">BPI / BDO Bank</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Account / Mobile No.</label>
+              <input type="text" id="ob-payout-account" value="0917-555-0192" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            </div>
+          </div>
+
+          <label class="flex items-start gap-2 text-xs font-medium text-[#1E293B] cursor-pointer">
+            <input type="checkbox" required checked class="mt-0.5 accent-[#10B981]" />
+            <span>I confirm all listed items are authentic secondhand/ukay pieces and agree to UKAYO Seller Terms.</span>
+          </label>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="goToOnboardingStep(2)" class="px-4 py-3 rounded-xl bg-[#E2E8F0] text-[#070D17] text-xs font-extrabold cursor-pointer">
+              Back
+            </button>
+            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm cursor-pointer">
+              Submit Application
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: HOME DASHBOARD (SHOPEE + TIKTOK SELLER ANALYTICS & TO-DO)  -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-home" class="hidden space-y-3">
+        <!-- Dark Navy Hero Metrics & To-Do Strip -->
+        <div class="bg-[#070D17] text-white px-3.5 pt-2 pb-5 rounded-b-3xl space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[10px] text-slate-400 font-semibold">Today's Live &amp; Shop GMV</div>
+              <div id="sc-kpi-gmv" class="text-2xl font-display font-extrabold text-[#10B981] tabular-price">₱0</div>
+            </div>
+            <button onclick="switchSellerTab('live')" class="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-sm cursor-pointer">
+              <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+              <span>Go LIVE Studio</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-2xl bg-white/10 border border-white/10">
+              <div class="text-[9px] text-slate-300">Mined Orders</div>
+              <div id="sc-kpi-orders" class="text-sm font-display font-extrabold text-white tabular-price mt-0.5">0</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-white/10 border border-white/10">
+              <div class="text-[9px] text-slate-300">Shop Followers</div>
+              <div id="sc-kpi-followers" class="text-sm font-display font-extrabold text-[#F59E0B] tabular-price mt-0.5">2,480</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-white/10 border border-white/10">
+              <div class="text-[9px] text-slate-300">Shop Rating</div>
+              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">4.9 ★</div>
+            </div>
+          </div>
+
+          <!-- Shopee Seller Center To-Do Card -->
+          <div class="bg-white text-[#070D17] rounded-2xl p-3 shadow-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#070D17]">To-Do List</span>
+              <span class="text-[10px] text-slate-400 font-semibold">Tap to fulfill</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1 text-center">
+              <button onclick="openOrdersWithFilter('TO_PAY')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div id="todo-unpaid" class="text-base font-display font-extrabold text-[#F59E0B] tabular-price">0</div>
+                <div class="text-[9px] font-bold text-slate-500">Unpaid Mine</div>
+              </button>
+              <button onclick="openOrdersWithFilter('TO_SHIP')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div id="todo-toship" class="text-base font-display font-extrabold text-[#EF4444] tabular-price">0</div>
+                <div class="text-[9px] font-bold text-slate-500">To Ship</div>
+              </button>
+              <button onclick="openOrdersWithFilter('TO_RECEIVE')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div id="todo-shipping" class="text-base font-display font-extrabold text-[#10B981] tabular-price">0</div>
+                <div class="text-[9px] font-bold text-slate-500">Shipping</div>
+              </button>
+              <button onclick="switchSellerTab('products')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div id="todo-rack" class="text-base font-display font-extrabold text-[#070D17] tabular-price">0</div>
+                <div class="text-[9px] font-bold text-slate-500">Active Rack</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seller Center Core Tools Grid -->
+        <div class="px-3.5 space-y-3">
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+            <h2 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Seller Operations</h2>
+            <div class="grid grid-cols-5 gap-1.5 text-center">
+              <button onclick="switchSellerTab('products')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#070D17] text-[#10B981] flex items-center justify-center">
+                  <i data-lucide="shirt" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-bold text-[#070D17] leading-tight">My<br/>Products</span>
+              </button>
+
+              <button onclick="switchSellerTab('orders')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#10B981]/15 text-[#10B981] flex items-center justify-center">
+                  <i data-lucide="package-check" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-bold text-[#070D17] leading-tight">My<br/>Orders</span>
+              </button>
+
+              <button onclick="switchSellerTab('finance')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] flex items-center justify-center">
+                  <i data-lucide="calculator" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Payout<br/>Calc</span>
+              </button>
+
+              <button onclick="switchSellerTab('shop')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center">
+                  <i data-lucide="ticket" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Vouchers<br/>&amp; BIR</span>
+              </button>
+
+              <button onclick="openSellerPolicyModal()" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-[#070D17] flex items-center justify-center">
+                  <i data-lucide="book-open" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Seller<br/>Policy</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Account Health & Zero Brand-Strike Protection -->
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-display font-extrabold text-[#070D17]">Account Health &amp; Ukay Protection</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[10px] font-extrabold">200 / 200 Excellent</span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              Authentic secondhand &amp; bale items are protected from automated counterfeit bans. Keep ship-out rate above 95% to unlock Featured Live placement.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: MY PRODUCTS & UKAY RACK                                    -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-products" class="hidden px-3.5 pt-3 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">My Products &amp; Rack</h2>
+            <p class="text-[11px] text-slate-500">Add ukay pieces or pin items straight to LIVE Studio</p>
+          </div>
+          <button onclick="openAddProductModal()" class="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-2xs cursor-pointer">
+            + Add Item
+          </button>
+        </div>
+
+        <div id="sc-products-list" class="space-y-2.5"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: TIKTOK-STYLE LIVE STUDIO (HOST CONTROL ROOM)               -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-live" class="hidden px-3.5 pt-3 space-y-3">
+        <!-- Live Camera Preview Stage -->
+        <div class="relative rounded-3xl overflow-hidden bg-[#070D17] text-white aspect-[4/3] border border-slate-800 shadow-md">
+          <img id="sc-live-preview-img" src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80" alt="Live Stream Stage" class="w-full h-full object-cover opacity-75" />
+          <video id="sc-live-video" autoplay playsinline muted class="hidden w-full h-full object-cover"></video>
+          <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/55"></div>
+
+          <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <span id="sc-live-status-pill" class="px-2.5 py-1 rounded-full bg-[#070D17]/80 border border-white/15 text-[10px] font-extrabold uppercase tracking-wider">
+              ● Studio Standby
+            </span>
+            <span class="px-2.5 py-1 rounded-full bg-black/60 text-[10px] font-bold">
+              342 Miners Watching
+            </span>
+          </div>
+
+          <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="text-[10px] text-[#10B981] font-extrabold uppercase">Currently Pinned Card</div>
+              <div id="sc-active-pinned-title" class="text-xs font-extrabold truncate">Vintage 90s Colorblock Windbreaker (₱280)</div>
+            </div>
+            <button onclick="toggleHostCamera()" id="sc-toggle-cam-btn" class="px-3.5 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold shrink-0 cursor-pointer shadow-sm">
+              Start Camera
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Flash Drop Creator -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Live Rack Queue &amp; Flash Drops</h3>
+            <button onclick="openAddProductModal()" class="text-[11px] font-bold text-[#10B981] cursor-pointer">+ New Flash Drop</button>
+          </div>
+          <div id="sc-live-queue-list" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: MY ORDERS (SHOPEE-STYLE FULFILLMENT & WAYBILL)             -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-orders" class="hidden px-3.5 pt-3 space-y-3">
+        <div>
+          <h2 class="text-base font-display font-extrabold text-[#070D17]">Order Management</h2>
+          <p class="text-[11px] text-slate-500">Remind unpaid miners, print waybills &amp; update parcel tracking</p>
+        </div>
+
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <button onclick="setOrdersFilter('ALL')" data-ord-filter="ALL" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-extrabold bg-[#070D17] text-white shrink-0 cursor-pointer">All</button>
+          <button onclick="setOrdersFilter('TO_PAY')" data-ord-filter="TO_PAY" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Unpaid Mine</button>
+          <button onclick="setOrdersFilter('TO_SHIP')" data-ord-filter="TO_SHIP" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">To Ship</button>
+          <button onclick="setOrdersFilter('TO_RECEIVE')" data-ord-filter="TO_RECEIVE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Shipping</button>
+          <button onclick="setOrdersFilter('WAYBILLS')" data-ord-filter="WAYBILLS" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Waybills (A6)</button>
+          <button onclick="setOrdersFilter('TO_RATE')" data-ord-filter="TO_RATE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Completed</button>
+        </div>
+
+        <div id="sc-orders-list" class="space-y-2.5"></div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 5: MY FINANCE (PLATFORM MONEY SUMMARY, FUND RELEASE & CALC)   -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-finance" class="hidden px-3.5 pt-3 space-y-3">
+        <!-- Hero Available Balance & Quick Release Trigger -->
+        <div class="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <div class="text-[10px] font-bold uppercase text-slate-400">Available Seller Net Balance</div>
+              <div id="sc-finance-balance" class="text-2xl font-display font-extrabold text-[#10B981] tabular-price mt-0.5">₱0.00</div>
+            </div>
+            <button onclick="switchFinanceSubTab('release')" class="px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+              Request Fund Release
+            </button>
+          </div>
+          <div class="p-2.5 rounded-xl bg-white/10 flex items-center justify-between text-xs">
+            <span class="text-slate-300">Tue &amp; Fri Auto-Payout</span>
+            <span id="sc-finance-gcash" class="font-extrabold text-[#F59E0B]">GCash • 0917-555-0192</span>
+          </div>
+        </div>
+
+        <!-- Finance Sub-Navigation Tabs -->
+        <div class="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs">
+          <button type="button" id="fin-subbtn-summary" onclick="switchFinanceSubTab('summary')" class="py-2 px-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer transition">
+            Money Summary
+          </button>
+          <button type="button" id="fin-subbtn-release" onclick="switchFinanceSubTab('release')" class="py-2 px-2 rounded-xl text-[#1E293B] text-[11px] font-bold cursor-pointer transition">
+            Fund Release
+          </button>
+          <button type="button" id="fin-subbtn-calc" onclick="switchFinanceSubTab('calc')" class="py-2 px-2 rounded-xl text-[#1E293B] text-[11px] font-bold cursor-pointer transition">
+            Payout Calc
+          </button>
+        </div>
+
+        <!-- SUB-VIEW 1: PLATFORM MONEY SUMMARY (GMV, SELLER, NET & DEDUCTIONS) -->
+        <div id="fin-subview-summary" class="space-y-3">
+          <div id="sc-finance-summary-cards" class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs"></div>
+
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Order-by-Order Settlement Ledger</h3>
+              <span class="text-[10px] font-bold text-slate-400">Net of Fees</span>
+            </div>
+            <div id="sc-finance-ledger" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW 2: FUND RELEASE REQUEST TAB -->
+        <div id="fin-subview-release" class="hidden space-y-3">
+          <form onsubmit="submitFundReleaseRequest(event)" class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs">
+            <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
+              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Fund Release Request</h3>
+              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">₱0 Fee ≥ ₱500</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Release Amount (₱)</label>
+                <input type="number" id="rel-amount" value="500" min="100" step="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold text-[#070D17] tabular-price" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Payout Channel</label>
+                <select id="rel-channel" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]">
+                  <option value="GCash">GCash</option>
+                  <option value="Maya">Maya</option>
+                  <option value="GoTyme Bank">GoTyme Bank</option>
+                  <option value="InstaPay / PESONet Bank">Bank Transfer</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Account Name (BIR Trade Name)</label>
+                <input type="text" id="rel-acc-name" value="Mika Santos" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Account / Mobile No.</label>
+                <input type="text" id="rel-acc-num" value="0917-555-0192" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]" />
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+              Submit Fund Release Request
+            </button>
+          </form>
+
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2 shadow-2xs">
+            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Fund Release History</h3>
+            <div id="sc-release-history-list" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW 3: SELLER PAYOUT & VOUCHER CALCULATOR (NO PRESETS) -->
+        <div id="fin-subview-calc" class="hidden space-y-3">
+          <div class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Payout &amp; Voucher Calculator</h3>
+              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">6% + ₱5 Proc. Fee</span>
+            </div>
+
+            <!-- Sliders & Numeric Inputs -->
+            <div class="bg-[#F4F6F9] rounded-2xl p-3 border border-[#E2E8F0] space-y-2.5">
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label class="text-[11px] font-extrabold text-[#070D17]">Item Price (₱)</label>
+                  <input type="number" id="calc-price-num" value="299" min="1" max="50000" step="1" oninput="syncCalcInput('price', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#070D17] tabular-price" />
+                </div>
+                <input type="range" id="calc-price-rng" value="299" min="50" max="5000" step="1" oninput="syncCalcInput('price', 'rng')" class="w-full accent-[#070D17] cursor-pointer" />
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label class="text-[11px] font-extrabold text-[#070D17]">J&amp;T Shipping (₱)</label>
+                  <input type="number" id="calc-ship-num" value="85" min="0" max="2000" step="5" oninput="syncCalcInput('ship', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#070D17] tabular-price" />
+                </div>
+                <input type="range" id="calc-ship-rng" value="85" min="35" max="600" step="5" oninput="syncCalcInput('ship', 'rng')" class="w-full accent-[#070D17] cursor-pointer" />
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex items-center justify-between">
+                  <label class="text-[11px] font-extrabold text-[#070D17]">Seller Voucher (₱)</label>
+                  <input type="number" id="calc-voucher-num" value="0" min="0" max="2000" step="5" oninput="syncCalcInput('voucher', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#10B981] tabular-price" />
+                </div>
+                <input type="range" id="calc-voucher-rng" value="0" min="0" max="500" step="5" oninput="syncCalcInput('voucher', 'rng')" class="w-full accent-[#10B981] cursor-pointer" />
+              </div>
+            </div>
+
+            <!-- Payment & BIR Toggles -->
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+              <button type="button" id="calc-pay-BAYAD_AGAD" onclick="setCalcPay('BAYAD_AGAD')" class="py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition">Bayad Agad (2.23%)</button>
+              <button type="button" id="calc-pay-COD" onclick="setCalcPay('COD')" class="py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition">COD (₱0 Fee)</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+              <button type="button" id="calc-bir-EXEMPT" onclick="setCalcBir('EXEMPT')" class="py-1.5 px-2 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition">BIR Exempt (0%)</button>
+              <button type="button" id="calc-bir-WITHHELD" onclick="setCalcBir('WITHHELD')" class="py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition">BIR WHT (0.5%)</button>
+            </div>
+
+            <!-- Net Payout Box -->
+            <div class="rounded-2xl bg-[#070D17] text-white p-3.5 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-[10px] font-bold uppercase text-slate-400">Net Seller Payout</div>
+                  <div id="calc-out-net" class="text-xl font-display font-extrabold text-[#10B981] tabular-price">₱272.50</div>
+                </div>
+                <span id="calc-out-pct" class="px-2.5 py-1 rounded-full bg-[#10B981]/20 text-[#10B981] text-[10px] font-extrabold tabular-price">91.1%</span>
+              </div>
+
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden flex">
+                <div id="calc-bar-net" class="bg-[#10B981] h-full transition-all" style="width:91.1%"></div>
+                <div id="calc-bar-comm" class="bg-[#F59E0B] h-full transition-all" style="width:6.0%"></div>
+                <div id="calc-bar-voucher" class="bg-sky-400 h-full transition-all" style="width:0%"></div>
+                <div id="calc-bar-gw" class="bg-[#EF4444] h-full transition-all" style="width:2.9%"></div>
+              </div>
+
+              <div class="pt-2 border-t border-slate-800 space-y-1 text-[11px]">
+                <div class="flex justify-between text-slate-300">
+                  <span>Buyer Checkout Total</span>
+                  <span id="calc-out-buyer" class="font-bold text-white tabular-price">₱384.00</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                  <span>UKAYO Commission (6.0% Flat)</span>
+                  <span id="calc-out-comm" class="font-bold text-[#F59E0B] tabular-price">-₱17.94</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                  <span>Order Processing Fee (Flat ₱5.00)</span>
+                  <span id="calc-out-opf" class="font-bold text-[#F59E0B] tabular-price">-₱5.00</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                  <span>Seller Voucher</span>
+                  <span id="calc-out-voucher" class="font-bold text-sky-400 tabular-price">-₱0.00</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                  <span id="calc-out-gw-lbl">Bayad Agad Fee (2.23%)</span>
+                  <span id="calc-out-gw" class="font-bold text-[#EF4444] tabular-price">-₱8.56</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                  <span>BIR RR 16-2023 WHT</span>
+                  <span id="calc-out-wht" class="font-bold text-slate-400 tabular-price">-₱0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 6: BUYER MESSAGES, REVIEWS & COMMENTS INBOX                   -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-chat" class="hidden px-3.5 pt-3 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-display font-extrabold text-[#070D17]">Messages, Reviews &amp; Comments</h2>
+            <p class="text-[11px] text-slate-500">Manage miner threads on the left &amp; reply to reviews/comments</p>
+          </div>
+          <div class="inline-flex p-1 rounded-xl bg-white border border-[#E2E8F0]">
+            <button type="button" id="inbox-tab-chat" onclick="switchInboxView('chat')" class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">Chats</button>
+            <button type="button" id="inbox-tab-reviews" onclick="switchInboxView('reviews')" class="px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer">Reviews &amp; Comments</button>
+          </div>
+        </div>
+
+        <!-- VIEW A: TWO-COLUMN INBOX (PREVIOUS MESSAGES ON LEFT, ACTIVE CONVERSATION ON RIGHT) -->
+        <div id="sc-inbox-chat-view" class="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs grid grid-cols-12 h-[64dvh]">
+          <!-- Left Sidebar: Previous Messages / Miner Threads -->
+          <div class="col-span-4 border-r border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
+            <div class="px-2.5 py-2 bg-[#070D17] text-white text-[10px] font-extrabold uppercase tracking-wider">
+              Previous Chats
+            </div>
+            <div id="sc-chat-threads-left" class="flex-1 overflow-y-auto divide-y divide-[#E2E8F0]"></div>
+          </div>
+
+          <!-- Right Panel: Active Thread -->
+          <div class="col-span-8 flex flex-col overflow-hidden">
+            <div class="px-3 py-2 bg-[#070D17] text-white flex items-center justify-between border-l border-slate-800">
+              <span id="sc-chat-active-name" class="text-xs font-extrabold truncate">Mika Santos (Miner)</span>
+              <span class="text-[9px] text-[#10B981] font-bold shrink-0">● Online</span>
+            </div>
+            <div id="sc-chat-messages" class="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4F6F9]"></div>
+            <form onsubmit="sendSellerChatReply(event)" class="p-2 bg-white border-t border-[#E2E8F0] flex items-center gap-1.5">
+              <input type="text" id="sc-chat-input" placeholder="Reply to miner..." class="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none" />
+              <button type="submit" class="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-xs font-extrabold shrink-0 cursor-pointer">Send</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- VIEW B: BUYER REVIEWS & FEED COMMENTS WITH SELLER REPLY -->
+        <div id="sc-inbox-reviews-view" class="hidden space-y-2.5">
+          <div id="sc-reviews-comments-list" class="space-y-2.5"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 7: SHOP SETTINGS, VOUCHERS & SINGLE-REGISTRATION BIR TAX      -->
+      <!-- ================================================================= -->
+      <section id="sc-tab-shop" class="hidden px-3.5 pt-3 space-y-3">
+        <!-- Shop Profile Card -->
+        <form onsubmit="saveShopProfile(event)" class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+          <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Tindahan Profile</h3>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Shop Name</label>
+            <input type="text" id="sc-input-shopname" value="Mika's Ukay Closet" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Pickup City</label>
+              <input type="text" id="sc-input-city" value="Cebu City" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">GCash / Maya</label>
+              <input type="text" id="sc-input-gcash" value="0917-555-0192" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            </div>
+          </div>
+          <button type="submit" class="w-full py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer">Save Shop Profile</button>
+        </form>
+
+        <!-- Seller-Sponsored Vouchers -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Seller-Sponsored Vouchers</h3>
+            <button onclick="openCreateVoucherModal()" class="px-2.5 py-1 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer">+ Create Voucher</button>
+          </div>
+          <div id="sc-vouchers-list" class="space-y-2"></div>
+        </div>
+
+        <!-- UKAYO Seller Policy & Rate Card -->
+        <div class="bg-[#070D17] text-white rounded-2xl p-3.5 space-y-2 shadow-2xs">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-display font-extrabold">UKAYO Fee &amp; Payout Policy</span>
+            <button type="button" onclick="openSellerPolicyModal()" class="text-[10px] font-bold text-[#F59E0B] underline cursor-pointer">Full Policy</button>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-center pt-1">
+            <div class="p-2 rounded-xl bg-white/10">
+              <div class="text-xs font-display font-extrabold text-[#10B981]">6.0% + ₱5</div>
+              <div class="text-[9px] text-slate-300">Comm + Proc. Fee</div>
+            </div>
+            <div class="p-2 rounded-xl bg-white/10">
+              <div class="text-xs font-display font-extrabold text-[#F59E0B]">₱0</div>
+              <div class="text-[9px] text-slate-300">Live Fee</div>
+            </div>
+            <div class="p-2 rounded-xl bg-white/10">
+              <div class="text-xs font-display font-extrabold text-white">2.23%</div>
+              <div class="text-[9px] text-slate-300">Bayad Agad</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Single-Registration BIR & DTI Compliance -->
+        <form onsubmit="saveTaxCompliance(event)" class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+          <div>
+            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">BIR &amp; DTI Tax Info (Single Registration)</h3>
+            <p class="text-[10px] text-slate-500 mt-0.5">Already registered on Shopee or TikTok? Use your existing DTI &amp; BIR Form 2303—no duplicate BIR registration needed.</p>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Seller Tax Tier</label>
+            <select id="sc-input-taxtier" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+              <option value="Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)">Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)</option>
+              <option value="Verified Merchant (Existing BIR Form 2303 COR)">Verified Merchant (Existing BIR Form 2303 COR)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">BIR TIN (Optional for Starter Tier)</label>
+            <input type="text" id="sc-input-tin" placeholder="e.g. 123-456-789-000" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+          <button type="submit" class="w-full py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer">Save Tax &amp; Compliance</button>
+        </form>
+      </section>
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- DOCKED 6-TAB SELLER CENTER BOTTOM NAVIGATION BAR                    -->
+    <!-- =================================================================== -->
+    <nav id="sc-bottom-nav" class="hidden fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] px-1.5 pt-1.5 pb-safe transition-all duration-300">
+      <div class="grid grid-cols-6 items-center text-center">
+        <button onclick="switchSellerTab('home')" data-sc-nav="home" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-[#070D17] font-extrabold cursor-pointer">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span class="text-[10px]">Home</span>
+        </button>
+
+        <button onclick="switchSellerTab('products')" data-sc-nav="products" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <i data-lucide="shirt" class="w-4 h-4"></i>
+          <span class="text-[10px]">Products</span>
+        </button>
+
+        <button onclick="switchSellerTab('live')" data-sc-nav="live" class="sc-nav-btn flex flex-col items-center gap-0.5 py-0.5 text-slate-400 font-semibold cursor-pointer">
+          <div class="w-9 h-9 -mt-3.5 rounded-2xl bg-[#EF4444] text-white flex items-center justify-center shadow-md border-2 border-white">
+            <i data-lucide="video" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px]">LIVE</span>
+        </button>
+
+        <button onclick="switchSellerTab('orders')" data-sc-nav="orders" class="sc-nav-btn relative flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <span id="sc-nav-orders-badge" class="hidden absolute top-0.5 right-2 min-w-[14px] h-3.5 px-1 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">0</span>
+          <i data-lucide="package" class="w-4 h-4"></i>
+          <span class="text-[10px]">Orders</span>
+        </button>
+
+        <button onclick="switchSellerTab('finance')" data-sc-nav="finance" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <i data-lucide="wallet" class="w-4 h-4"></i>
+          <span class="text-[10px]">Finance</span>
+        </button>
+
+        <button onclick="switchSellerTab('shop')" data-sc-nav="shop" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-slate-400 font-semibold cursor-pointer">
+          <i data-lucide="store" class="w-4 h-4"></i>
+          <span class="text-[10px]">My Shop</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- =================================================================== -->
+    <!-- ADD UKAY PRODUCT / LIVE DROP MODAL (UP TO 5 IMAGES + VARIANTS)      -->
+    <!-- =================================================================== -->
+    <div id="sc-add-product-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitNewProduct(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Add Ukay Piece / Flash Drop</h3>
+          <button type="button" onclick="closeAddProductModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- Product Photos Upload (Maximum of 5 Images) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-bold uppercase text-slate-500">Product Photos (Max 5 Images)</label>
+            <span id="new-prod-img-count" class="text-[10px] font-extrabold text-[#10B981]">0 / 5</span>
+          </div>
+          <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] hover:border-[#070D17] cursor-pointer">
+            <span class="text-xs font-bold text-[#070D17]">Upload Product Pictures</span>
+            <span class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">Choose (Max 5)</span>
+            <input type="file" id="new-prod-images-input" accept="image/*" multiple onchange="handleNewProductImagesUpload(event)" class="hidden" />
+          </label>
+          <div id="new-prod-images-preview" class="hidden grid grid-cols-5 gap-1.5 pt-1"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Item Title</label>
+            <input type="text" id="new-prod-title" placeholder="e.g. Vintage Fleece Jacket" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Base Price (PHP)</label>
+            <input type="number" id="new-prod-price" value="250" min="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Category</label>
+            <select id="new-prod-category" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+              <option value="Jackets">Jackets &amp; Hoodies</option>
+              <option value="Tops">Tops &amp; Tees</option>
+              <option value="Denim">Denim &amp; Pants</option>
+              <option value="Bags">Bags &amp; Wallets</option>
+              <option value="Shoes">Ukay Kicks</option>
+              <option value="Bundle Bales">Bundle Bales</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Size / Dimensions</label>
+            <input type="text" id="new-prod-size" value='Large (23" x 27")' required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+          </div>
+        </div>
+
+        <!-- Multiple Pricing Per Item Depending on Variant -->
+        <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-extrabold uppercase text-[#070D17]">Variant Pricing (Optional)</span>
+            <button type="button" onclick="addProductVariantRow()" class="px-2 py-0.5 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">+ Add Variant</button>
+          </div>
+          <div id="new-prod-variants-list" class="space-y-1.5">
+            <div class="grid grid-cols-12 gap-1.5 items-center variant-row">
+              <input type="text" placeholder="Variant (e.g. Class A / Large)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-semibold" />
+              <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-extrabold tabular-price" />
+              <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-slate-400 hover:text-[#EF4444] text-xs font-bold cursor-pointer">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Item Description &amp; Condition</label>
+          <textarea id="new-prod-description" rows="2" placeholder="Describe fabric, flaws (if any), chest/length measurements, and bale grade..." required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-medium text-[#070D17]"></textarea>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+          Save &amp; Add to Rack
+        </button>
+      </form>
+    </div>
+
+
+    <!-- Create Seller-Sponsored Voucher Modal -->
+    <div id="sc-voucher-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
+      <form onsubmit="submitNewShopVoucher(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Create Seller Voucher</h3>
+          <button type="button" onclick="closeCreateVoucherModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Voucher Code</label>
+            <input type="text" id="vouch-code" value="UKAYSHIP40" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold uppercase" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Promo Type</label>
+            <select id="vouch-type" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+              <option value="Shipping">Shipping Discount</option>
+              <option value="Shop">Shop Item Discount</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Discount (₱)</label>
+            <input type="number" id="vouch-amount" value="40" min="5" max="1000" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Min Spend (₱)</label>
+            <input type="number" id="vouch-min" value="299" min="0" max="20000" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Claim Limit</label>
+            <input type="number" id="vouch-limit" value="25" min="1" max="500" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+          Publish Seller Voucher
+        </button>
+      </form>
+    </div>
+
+    <!-- Complete UKAYO Seller Policy & Fee Handbook Modal (Full PDF Details) -->
+    <div id="sc-policy-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs items-end sm:items-center justify-center p-2.5">
+      <div class="bg-white w-full rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden border border-[#E2E8F0]">
+        <div class="bg-[#070D17] text-white px-4 py-3.5 flex items-center justify-between gap-2 shrink-0">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h3 class="text-sm font-display font-extrabold">UKAYO Seller Policy &amp; Fee Handbook</h3>
+              <span class="px-1.5 py-0.5 rounded bg-[#10B981]/20 text-[#10B981] text-[9px] font-extrabold">v2026</span>
+            </div>
+            <p class="text-[10px] text-slate-300">Operated by Jazz Digital Solutions • Complete Seller Terms</p>
+          </div>
+          <button type="button" onclick="closeSellerPolicyModal()" class="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <div class="p-4 overflow-y-auto space-y-3 text-xs text-[#1E293B] flex-1">
+          <!-- TOP POLICY NOTICE: ORDER PROCESSING FEE (₱5 FLAT) -->
+          <div class="p-3.5 rounded-2xl bg-[#F59E0B]/15 border-2 border-[#F59E0B] space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-display font-extrabold text-[#070D17] text-xs">Order Processing Fee (₱5.00 Flat)</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-[#F59E0B] text-[9px] font-extrabold uppercase">Effective Policy</span>
+            </div>
+            <p class="text-[11px] text-[#1E293B] leading-snug">
+              The <strong>Order Processing Fee</strong> is a fixed platform infrastructure charge dedicated to funding the continuous engineering, server hosting, security upkeep, and feature upgrades of the <strong>UKAYO</strong> marketplace—ensuring fast, reliable live-selling and checkout performance for both miners and sellers.
+            </p>
+            <p class="text-[11px] text-[#1E293B] leading-snug">
+              It powers core merchant capabilities including live rack management, automated <em>Mine Na!</em> locking, J&amp;T A6 waybill generation, real-time payout tracking, and dispute protection. <strong>UKAYO charges a flat ₱5.00 fee per successfully completed order</strong> (in addition to the 6.00% flat commission). Cancelled and fully returned/refunded orders are exempt from this ₱5.00 fee.
+            </p>
+          </div>
+
+          <!-- Rate Card Summary -->
+          <div class="rounded-2xl bg-[#070D17] text-white p-3 space-y-2">
+            <div class="text-[10px] font-extrabold uppercase tracking-wider text-[#F59E0B]">Official UKAYO Fee Schedule</div>
+            <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+              <div class="p-2 rounded-xl bg-white/10">
+                <div class="text-slate-300 text-[9px]">Marketplace Commission</div>
+                <div class="font-extrabold text-[#10B981]">6.00% Flat + ₱5 Proc. Fee</div>
+              </div>
+              <div class="p-2 rounded-xl bg-white/10">
+                <div class="text-slate-300 text-[9px]">Live Selling Surcharge</div>
+                <div class="font-extrabold text-[#F59E0B]">0.00% (₱0 Extra)</div>
+              </div>
+              <div class="p-2 rounded-xl bg-white/10">
+                <div class="text-slate-300 text-[9px]">Bayad Agad Gateway Fee</div>
+                <div class="font-extrabold text-white">2.23% (₱0 on COD)</div>
+              </div>
+              <div class="p-2 rounded-xl bg-white/10">
+                <div class="text-slate-300 text-[9px]">J&amp;T Shipping Default</div>
+                <div class="font-extrabold text-white">100% Buyer-Paid</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Part I -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part I: Onboarding, KYC &amp; BIR RR 16-2023</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>Primary ID &amp; Selfie KYC:</strong> Valid Philippine Government Primary ID (PhilSys National ID, Passport, LTO Driver's License, UMID, PRC, or Postal ID) + live selfie required before going live.</li>
+              <li>• <strong>BIR Form 2303 (COR):</strong> Upload your existing DTI &amp; BIR Form 2303 in Seller Center (no duplicate registration required if already registered on Shopee/TikTok).</li>
+              <li>• <strong>Withholding Tax (BIR RR 16-2023):</strong> <strong>1% on one-half (0.5%)</strong> of net item price is withheld only if annual gross remittances exceed <strong>₱500,000</strong> or no BIR-received Sworn Declaration is on file.</li>
+            </ul>
+          </div>
+
+          <!-- Part II -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part II: Listings, Mine Na! Live &amp; Prohibited Items</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>Measurements &amp; Flaw Disclosure:</strong> State exact flat-lay width × length (inches/cm) and disclose any stains, pinholes, or wash fade during live streams or feed posts.</li>
+              <li>• <strong>Zero Counterfeit Safe-Harbor:</strong> Authentic secondhand/ukay garments and unbranded bales are protected; bootleg/counterfeit replicas are strictly banned.</li>
+              <li>• <strong>J&amp;T Prohibited Goods:</strong> Aerosols, perfumes, flammables, liquids, cash, jewelry, and sharp objects are banned from UKAYO parcels.</li>
+            </ul>
+          </div>
+
+          <!-- Part III -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part III: J&amp;T Express Shipping &amp; Fulfillment SLA</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>12-Hour Checkout Rule:</strong> Buyers locking an item via <em>Mine Na!</em> have 12 hours to pay; unpaid items auto-unlock to the next <em>Steal</em> queue miner.</li>
+              <li>• <strong>2-Business-Day Ship-Out:</strong> Print the <strong>A6 thermal waybill (105 × 148 mm)</strong> in solid black ink (do not tape over the barcode) and hand over to J&amp;T within 2 business days.</li>
+              <li>• <strong>Weight &amp; Size Limits:</strong> Up to <strong>8 kg</strong> for J&amp;T pouches and <strong>50 kg maximum</strong> per parcel (150 cm max side) for wholesale bales.</li>
+            </ul>
+          </div>
+
+          <!-- Part IV -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part IV: Preloved Returns, Refunds &amp; Disputes</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>No Change-of-Mind Returns:</strong> Preloved ukay items are one-of-a-kind; change-of-mind returns or minor vintage wear disclosed on live are not valid refund grounds.</li>
+              <li>• <strong>48-Hour Dispute Window:</strong> Buyers may file a dispute within 48 hours of delivery with an <strong>unedited unboxing video</strong> only for wrong item, missing item, or major undisclosed damage.</li>
+              <li>• <strong>RTS Protection:</strong> Valid seller-error returns deduct return freight from seller balance; buyer COD refusals incur buyer strikes after 2 RTS incidents.</li>
+            </ul>
+          </div>
+
+          <!-- Part V -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part V: Seller Payouts, Vouchers &amp; Sample Math</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>Twice-Weekly Settlement:</strong> Escrow releases after J&amp;T delivery + 48-hour inspection. Automatic payouts run every <strong>Tuesday &amp; Friday</strong> to GCash, Maya, GoTyme, or Bank (<strong>₱0 fee ≥ ₱500</strong>; ₱15 fee below ₱500).</li>
+              <li>• <strong>Seller-Sponsored Vouchers:</strong> Optional shipping or shop discount vouchers created in Seller Center are 100% funded by the seller and deducted from payout.</li>
+              <li>• <strong>₱299 Hoodie (+₱85 Ship):</strong> ₱17.94 (6% comm) + ₱5.00 (Order Processing Fee) → <strong>₱276.06 COD</strong> or <strong>₱267.50 Bayad Agad</strong> (after ₱8.56 gateway fee).</li>
+              <li>• <strong>₱4,000 Bale (+₱350 Ship):</strong> ₱240.00 (6% comm) + ₱5.00 (Order Processing Fee) → <strong>₱3,755.00 COD</strong> or <strong>₱3,658.00 Bayad Agad</strong> (after ₱97.00 gateway fee).</li>
+            </ul>
+          </div>
+
+          <!-- Part VI -->
+          <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1">
+            <div class="font-display font-extrabold text-[#070D17]">Part VI: Seller Penalty Point System (Quarterly Reset)</div>
+            <ul class="text-[11px] text-slate-600 space-y-1 leading-snug">
+              <li>• <strong>Points:</strong> +1 pt late shipment (&gt;2 business days), +1 pt seller cancellation (&gt;5% rate), +3 to +6 pts counterfeit/prohibited item.</li>
+              <li>• <strong>Tiers:</strong> 0–2 pts (Full access + Top Seller badge) • 3–5 pts (7-day Home Live banner pause) • 6+ pts (14-day live/COD suspension). Resets every quarter.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- STANDALONE SELLER CENTER SCRIPT (SHARED LOCALSTORAGE BRIDGE)          -->
+  <!-- ===================================================================== -->
+  <script>
+    const SHARED_STORAGE_KEY = 'ukayo_marketplace_state_v10';
+
+    let scState = {
+      isOnboarded: true,
+      onboardingStep: 1,
+      activeTab: 'home',
+      orderFilter: 'ALL',
+      shopName: "Mika's Ukay Closet",
+      city: 'Cebu City',
+      gcash: '0917-555-0192',
+      ownerName: 'Mika Santos',
+      idType: 'Philippine National ID (PhilSys / ePhilID)',
+      idNumber: '',
+      followers: 2480,
+      taxTier: 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+      tin: '',
+      vouchers: [
+        { code: 'UKAYSHIP40', type: 'Shipping', amount: 40, minSpend: 299, limit: 30, used: 12 },
+        { code: 'BALECARGO150', type: 'Shipping', amount: 150, minSpend: 4000, limit: 15, used: 4 }
+      ],
+      products: [
+        {
+          id: 'prod_1',
+          code: 'A01',
+          title: 'Vintage 90s Colorblock Windbreaker Jacket',
+          price: 280,
+          category: 'Jackets',
+          size: 'Large (23" x 27")',
+          description: 'Authentic 90s nylon windbreaker from Korean Class A bale. Crisp zipper, clean lining, zero flaws.',
+          status: 'Available',
+          pinned: true,
+          image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80'
+        },
+        {
+          id: 'prod_2',
+          code: 'A02',
+          title: 'Oversized Korean Washed Graphic Hoodie',
+          price: 220,
+          category: 'Jackets',
+          size: 'XL (24" x 28")',
+          description: 'Heavyweight washed charcoal cotton fleece pullover hoodie. 9.5/10 EUC.',
+          status: 'Available',
+          pinned: false,
+          image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=600&q=80'
+        }
+      ],
+      waybillStartDate: '2026-11-13',
+      waybillEndDate: '2026-11-15',
+      orders: [
+        {
+          id: 'ord_seed_1',
+          title: 'Oversized Korean Washed Graphic Hoodie',
+          price: 220,
+          quantity: 1,
+          buyerName: 'Mika Santos',
+          courier: 'J&T Express',
+          paymentMethod: 'GCash',
+          stage: 'TO_PAY',
+          status: 'Unpaid Mine — Awaiting Checkout',
+          waybillDate: '2026-11-15',
+          image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'ord_seed_2',
+          title: 'Baguio Heavyweight Duck Canvas Work Jacket',
+          price: 450,
+          quantity: 1,
+          buyerName: 'Carla Mendoza',
+          buyerAddress: 'IT Park, Lahug, Cebu City',
+          buyerPhone: '0917-440-9821',
+          courier: 'J&T Express',
+          paymentMethod: 'Bayad Agad (GCash)',
+          stage: 'TO_SHIP',
+          status: 'To Ship — Ready for Waybill',
+          waybillDate: '2026-11-15',
+          image: 'https://images.unsplash.com/photo-1520975954732-35dd22299614?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'ord_seed_3',
+          title: 'Structured Faux-Croc Vintage Shoulder Bag',
+          price: 350,
+          quantity: 1,
+          buyerName: 'Bea Lim',
+          buyerAddress: 'Banilad, Cebu City, Central Visayas',
+          buyerPhone: '0918-774-2201',
+          courier: 'J&T Express',
+          paymentMethod: 'COD',
+          stage: 'TO_RECEIVE',
+          status: 'In Transit — Out for Delivery',
+          trackingNumber: 'UKY884920194PH',
+          waybillDate: '2026-11-13',
+          waybillGeneratedAt: 'Nov 13, 2026 • 1:40 AM',
+          image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=400&q=80'
+        },
+        {
+          id: 'ord_seed_4',
+          title: 'Korean Class A Fleece Pullover Bundle (2 pcs)',
+          price: 540,
+          quantity: 1,
+          buyerName: 'Jomar Reyes',
+          buyerAddress: 'Mandaue City, Cebu',
+          buyerPhone: '0919-221-8430',
+          courier: 'J&T Express',
+          paymentMethod: 'COD',
+          stage: 'TO_RECEIVE',
+          status: 'Ready for J&T Pickup',
+          trackingNumber: 'UKY992410778PH',
+          waybillDate: '2026-11-15',
+          waybillGeneratedAt: 'Nov 15, 2026 • 10:15 PM',
+          image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=400&q=80'
+        }
+      ],
+      screenViewMode: 'phone',
+      financeSubTab: 'summary',
+      inboxView: 'chat',
+      activeChatThreadId: 'thread_mika',
+      chatThreads: [
+        {
+          id: 'thread_mika',
+          buyerName: 'Mika Santos',
+          itemTag: 'Korean Graphic Hoodie',
+          unread: 0,
+          messages: [
+            { from: 'buyer', text: 'Ate, available pa po ba yung Korean Graphic Hoodie? Ano chest width?', time: '8:12 PM' },
+            { from: 'seller', text: 'Yes sis! 24 inches chest width, 10/10 like new. Pwede na i-checkout sa Bayong mo!', time: '8:14 PM' }
+          ]
+        },
+        {
+          id: 'thread_carla',
+          buyerName: 'Carla Mendoza',
+          itemTag: 'Duck Canvas Jacket',
+          unread: 1,
+          messages: [
+            { from: 'buyer', text: 'Paid na po via Bayad Agad GCash! Kelan J&T pickup?', time: '9:05 PM' }
+          ]
+        },
+        {
+          id: 'thread_jomar',
+          buyerName: 'Jomar Reyes',
+          itemTag: 'Korean Fleece Bundle',
+          unread: 0,
+          messages: [
+            { from: 'buyer', text: 'Pwede COD sa Mandaue City Cebu?', time: '6:40 PM' },
+            { from: 'seller', text: 'Yes boss! J&T Express COD nationwide.', time: '6:42 PM' }
+          ]
+        }
+      ],
+      reviewsAndComments: [
+        {
+          id: 'rev_1',
+          kind: 'Review (5 ★)',
+          buyerName: 'Bea Lim',
+          itemTitle: 'Structured Faux-Croc Vintage Shoulder Bag',
+          text: 'Super ganda parang brand new! Ang bilis pa dumating via J&T.',
+          time: '2 hrs ago',
+          sellerReply: 'Salamat po sis Bea! Sa uulitin na live drop!'
+        },
+        {
+          id: 'rev_2',
+          kind: 'Feed Comment',
+          buyerName: 'Carla Mendoza',
+          itemTitle: 'Vintage 90s Colorblock Windbreaker Jacket',
+          text: 'May iba pang colorway or size XL nito sa next bale?',
+          time: '35 mins ago',
+          sellerReply: ''
+        }
+      ],
+      fundReleaseRequests: [
+        {
+          id: 'REL-2026-081',
+          date: 'Nov 12, 2026',
+          amount: 1250.00,
+          channel: 'GCash (0917-555-0192)',
+          status: 'Released'
+        }
+      ]
+    };
+
+    let hostCamStream = null;
+
+    function syncFromSharedBuyerApp() {
+      try {
+        const raw = localStorage.getItem(SHARED_STORAGE_KEY);
+        if (!raw) return;
+        const buyerApp = JSON.parse(raw);
+        if (buyerApp.user) {
+          scState.shopName = buyerApp.user.shopName || scState.shopName;
+          scState.city = buyerApp.user.city || scState.city;
+          scState.gcash = buyerApp.user.gcash || scState.gcash;
+          scState.ownerName = buyerApp.user.name || scState.ownerName;
+          if (buyerApp.user.idType) scState.idType = buyerApp.user.idType;
+          if (buyerApp.user.idNumber) scState.idNumber = buyerApp.user.idNumber;
+        }
+        if (Array.isArray(buyerApp.minedOrders) && buyerApp.minedOrders.length) {
+          scState.orders = buyerApp.minedOrders;
+        }
+        if (Array.isArray(buyerApp.sellerVouchers) && buyerApp.sellerVouchers.length) {
+          scState.vouchers = buyerApp.sellerVouchers;
+        }
+      } catch (e) {}
+    }
+
+    function pushUpdatesToSharedBuyerApp() {
+      try {
+        const raw = localStorage.getItem(SHARED_STORAGE_KEY);
+        const buyerApp = raw ? JSON.parse(raw) : { user: {} };
+        if (scState.isOnboarded) {
+          buyerApp.role = 'seller';
+          if (buyerApp.user) buyerApp.user.isSeller = true;
+        }
+        buyerApp.minedOrders = scState.orders;
+        buyerApp.sellerVouchers = scState.vouchers;
+        if (buyerApp.user) {
+          buyerApp.user.shopName = scState.shopName;
+          buyerApp.user.city = scState.city;
+          buyerApp.user.gcash = scState.gcash;
+          buyerApp.user.name = scState.ownerName;
+          if (scState.idNumber) {
+            buyerApp.user.idType = scState.idType;
+            buyerApp.user.idNumber = scState.idNumber;
+            buyerApp.user.verificationStatus = 'pending';
+          }
+        }
+        localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(buyerApp));
+        if (window.ukayoCloudSyncPush) {
+          window.ukayoCloudSyncPush(buyerApp);
+        }
+      } catch (e) {}
+    }
+
+    function goToOnboardingStep(step) {
+      scState.onboardingStep = step;
+      const stepLabels = { 1: 'Shop Info', 2: 'ID & BIR', 3: 'Payout' };
+      const counter = document.getElementById('ob-step-counter');
+      if (counter) counter.textContent = stepLabels[step] || 'Shop Info';
+
+      [1, 2, 3].forEach(s => {
+        const form = document.getElementById(`ob-step-${s}`);
+        const pill = document.getElementById(`ob-pill-${s}`);
+        if (form) form.classList.toggle('hidden', s !== step);
+        if (pill) {
+          const active = s === step;
+          const done = s < step;
+          pill.className = active
+            ? 'p-2.5 rounded-xl bg-[#10B981] text-[#070D17] text-center'
+            : done
+            ? 'p-2.5 rounded-xl bg-white/25 text-[#10B981] text-center'
+            : 'p-2.5 rounded-xl bg-white/15 text-white text-center';
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function nextOnboardingStep(e, nextStep) {
+      e.preventDefault();
+      if (nextStep === 2) {
+        scState.shopName = document.getElementById('ob-shop-name').value.trim() || scState.shopName;
+        scState.city = document.getElementById('ob-pickup-address').value.trim() || scState.city;
+        scState.gcash = document.getElementById('ob-contact-phone').value.trim() || scState.gcash;
+        document.getElementById('ob-payout-account').value = scState.gcash;
+        document.getElementById('sc-header-shop').textContent = scState.shopName;
+      } else if (nextStep === 3) {
+        scState.idType = document.getElementById('ob-primary-id-type').value;
+        scState.ownerName = document.getElementById('ob-owner-name').value.trim() || scState.ownerName;
+        scState.idNumber = document.getElementById('ob-id-number').value.trim();
+        scState.taxTier = document.getElementById('ob-tax-tier').value;
+        scState.tin = document.getElementById('ob-tin-number').value.trim();
+      }
+      goToOnboardingStep(nextStep);
+    }
+
+    function handleObFileChange(e, labelId) {
+      const file = e.target.files && e.target.files[0];
+      const lbl = document.getElementById(labelId);
+      if (file && lbl) {
+        lbl.textContent = `Attached: ${file.name}`;
+      }
+    }
+
+    function handleBirPhotosUpload(e) {
+      const files = Array.from(e.target.files || []).slice(0, 3);
+      const labelEl = document.getElementById('ob-bir-files-text');
+      const previewsEl = document.getElementById('ob-bir-previews');
+      if (!files.length) return;
+
+      if (e.target.files.length > 3) {
+        showScToast('Maximum of 3 BIR photos allowed. Keeping first 3.');
+      }
+
+      if (labelEl) {
+        labelEl.textContent = `${files.length} BIR photo${files.length > 1 ? 's' : ''} attached`;
+      }
+
+      if (previewsEl) {
+        previewsEl.innerHTML = '';
+        previewsEl.classList.remove('hidden');
+        files.forEach((file, idx) => {
+          const reader = new FileReader();
+          reader.onload = function (ev) {
+            const card = document.createElement('div');
+            card.className = 'relative rounded-xl overflow-hidden border border-[#CBD5E1] aspect-square bg-white';
+            card.innerHTML = `
+              <img src="${ev.target.result}" alt="BIR Document ${idx + 1}" class="w-full h-full object-cover" />
+              <span class="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-[#070D17]/85 text-white text-[9px] font-bold">BIR #${idx + 1}</span>
+            `;
+            previewsEl.appendChild(card);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    }
+
+    function completeSellerOnboarding(e) {
+      e.preventDefault();
+      const payoutChannel = document.getElementById('ob-payout-channel').value;
+      const payoutAcc = document.getElementById('ob-payout-account').value.trim();
+
+      scState.gcash = `${payoutChannel} (${payoutAcc})`;
+      scState.isOnboarded = true;
+
+      pushUpdatesToSharedBuyerApp();
+      document.getElementById('sc-onboarding-wizard').classList.add('hidden');
+      document.getElementById('sc-bottom-nav').classList.remove('hidden');
+      switchSellerTab('home');
+      showScToast(`Application submitted! Welcome to UKAYO Seller Center, ${scState.shopName}!`);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showScToast(msg) {
+      const box = document.getElementById('sc-toast-box');
+      if (!box) return;
+      const el = document.createElement('div');
+      el.className = 'px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 bg-[#070D17] text-white border border-slate-700 transition-all duration-300';
+      el.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#10B981] shrink-0"></span><span>${escapeHtml(msg)}</span>`;
+      box.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 250);
+      }, 2500);
+    }
+
+    function switchSellerTab(tab) {
+      if (!scState.isOnboarded) {
+        document.getElementById('sc-onboarding-wizard').classList.remove('hidden');
+        document.getElementById('sc-bottom-nav').classList.add('hidden');
+        return;
+      }
+      document.getElementById('sc-onboarding-wizard').classList.add('hidden');
+      document.getElementById('sc-bottom-nav').classList.remove('hidden');
+
+      scState.activeTab = tab;
+      ['home', 'products', 'live', 'orders', 'finance', 'chat', 'shop'].forEach(t => {
+        const sec = document.getElementById(`sc-tab-${t}`);
+        if (sec) sec.classList.toggle('hidden', t !== tab);
+      });
+
+      document.querySelectorAll('.sc-nav-btn').forEach(btn => {
+        const active = btn.getAttribute('data-sc-nav') === tab;
+        btn.classList.toggle('text-[#070D17]', active);
+        btn.classList.toggle('font-extrabold', active);
+        btn.classList.toggle('text-slate-400', !active);
+        btn.classList.toggle('font-semibold', !active);
+      });
+
+      renderAllSellerCenter();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openOrdersWithFilter(stage) {
+      scState.orderFilter = stage;
+      switchSellerTab('orders');
+    }
+
+    function setOrdersFilter(stage) {
+      scState.orderFilter = stage;
+      document.querySelectorAll('.ord-filter-btn').forEach(btn => {
+        const active = btn.getAttribute('data-ord-filter') === stage;
+        btn.classList.toggle('bg-[#070D17]', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('font-extrabold', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-[#1E293B]', !active);
+        btn.classList.toggle('border', !active);
+        btn.classList.toggle('border-[#E2E8F0]', !active);
+      });
+      renderOrdersTab();
+    }
+
+    function renderAllSellerCenter() {
+      document.getElementById('sc-header-shop').textContent = scState.shopName;
+
+      const unpaidCount = scState.orders.filter(o => o.stage === 'TO_PAY').length;
+      const toShipCount = scState.orders.filter(o => o.stage === 'TO_SHIP').length;
+      const shippingCount = scState.orders.filter(o => o.stage === 'TO_RECEIVE').length;
+      const totalGmv = scState.orders.reduce((sum, o) => sum + (o.price * (o.quantity || 1)), 0);
+
+      document.getElementById('sc-kpi-gmv').textContent = `₱${totalGmv.toLocaleString()}`;
+      document.getElementById('sc-kpi-orders').textContent = scState.orders.length;
+      document.getElementById('sc-kpi-followers').textContent = scState.followers.toLocaleString();
+
+      document.getElementById('todo-unpaid').textContent = unpaidCount;
+      document.getElementById('todo-toship').textContent = toShipCount;
+      document.getElementById('todo-shipping').textContent = shippingCount;
+      document.getElementById('todo-rack').textContent = scState.products.length;
+
+      const navBadge = document.getElementById('sc-nav-orders-badge');
+      if (navBadge) {
+        navBadge.textContent = toShipCount;
+        navBadge.classList.toggle('hidden', toShipCount === 0);
+      }
+
+      renderProductsTab();
+      renderLiveStudioTab();
+      renderOrdersTab();
+      renderFinanceTab();
+      renderScCalculator();
+      renderChatTab();
+      renderShopSettingsTab();
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function setScreenViewMode(mode) {
+      scState.screenViewMode = mode;
+      const shell = document.getElementById('sc-app-shell');
+      const nav = document.getElementById('sc-bottom-nav');
+      const phoneBtn = document.getElementById('sc-view-phone-btn');
+      const laptopBtn = document.getElementById('sc-view-laptop-btn');
+      const isLaptop = mode === 'laptop';
+
+      if (shell) {
+        shell.classList.toggle('max-w-md', !isLaptop);
+        shell.classList.toggle('max-w-5xl', isLaptop);
+      }
+      if (nav) {
+        nav.classList.toggle('max-w-md', !isLaptop);
+        nav.classList.toggle('max-w-5xl', isLaptop);
+      }
+      if (phoneBtn && laptopBtn) {
+        phoneBtn.className = !isLaptop
+          ? 'px-2 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer transition'
+          : 'px-2 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition';
+        laptopBtn.className = isLaptop
+          ? 'px-2 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer transition'
+          : 'px-2 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition';
+      }
+    }
+
+    function renderProductsTab() {
+      const list = document.getElementById('sc-products-list');
+      if (!list) return;
+      list.innerHTML = scState.products.map(p => {
+        const imgs = Array.isArray(p.images) && p.images.length ? p.images : [p.image];
+        const variants = Array.isArray(p.variants) ? p.variants : [];
+        let priceDisplay = `₱${Number(p.price).toLocaleString()}`;
+        if (variants.length > 0) {
+          const prices = variants.map(v => Number(v.price)).filter(n => n > 0);
+          if (prices.length > 0) {
+            const minP = Math.min(...prices);
+            const maxP = Math.max(...prices);
+            priceDisplay = minP === maxP ? `₱${minP.toLocaleString()}` : `₱${minP.toLocaleString()} – ₱${maxP.toLocaleString()}`;
+          }
+        }
+        return `
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-start gap-3 shadow-2xs">
+          <div class="relative shrink-0">
+            <img src="${imgs[0]}" alt="${escapeHtml(p.title)}" class="w-16 h-16 rounded-xl object-cover bg-[#F4F6F9]" />
+            ${imgs.length > 1 ? `<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-[#070D17]/85 text-white text-[8px] font-extrabold">${imgs.length} imgs</span>` : ''}
+          </div>
+          <div class="min-w-0 flex-1 space-y-1">
+            <div class="flex items-center gap-1.5">
+              <span class="px-1.5 py-0.2 rounded bg-[#070D17] text-white text-[9px] font-extrabold">${escapeHtml(p.code)}</span>
+              <span class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(p.title)}</span>
+            </div>
+            <div class="text-[10px] text-slate-500">${escapeHtml(p.category)} • ${escapeHtml(p.size)}</div>
+            ${variants.length > 0 ? `<div class="flex flex-wrap gap-1 pt-0.5">${variants.map(v => `<span class="px-1.5 py-0.5 rounded bg-[#F4F6F9] border border-[#E2E8F0] text-[9px] font-bold text-[#070D17]">${escapeHtml(v.name)}: ₱${Number(v.price).toLocaleString()}</span>`).join('')}</div>` : ''}
+            ${p.description ? `<p class="text-[11px] text-[#334155] line-clamp-2 leading-snug">${escapeHtml(p.description)}</p>` : ''}
+            <div class="flex items-center justify-between pt-0.5">
+              <span class="text-sm font-display font-extrabold text-[#10B981] tabular-price">${priceDisplay}</span>
+              <button onclick="pinProductLive('${p.id}')" class="px-2.5 py-1 rounded-lg ${
+                p.pinned ? 'bg-[#F59E0B] text-[#070D17]' : 'bg-[#070D17] text-white'
+              } text-[10px] font-extrabold cursor-pointer">
+                ${p.pinned ? 'Pinned Live' : 'Pin to LIVE'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function renderLiveStudioTab() {
+      const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+      const titleEl = document.getElementById('sc-active-pinned-title');
+      if (titleEl && pinned) {
+        titleEl.textContent = `[${pinned.code}] ${pinned.title} (₱${pinned.price})`;
+      }
+
+      const queueEl = document.getElementById('sc-live-queue-list');
+      if (!queueEl) return;
+      queueEl.innerHTML = scState.products.map(p => `
+        <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <img src="${p.image}" alt="${escapeHtml(p.title)}" class="w-10 h-10 rounded-lg object-cover shrink-0" />
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-[#070D17] truncate">[${escapeHtml(p.code)}] ${escapeHtml(p.title)}</div>
+              <div class="text-[10px] text-slate-500">₱${p.price} • ${escapeHtml(p.size)}</div>
+            </div>
+          </div>
+          <button onclick="pinProductLive('${p.id}')" class="px-2.5 py-1.5 rounded-lg ${
+            p.pinned ? 'bg-[#10B981] text-white' : 'bg-[#070D17] text-white'
+          } text-[10px] font-extrabold shrink-0 cursor-pointer">
+            ${p.pinned ? 'Active Card' : 'Pin Card'}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function renderOrdersTab() {
+      const list = document.getElementById('sc-orders-list');
+      if (!list) return;
+
+      if (scState.orderFilter === 'WAYBILLS') {
+        const allWaybillOrders = scState.orders.filter(o => o.trackingNumber || o.stage === 'TO_RECEIVE' || o.stage === 'TO_RATE');
+        const startD = scState.waybillStartDate || '2026-11-13';
+        const endD = scState.waybillEndDate || '2026-11-15';
+        const waybillOrders = allWaybillOrders.filter(o => {
+          const d = o.waybillDate || '2026-11-15';
+          return (!startD || d >= startD) && (!endD || d <= endD);
+        });
+
+        list.innerHTML = `
+          <div class="bg-[#070D17] text-white rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+            <div class="flex items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-display font-extrabold">Batch A6 Waybill Printer (${waybillOrders.length})</div>
+                <div class="text-[10px] text-slate-300">Thermal Size: 105mm × 148mm • 1 Compiled PDF</div>
+              </div>
+              <button type="button" onclick="setWaybillTodayFilter()" class="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] font-extrabold text-[#F59E0B] cursor-pointer">
+                Today Only
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[9px] font-extrabold uppercase text-slate-400 mb-1">Start Date</label>
+                <input type="date" id="wb-start-date" value="${escapeHtml(startD)}" onchange="updateWaybillDateRange()" class="w-full px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-extrabold uppercase text-slate-400 mb-1">End Date</label>
+                <input type="date" id="wb-end-date" value="${escapeHtml(endD)}" onchange="updateWaybillDateRange()" class="w-full px-2.5 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white focus:outline-none" />
+              </div>
+            </div>
+
+            <button onclick="downloadAllWaybillsA6PDF()" ${waybillOrders.length === 0 ? 'disabled' : ''} class="w-full py-2.5 px-3 rounded-xl ${waybillOrders.length === 0 ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-[#10B981] hover:bg-emerald-600 text-white cursor-pointer'} text-xs font-extrabold flex items-center justify-center gap-1.5">
+              <i data-lucide="file-down" class="w-4 h-4"></i>
+              <span>Download Compiled A6 PDF (${waybillOrders.length} Waybill${waybillOrders.length === 1 ? '' : 's'})</span>
+            </button>
+          </div>
+          ${waybillOrders.length === 0 ? `<div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">No waybills between <strong>${escapeHtml(startD)}</strong> and <strong>${escapeHtml(endD)}</strong>. Adjust the calendar dates above.</div>` : ''}
+          ${waybillOrders.map(o => {
+            const trk = o.trackingNumber || ('UKY' + o.id.slice(-6).toUpperCase() + 'PH');
+            const totalAmt = o.price * (o.quantity || 1);
+            const isCod = String(o.paymentMethod || '').toUpperCase().includes('COD');
+            return `
+              <div class="bg-white rounded-2xl border-2 border-[#070D17] p-3.5 shadow-xs space-y-2.5">
+                <div class="flex items-center justify-between border-b-2 border-[#070D17] pb-2">
+                  <div>
+                    <span class="px-2 py-0.5 rounded bg-[#070D17] text-white text-[10px] font-extrabold uppercase">${escapeHtml(o.courier || 'J&T Express')}</span>
+                    <span class="ml-1.5 text-[10px] font-bold text-slate-500">A6 Waybill</span>
+                  </div>
+                  <span class="text-[10px] font-extrabold text-[#070D17]">${escapeHtml(trk)}</span>
+                </div>
+
+                <!-- Simulated Thermal Barcode -->
+                <div class="py-2 px-3 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-center space-y-1">
+                  <div class="h-7 w-full flex items-stretch justify-center gap-[2px]">
+                    ${Array.from({ length: 34 }).map((_, idx) => `<span class="bg-[#070D17] ${idx % 3 === 0 ? 'w-[3px]' : idx % 2 === 0 ? 'w-[2px]' : 'w-[1px]'}"></span>`).join('')}
+                  </div>
+                  <div class="text-[11px] font-mono font-extrabold tracking-widest text-[#070D17]">${escapeHtml(trk)}</div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[11px]">
+                  <div class="p-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                    <div class="text-[9px] font-extrabold uppercase text-slate-400">Sender (Tindahan)</div>
+                    <div class="font-extrabold text-[#070D17] truncate">${escapeHtml(scState.shopName)}</div>
+                    <div class="text-[10px] text-slate-600 line-clamp-2">${escapeHtml(scState.city)}</div>
+                  </div>
+                  <div class="p-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                    <div class="text-[9px] font-extrabold uppercase text-slate-400">Recipient (Miner)</div>
+                    <div class="font-extrabold text-[#070D17] truncate">${escapeHtml(o.buyerName)}</div>
+                    <div class="text-[10px] text-slate-600 line-clamp-2">${escapeHtml(o.buyerAddress || 'Cebu City, Philippines')}</div>
+                  </div>
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="text-[10px] font-bold text-[#070D17] truncate">Item: ${escapeHtml(o.title)} (x${o.quantity || 1})</div>
+                    <div class="text-[10px] text-slate-500">${escapeHtml(o.waybillGeneratedAt || 'Ready for Courier Scan')}</div>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <div class="text-[9px] font-extrabold uppercase text-slate-500">${isCod ? 'COD COLLECT' : 'PAID ONLINE'}</div>
+                    <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price">${isCod ? '₱' + totalAmt.toLocaleString() : '₱0.00'}</div>
+                  </div>
+                </div>
+
+                <button onclick="downloadSingleWaybillA6PDF('${o.id}')" class="w-full py-2.5 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer">
+                  <i data-lucide="printer" class="w-4 h-4 text-[#10B981]"></i>
+                  <span>Download A6 Waybill PDF (105 × 148 mm)</span>
+                </button>
+              </div>
+            `;
+          }).join('')}
+        `;
+        return;
+      }
+
+      const filtered = scState.orderFilter === 'ALL'
+        ? scState.orders
+        : scState.orders.filter(o => o.stage === scState.orderFilter);
+
+      if (!filtered.length) {
+        list.innerHTML = `<div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">No orders in this tab yet.</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(o => `
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between gap-2 text-[10px]">
+            <span class="font-extrabold text-[#070D17]">Miner: ${escapeHtml(o.buyerName)}</span>
+            <span class="px-2 py-0.5 rounded-full font-extrabold ${
+              o.stage === 'TO_PAY' ? 'bg-[#F59E0B]/20 text-[#070D17]' :
+              o.stage === 'TO_SHIP' ? 'bg-[#EF4444]/10 text-[#EF4444]' :
+              'bg-[#10B981]/15 text-[#10B981]'
+            }">${escapeHtml(o.status)}</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <img src="${o.image}" alt="${escapeHtml(o.title)}" class="w-14 h-14 rounded-xl object-cover bg-[#F4F6F9] shrink-0" />
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(o.title)}</div>
+              <div class="text-[10px] text-slate-500">Qty: ${o.quantity || 1} • ${escapeHtml(o.courier)} • ${escapeHtml(o.paymentMethod)}</div>
+              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">₱${(o.price * (o.quantity || 1)).toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+            ${
+              o.stage === 'TO_PAY'
+                ? `<button onclick="sendPaymentReminder('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold cursor-pointer">Send Payment Reminder</button>`
+                : o.stage === 'TO_SHIP'
+                ? `<button onclick="arrangeShipment('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#10B981] text-white text-[11px] font-extrabold cursor-pointer">Arrange Shipment &amp; Print Waybill</button>`
+                : o.stage === 'TO_RECEIVE'
+                ? `<button onclick="markOrderDelivered('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer">Mark Delivered</button>`
+                : `<span class="flex-1 py-1.5 text-center text-[11px] font-bold text-[#10B981]">✓ Completed &amp; Paid Out</span>`
+            }
+            <button onclick="switchSellerTab('chat')" class="px-3 py-2 rounded-xl bg-[#F4F6F9] text-[#070D17] text-[11px] font-bold cursor-pointer">Chat</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function switchFinanceSubTab(sub) {
+      scState.financeSubTab = sub;
+      ['summary', 'release', 'calc'].forEach(k => {
+        const view = document.getElementById(`fin-subview-${k}`);
+        const btn = document.getElementById(`fin-subbtn-${k}`);
+        const active = k === sub;
+        if (view) view.classList.toggle('hidden', !active);
+        if (btn) {
+          btn.className = active
+            ? 'py-2 px-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer transition'
+            : 'py-2 px-2 rounded-xl text-[#1E293B] text-[11px] font-bold cursor-pointer transition';
+        }
+      });
+      if (sub === 'calc') renderScCalculator();
+    }
+
+    function renderFinanceTab() {
+      let totalGmv = 0;
+      let totalUkayoComm = 0;
+      let totalOrderProcFees = 0;
+      let totalGatewayFees = 0;
+      let totalVoucherDeductions = 0;
+      let totalNetSeller = 0;
+      let pendingEscrowNet = 0;
+
+      const orderRows = scState.orders.map(o => {
+        const grossItem = (o.price || 0) * (o.quantity || 1);
+        const shipFee = o.shippingFee || 85;
+        const voucherDed = o.voucherAmount || 0;
+        const isCancelledOrReturned = o.stage === 'CANCELLED' || o.stage === 'RETURNED';
+        const isBayadAgad = String(o.paymentMethod || '').toUpperCase().includes('BAYAD') || String(o.paymentMethod || '').toUpperCase().includes('GCASH');
+        const buyerCheckout = grossItem + Math.max(shipFee - voucherDed, 0);
+        const commFee = isCancelledOrReturned ? 0.00 : +(grossItem * 0.06).toFixed(2);
+        const opfFee = isCancelledOrReturned ? 0.00 : 5.00;
+        const gwFee = (!isCancelledOrReturned && isBayadAgad) ? +(buyerCheckout * 0.0223).toFixed(2) : 0.00;
+        const netEarn = isCancelledOrReturned ? 0.00 : +(grossItem - commFee - opfFee - voucherDed - gwFee).toFixed(2);
+
+        totalGmv += grossItem;
+        totalUkayoComm += commFee;
+        totalOrderProcFees += opfFee;
+        totalGatewayFees += gwFee;
+        totalVoucherDeductions += voucherDed;
+        if (o.stage === 'TO_PAY') {
+          pendingEscrowNet += netEarn;
+        } else if (!isCancelledOrReturned) {
+          totalNetSeller += netEarn;
+        }
+        return { ...o, grossItem, commFee, opfFee, gwFee, voucherDed, netEarn };
+      });
+
+      const alreadyReleased = scState.fundReleaseRequests
+        .filter(r => r.status === 'Released' || r.status === 'Processing')
+        .reduce((s, r) => s + r.amount, 0);
+      const availableNet = Math.max(0, +(totalNetSeller - alreadyReleased).toFixed(2));
+      const totalDeductions = +(totalUkayoComm + totalOrderProcFees + totalGatewayFees + totalVoucherDeductions).toFixed(2);
+
+      const fmt = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      document.getElementById('sc-finance-balance').textContent = fmt(availableNet);
+      document.getElementById('sc-finance-gcash').textContent = scState.gcash;
+
+      const relInput = document.getElementById('rel-amount');
+      if (relInput && availableNet > 0) {
+        relInput.max = availableNet;
+      }
+
+      const summaryBox = document.getElementById('sc-finance-summary-cards');
+      if (summaryBox) {
+        summaryBox.innerHTML = `
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Platform Money &amp; Deductions Summary</h3>
+            <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-white text-[9px] font-extrabold">6.0% Flat</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+              <div class="text-[9px] font-bold uppercase text-slate-500">Gross Merchandise Value (GMV)</div>
+              <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price mt-0.5">${fmt(totalGmv)}</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/30">
+              <div class="text-[9px] font-bold uppercase text-[#065F46]">Seller Net Earnings</div>
+              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">${fmt(totalNetSeller)}</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-[#EF4444]/10 border border-[#EF4444]/25">
+              <div class="text-[9px] font-bold uppercase text-[#991B1B]">Total Deductions</div>
+              <div class="text-sm font-display font-extrabold text-[#EF4444] tabular-price mt-0.5">-${fmt(totalDeductions)}</div>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-[#F59E0B]/15 border border-[#F59E0B]/30">
+              <div class="text-[9px] font-bold uppercase text-[#92400E]">Pending Unpaid Escrow</div>
+              <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price mt-0.5">${fmt(pendingEscrowNet)}</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5 text-[11px]">
+            <div class="text-[10px] font-extrabold uppercase text-slate-500">Itemized Platform Deductions</div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">UKAYO Commission (6.0% Flat • ₱0 Live Fee)</span>
+              <span class="font-bold text-[#070D17] tabular-price">-${fmt(totalUkayoComm)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Order Processing Fee (₱5.00 / Completed Order)</span>
+              <span class="font-bold text-[#070D17] tabular-price">-${fmt(totalOrderProcFees)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Bayad Agad Gateway Fee (2.23% on E-Wallet)</span>
+              <span class="font-bold text-[#070D17] tabular-price">-${fmt(totalGatewayFees)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-600">Seller-Sponsored Vouchers Redeemed</span>
+              <span class="font-bold text-[#070D17] tabular-price">-${fmt(totalVoucherDeductions)}</span>
+            </div>
+            <div class="flex justify-between pt-1.5 border-t border-slate-200">
+              <span class="text-slate-600">Already Released Payouts</span>
+              <span class="font-bold text-sky-600 tabular-price">-${fmt(alreadyReleased)}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      const ledger = document.getElementById('sc-finance-ledger');
+      if (ledger) {
+        ledger.innerHTML = orderRows.map(o => `
+          <div class="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-extrabold text-[#070D17] truncate">${escapeHtml(o.title)}</span>
+              <span class="font-display font-extrabold ${o.stage === 'TO_PAY' ? 'text-[#F59E0B]' : 'text-[#10B981]'} tabular-price shrink-0">
+                ${o.stage === 'TO_PAY' ? 'Unpaid (' + fmt(o.netEarn) + ')' : '+' + fmt(o.netEarn)}
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500">
+              <span>GMV: ${fmt(o.grossItem)} • 6%: -${fmt(o.commFee)} • OPF: -${fmt(o.opfFee)} • GW: -${fmt(o.gwFee)}</span>
+              <span>${escapeHtml(o.buyerName)}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const relHist = document.getElementById('sc-release-history-list');
+      if (relHist) {
+        relHist.innerHTML = scState.fundReleaseRequests.map(r => `
+          <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2 text-xs">
+            <div>
+              <div class="font-extrabold text-[#070D17] tabular-price">${fmt(r.amount)} <span class="text-[10px] font-normal text-slate-500">• ${escapeHtml(r.id)}</span></div>
+              <div class="text-[10px] text-slate-500">${escapeHtml(r.channel)} • ${escapeHtml(r.date)}</div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full ${r.status === 'Released' ? 'bg-[#10B981]/15 text-[#10B981]' : 'bg-[#F59E0B]/20 text-[#070D17]'} text-[9px] font-extrabold">${escapeHtml(r.status)}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function submitFundReleaseRequest(e) {
+      e.preventDefault();
+      const amt = parseFloat(document.getElementById('rel-amount')?.value) || 0;
+      const channel = document.getElementById('rel-channel')?.value || 'GCash';
+      const accNum = document.getElementById('rel-acc-num')?.value.trim() || scState.gcash;
+      if (amt < 100) {
+        showScToast('Minimum fund release amount is ₱100.');
+        return;
+      }
+      scState.fundReleaseRequests.unshift({
+        id: 'REL-' + Math.floor(100000 + Math.random() * 900000),
+        date: 'Nov 15, 2026',
+        amount: amt,
+        channel: `${channel} (${accNum})`,
+        status: 'Processing'
+      });
+      renderFinanceTab();
+      showScToast(`Fund release request for ₱${amt.toLocaleString()} submitted!`);
+    }
+
+    function switchInboxView(view) {
+      scState.inboxView = view;
+      const chatV = document.getElementById('sc-inbox-chat-view');
+      const revV = document.getElementById('sc-inbox-reviews-view');
+      const bChat = document.getElementById('inbox-tab-chat');
+      const bRev = document.getElementById('inbox-tab-reviews');
+      const isChat = view === 'chat';
+      if (chatV) chatV.classList.toggle('hidden', !isChat);
+      if (revV) revV.classList.toggle('hidden', isChat);
+      if (bChat && bRev) {
+        bChat.className = isChat
+          ? 'px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer';
+        bRev.className = !isChat
+          ? 'px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer'
+          : 'px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer';
+      }
+      renderChatTab();
+    }
+
+    function selectChatThread(threadId) {
+      scState.activeChatThreadId = threadId;
+      const t = scState.chatThreads.find(x => x.id === threadId);
+      if (t) t.unread = 0;
+      renderChatTab();
+    }
+
+    function renderChatTab() {
+      const leftList = document.getElementById('sc-chat-threads-left');
+      const box = document.getElementById('sc-chat-messages');
+      const headerName = document.getElementById('sc-chat-active-name');
+      const activeThread = scState.chatThreads.find(t => t.id === scState.activeChatThreadId) || scState.chatThreads[0];
+
+      if (leftList) {
+        leftList.innerHTML = scState.chatThreads.map(t => {
+          const isSelected = activeThread && t.id === activeThread.id;
+          const lastMsg = t.messages[t.messages.length - 1];
+          return `
+            <button type="button" onclick="selectChatThread('${t.id}')" class="w-full p-2.5 text-left transition cursor-pointer ${isSelected ? 'bg-white border-l-4 border-[#10B981]' : 'hover:bg-white/70'}">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] font-extrabold text-[#070D17] truncate">${escapeHtml(t.buyerName)}</span>
+                ${t.unread ? `<span class="w-2 h-2 rounded-full bg-[#EF4444] shrink-0"></span>` : ''}
+              </div>
+              <div class="text-[9px] font-bold text-[#10B981] truncate">${escapeHtml(t.itemTag)}</div>
+              <div class="text-[10px] text-slate-500 truncate mt-0.5">${lastMsg ? escapeHtml(lastMsg.text) : ''}</div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      if (headerName && activeThread) {
+        headerName.textContent = `${activeThread.buyerName} • ${activeThread.itemTag}`;
+      }
+
+      if (box && activeThread) {
+        box.innerHTML = activeThread.messages.map(m => `
+          <div class="flex ${m.from === 'seller' ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
+              m.from === 'seller'
+                ? 'bg-[#070D17] text-white rounded-br-xs'
+                : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
+            }">
+              <p>${escapeHtml(m.text)}</p>
+              <div class="text-[9px] opacity-60 mt-1 text-right">${escapeHtml(m.time)}</div>
+            </div>
+          </div>
+        `).join('');
+        box.scrollTop = box.scrollHeight;
+      }
+
+      const revList = document.getElementById('sc-reviews-comments-list');
+      if (revList) {
+        revList.innerHTML = scState.reviewsAndComments.map(rc => `
+          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2 shadow-2xs">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="font-extrabold text-[#070D17]">${escapeHtml(rc.buyerName)} <span class="ml-1 px-2 py-0.5 rounded-full bg-[#F59E0B]/20 text-[#070D17] font-extrabold">${escapeHtml(rc.kind)}</span></span>
+              <span class="text-slate-400">${escapeHtml(rc.time)}</span>
+            </div>
+            <div class="text-[10px] font-bold text-[#10B981]">Item: ${escapeHtml(rc.itemTitle)}</div>
+            <p class="text-xs text-[#1E293B] bg-[#F4F6F9] p-2.5 rounded-xl border border-[#E2E8F0]">"${escapeHtml(rc.text)}"</p>
+            ${
+              rc.sellerReply
+                ? `<div class="pl-3 border-l-2 border-[#10B981] text-[11px] text-[#070D17]"><span class="font-extrabold">Your Reply:</span> ${escapeHtml(rc.sellerReply)}</div>`
+                : `<form onsubmit="submitReviewOrCommentReply(event, '${rc.id}')" class="flex items-center gap-1.5 pt-1">
+                    <input type="text" id="reply-input-${rc.id}" placeholder="Write a public reply to buyer..." required class="flex-1 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none" />
+                    <button type="submit" class="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">Reply</button>
+                  </form>`
+            }
+          </div>
+        `).join('');
+      }
+    }
+
+    function submitReviewOrCommentReply(e, rcId) {
+      e.preventDefault();
+      const inp = document.getElementById(`reply-input-${rcId}`);
+      if (!inp || !inp.value.trim()) return;
+      const item = scState.reviewsAndComments.find(x => x.id === rcId);
+      if (!item) return;
+      item.sellerReply = inp.value.trim();
+      renderChatTab();
+      showScToast(`Replied to ${item.buyerName}!`);
+    }
+
+    function renderShopSettingsTab() {
+      document.getElementById('sc-input-shopname').value = scState.shopName;
+      document.getElementById('sc-input-city').value = scState.city;
+      document.getElementById('sc-input-gcash').value = scState.gcash;
+      document.getElementById('sc-input-taxtier').value = scState.taxTier;
+      document.getElementById('sc-input-tin').value = scState.tin;
+
+      const vList = document.getElementById('sc-vouchers-list');
+      if (!vList) return;
+      if (!scState.vouchers.length) {
+        vList.innerHTML = `<div class="p-3 rounded-xl bg-[#F4F6F9] text-center text-[11px] text-slate-500">No active seller vouchers. Tap <strong>+ Create Voucher</strong> above.</div>`;
+        return;
+      }
+      vList.innerHTML = scState.vouchers.map((v, idx) => {
+        const discLabel = v.discount || `₱${v.amount} OFF ${v.type === 'Shipping' ? 'Ship' : ''}`;
+        const minLabel = typeof v.minSpend === 'number' ? `₱${v.minSpend.toLocaleString()}` : v.minSpend;
+        return `
+        <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(v.code)} <span class="text-[#10B981]">(${escapeHtml(discLabel)})</span></div>
+            <div class="text-[10px] text-slate-500">Min. ${escapeHtml(minLabel)} • ${v.used}/${v.limit || 50} claimed</div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">Active</span>
+            <button type="button" onclick="deleteShopVoucher(${idx})" class="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-slate-400 hover:text-[#EF4444] hover:border-[#EF4444]/40 cursor-pointer transition" title="Delete Voucher">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function pinProductLive(prodId) {
+      scState.products.forEach(p => {
+        p.pinned = p.id === prodId;
+      });
+      const pinned = scState.products.find(p => p.id === prodId);
+      renderAllSellerCenter();
+      if (pinned) showScToast(`Pinned [${pinned.code}] ${pinned.title} to LIVE Studio!`);
+    }
+
+    function sendPaymentReminder(orderId) {
+      const o = scState.orders.find(x => x.id === orderId);
+      if (!o) return;
+      const targetThread = scState.chatThreads.find(t => t.buyerName === o.buyerName) || scState.chatThreads[0];
+      if (targetThread) {
+        targetThread.messages.push({
+          from: 'seller',
+          text: `Hi ${o.buyerName}! Friendly reminder to checkout "${o.title}" (₱${o.price * (o.quantity || 1)}) so we can include it in today's J&T pickup.`,
+          time: 'Just now'
+        });
+      }
+      showScToast(`Sent payment reminder to ${o.buyerName}!`);
+    }
+
+    function updateWaybillDateRange() {
+      const s = document.getElementById('wb-start-date')?.value || '';
+      const e = document.getElementById('wb-end-date')?.value || '';
+      scState.waybillStartDate = s;
+      scState.waybillEndDate = e;
+      renderOrdersTab();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function setWaybillTodayFilter() {
+      const todayIso = '2026-11-15';
+      scState.waybillStartDate = todayIso;
+      scState.waybillEndDate = todayIso;
+      renderOrdersTab();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function arrangeShipment(orderId) {
+      const o = scState.orders.find(x => x.id === orderId);
+      if (!o) return;
+      o.stage = 'TO_RECEIVE';
+      o.status = `In Transit — ${o.courier}`;
+      o.trackingNumber = 'UKY' + Math.floor(100000000 + Math.random() * 900000000) + 'PH';
+      o.waybillDate = '2026-11-15';
+      o.waybillGeneratedAt = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      o.trackingEvents = [
+        {
+          time: 'Just now',
+          title: `Waybill Printed • ${o.courier}`,
+          desc: `Tracking #${o.trackingNumber} — Packed & handed over to courier`,
+          done: true,
+          current: true
+        },
+        ...(o.trackingEvents || [])
+      ];
+      pushUpdatesToSharedBuyerApp();
+      setOrdersFilter('WAYBILLS');
+      renderAllSellerCenter();
+      showScToast(`Waybill ${o.trackingNumber} compiled in Waybills (A6)!`);
+    }
+
+    function renderA6WaybillPage(doc, order, isFirstPage) {
+      if (!isFirstPage) {
+        doc.addPage([105, 148], 'portrait');
+      }
+      const w = 105;
+      const h = 148;
+      const m = 5;
+      const trk = order.trackingNumber || ('UKY' + order.id.slice(-6).toUpperCase() + 'PH');
+      const totalAmt = order.price * (order.quantity || 1);
+      const isCod = String(order.paymentMethod || '').toUpperCase().includes('COD');
+
+      doc.setDrawColor(7, 13, 23);
+      doc.setLineWidth(0.6);
+      doc.rect(m, m, w - m * 2, h - m * 2);
+
+      doc.setFillColor(7, 13, 23);
+      doc.rect(m, m, w - m * 2, 14, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('UKAYO EXPRESS WAYBILL', m + 3, m + 6.5);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`COURIER: ${(order.courier || 'J&T EXPRESS').toUpperCase()}`, m + 3, m + 11.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('A6', w - m - 3, m + 9, { align: 'right' });
+
+      doc.setDrawColor(7, 13, 23);
+      doc.setLineWidth(0.35);
+      doc.line(m, 39, w - m, 39);
+      let barX = m + 8;
+      for (let i = 0; i < 44; i++) {
+        const barW = i % 3 === 0 ? 1.1 : i % 2 === 0 ? 0.7 : 0.35;
+        doc.setFillColor(7, 13, 23);
+        doc.rect(barX, 21.5, barW, 11, 'F');
+        barX += barW + 0.85;
+      }
+      doc.setTextColor(7, 13, 23);
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(9.5);
+      doc.text(trk, w / 2, 36.8, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('FROM (SELLER TINDAHAN):', m + 3, 44);
+      doc.setTextColor(7, 13, 23);
+      doc.setFontSize(8.5);
+      doc.text(String(scState.shopName || "Mika's Ukay Closet"), m + 3, 48.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      const senderAddrLines = doc.splitTextToSize(`${scState.city} • ${scState.gcash}`, w - m * 2 - 6);
+      doc.text(senderAddrLines, m + 3, 52.5);
+      doc.line(m, 61, w - m, 61);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('TO (RECIPIENT MINER):', m + 3, 66);
+      doc.setTextColor(7, 13, 23);
+      doc.setFontSize(10);
+      doc.text(String(order.buyerName || 'Miner Buyer'), m + 3, 71);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const buyerAddrLines = doc.splitTextToSize(
+        `${order.buyerAddress || 'Lahug, Cebu City, Central Visayas'}\nTel: ${order.buyerPhone || '0917-555-0192'}`,
+        w - m * 2 - 6
+      );
+      doc.text(buyerAddrLines, m + 3, 76);
+      doc.line(m, 92, w - m, 92);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('PARCEL CONTENTS:', m + 3, 97);
+      doc.setTextColor(7, 13, 23);
+      doc.setFontSize(8.5);
+      const itemLines = doc.splitTextToSize(`${order.title} (Qty: ${order.quantity || 1})`, w - m * 2 - 6);
+      doc.text(itemLines, m + 3, 102);
+      doc.line(m, 115, w - m, 115);
+
+      doc.setFillColor(244, 246, 249);
+      doc.rect(m + 0.5, 115.5, w - m * 2 - 1, 17, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(7, 13, 23);
+      doc.text(isCod ? 'COD AMOUNT TO COLLECT:' : 'PAYMENT STATUS:', m + 3, 122);
+      doc.setFontSize(13);
+      doc.text(isCod ? `PHP ${totalAmt.toLocaleString()}.00` : 'PAID (BAYAD AGAD)', m + 3, 129);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Printed: ${order.waybillGeneratedAt || new Date().toLocaleDateString()} • UKAYO Seller Center`, w / 2, h - m - 3, { align: 'center' });
+    }
+
+    function downloadSingleWaybillA6PDF(orderId) {
+      const order = scState.orders.find(o => o.id === orderId);
+      if (!order) return;
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 148] });
+        renderA6WaybillPage(doc, order, true);
+        const trk = order.trackingNumber || order.id;
+        doc.save(`UKAYO_Waybill_A6_${trk}.pdf`);
+        showScToast(`Downloaded A6 Waybill PDF (${trk})!`);
+      } catch (err) {
+        showScToast('Could not generate PDF. Please try again.');
+      }
+    }
+
+    function downloadAllWaybillsA6PDF() {
+      const startD = scState.waybillStartDate || '2026-11-13';
+      const endD = scState.waybillEndDate || '2026-11-15';
+      const waybillOrders = scState.orders
+        .filter(o => o.trackingNumber || o.stage === 'TO_RECEIVE' || o.stage === 'TO_RATE')
+        .filter(o => {
+          const d = o.waybillDate || '2026-11-15';
+          return (!startD || d >= startD) && (!endD || d <= endD);
+        });
+      if (!waybillOrders.length) return;
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 148] });
+        waybillOrders.forEach((order, idx) => {
+          renderA6WaybillPage(doc, order, idx === 0);
+        });
+        doc.save(`UKAYO_Waybills_A6_${startD}_to_${endD}_${waybillOrders.length}pcs.pdf`);
+        showScToast(`Downloaded ${waybillOrders.length} compiled A6 waybills (${startD} to ${endD})!`);
+      } catch (err) {
+        showScToast('Could not generate compiled A6 PDF.');
+      }
+    }
+
+    function markOrderDelivered(orderId) {
+      const o = scState.orders.find(x => x.id === orderId);
+      if (!o) return;
+      o.stage = 'TO_RATE';
+      o.status = 'Delivered — Completed';
+      pushUpdatesToSharedBuyerApp();
+      renderAllSellerCenter();
+      showScToast('Order marked Delivered & funds credited!');
+    }
+
+    function sendSellerChatReply(e) {
+      e.preventDefault();
+      const input = document.getElementById('sc-chat-input');
+      if (!input || !input.value.trim()) return;
+      const activeThread = scState.chatThreads.find(t => t.id === scState.activeChatThreadId) || scState.chatThreads[0];
+      if (!activeThread) return;
+      activeThread.messages.push({
+        from: 'seller',
+        text: input.value.trim(),
+        time: 'Just now'
+      });
+      input.value = '';
+      renderChatTab();
+    }
+
+    let pendingProdImages = [];
+
+    function handleNewProductImagesUpload(e) {
+      const files = Array.from(e.target.files || []).slice(0, 5);
+      if (e.target.files && e.target.files.length > 5) {
+        showScToast('Maximum 5 product images allowed. Keeping first 5.');
+      }
+      pendingProdImages = [];
+      const countEl = document.getElementById('new-prod-img-count');
+      const prevEl = document.getElementById('new-prod-images-preview');
+      if (countEl) countEl.textContent = `${files.length} / 5`;
+      if (!prevEl) return;
+      if (!files.length) {
+        prevEl.classList.add('hidden');
+        prevEl.innerHTML = '';
+        return;
+      }
+      prevEl.innerHTML = '';
+      prevEl.classList.remove('hidden');
+      files.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          pendingProdImages.push(ev.target.result);
+          const thumb = document.createElement('div');
+          thumb.className = 'relative aspect-square rounded-lg overflow-hidden border border-[#CBD5E1] bg-white';
+          thumb.innerHTML = `<img src="${ev.target.result}" alt="Img ${idx + 1}" class="w-full h-full object-cover" />`;
+          prevEl.appendChild(thumb);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function addProductVariantRow() {
+      const list = document.getElementById('new-prod-variants-list');
+      if (!list) return;
+      const row = document.createElement('div');
+      row.className = 'grid grid-cols-12 gap-1.5 items-center variant-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Variant (e.g. XL / Bale 45kg)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-semibold" />
+        <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-extrabold tabular-price" />
+        <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-slate-400 hover:text-[#EF4444] text-xs font-bold cursor-pointer">✕</button>
+      `;
+      list.appendChild(row);
+    }
+
+    function openAddProductModal() {
+      pendingProdImages = [];
+      const countEl = document.getElementById('new-prod-img-count');
+      const prevEl = document.getElementById('new-prod-images-preview');
+      if (countEl) countEl.textContent = '0 / 5';
+      if (prevEl) {
+        prevEl.innerHTML = '';
+        prevEl.classList.add('hidden');
+      }
+      const m = document.getElementById('sc-add-product-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+
+    function closeAddProductModal() {
+      const m = document.getElementById('sc-add-product-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function submitNewProduct(e) {
+      e.preventDefault();
+      const title = document.getElementById('new-prod-title').value.trim();
+      const basePrice = Number(document.getElementById('new-prod-price').value) || 250;
+      const category = document.getElementById('new-prod-category').value;
+      const size = document.getElementById('new-prod-size').value.trim();
+      const description = document.getElementById('new-prod-description').value.trim();
+      const code = 'A0' + (scState.products.length + 1);
+
+      const variants = [];
+      document.querySelectorAll('#new-prod-variants-list .variant-row').forEach(row => {
+        const vName = row.querySelector('.var-name')?.value.trim();
+        const vPrice = parseFloat(row.querySelector('.var-price')?.value);
+        if (vName && vPrice > 0) {
+          variants.push({ name: vName, price: vPrice });
+        }
+      });
+
+      const defaultImg = 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80';
+      const imgs = pendingProdImages.length ? [...pendingProdImages] : [defaultImg];
+
+      scState.products.unshift({
+        id: 'prod_' + Date.now(),
+        code,
+        title,
+        price: variants.length ? variants[0].price : basePrice,
+        variants,
+        category,
+        size,
+        description,
+        status: 'Available',
+        pinned: true,
+        image: imgs[0],
+        images: imgs
+      });
+
+      document.getElementById('new-prod-title').value = '';
+      document.getElementById('new-prod-description').value = '';
+      closeAddProductModal();
+      renderAllSellerCenter();
+      showScToast(`Added [${code}] ${title} (${imgs.length} photo${imgs.length > 1 ? 's' : ''})!`);
+    }
+
+    function saveShopProfile(e) {
+      e.preventDefault();
+      scState.shopName = document.getElementById('sc-input-shopname').value.trim();
+      scState.city = document.getElementById('sc-input-city').value.trim();
+      scState.gcash = document.getElementById('sc-input-gcash').value.trim();
+      pushUpdatesToSharedBuyerApp();
+      renderAllSellerCenter();
+      showScToast('Tindahan profile updated!');
+    }
+
+    let calcData = {
+      price: 299,
+      ship: 85,
+      voucher: 0,
+      pay: 'BAYAD_AGAD',
+      bir: 'EXEMPT'
+    };
+
+    function syncCalcInput(field, source) {
+      const numEl = document.getElementById(`calc-${field}-num`);
+      const rngEl = document.getElementById(`calc-${field}-rng`);
+      let val = source === 'num' ? (parseFloat(numEl?.value) || 0) : (parseFloat(rngEl?.value) || 0);
+      val = Math.max(0, val);
+      calcData[field] = val;
+      if (source === 'num' && rngEl) {
+        const maxR = parseFloat(rngEl.max) || 5000;
+        rngEl.value = Math.min(val, maxR);
+      } else if (source === 'rng' && numEl) {
+        numEl.value = val;
+      }
+      renderScCalculator();
+    }
+
+    function setCalcPay(method) {
+      calcData.pay = method;
+      renderScCalculator();
+    }
+
+    function setCalcBir(status) {
+      calcData.bir = status;
+      renderScCalculator();
+    }
+
+    function renderScCalculator() {
+      const { price, ship, voucher, pay, bir } = calcData;
+      const netShip = Math.max(ship - voucher, 0);
+      const buyerTotal = price + netShip;
+      const comm = +(price * 0.06).toFixed(2);
+      const opf = price > 0 ? 5.00 : 0.00;
+      const gw = pay === 'BAYAD_AGAD' ? +(buyerTotal * 0.0223).toFixed(2) : 0.00;
+      const wht = bir === 'WITHHELD' ? +(price * 0.005).toFixed(2) : 0.00;
+      const net = +(price - comm - opf - voucher - gw - wht).toFixed(2);
+      const pct = price > 0 ? (net / price) * 100 : 0;
+
+      const bBayad = document.getElementById('calc-pay-BAYAD_AGAD');
+      const bCod = document.getElementById('calc-pay-COD');
+      if (bBayad && bCod) {
+        bBayad.className = pay === 'BAYAD_AGAD'
+          ? 'py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition'
+          : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
+        bCod.className = pay === 'COD'
+          ? 'py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition'
+          : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
+      }
+
+      const bEx = document.getElementById('calc-bir-EXEMPT');
+      const bWh = document.getElementById('calc-bir-WITHHELD');
+      if (bEx && bWh) {
+        bEx.className = bir === 'EXEMPT'
+          ? 'py-1.5 px-2 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition'
+          : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
+        bWh.className = bir === 'WITHHELD'
+          ? 'py-1.5 px-2 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold cursor-pointer transition'
+          : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
+      }
+
+      const fmt = n => '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const elNet = document.getElementById('calc-out-net');
+      if (elNet) {
+        elNet.textContent = fmt(net);
+        elNet.className = `text-xl font-display font-extrabold tabular-price ${net < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`;
+      }
+      const elPct = document.getElementById('calc-out-pct');
+      if (elPct) elPct.textContent = `${pct.toFixed(1)}%`;
+      const elBuyer = document.getElementById('calc-out-buyer');
+      if (elBuyer) elBuyer.textContent = fmt(buyerTotal);
+      const elComm = document.getElementById('calc-out-comm');
+      if (elComm) elComm.textContent = `-${fmt(comm)}`;
+      const elOpf = document.getElementById('calc-out-opf');
+      if (elOpf) elOpf.textContent = `-${fmt(opf)}`;
+      const elVouch = document.getElementById('calc-out-voucher');
+      if (elVouch) elVouch.textContent = `-${fmt(voucher)}`;
+      const elGwLbl = document.getElementById('calc-out-gw-lbl');
+      if (elGwLbl) elGwLbl.textContent = pay === 'BAYAD_AGAD' ? 'Bayad Agad Fee (2.23%)' : 'COD Fee (0.00%)';
+      const elGw = document.getElementById('calc-out-gw');
+      if (elGw) elGw.textContent = `-${fmt(gw)}`;
+      const elWht = document.getElementById('calc-out-wht');
+      if (elWht) elWht.textContent = `-${fmt(wht)}`;
+
+      const denom = Math.max(price, 1);
+      const netW = Math.max(0, Math.min(100, (Math.max(net, 0) / denom) * 100));
+      const commW = Math.max(0, Math.min(100 - netW, ((comm + opf) / denom) * 100));
+      const vouchW = Math.max(0, Math.min(100 - netW - commW, (voucher / denom) * 100));
+      const gwW = Math.max(0, Math.min(100 - netW - commW - vouchW, ((gw + wht) / denom) * 100));
+
+      const barNet = document.getElementById('calc-bar-net');
+      const barComm = document.getElementById('calc-bar-comm');
+      const barVouch = document.getElementById('calc-bar-voucher');
+      const barGw = document.getElementById('calc-bar-gw');
+      if (barNet) barNet.style.width = `${netW.toFixed(1)}%`;
+      if (barComm) barComm.style.width = `${commW.toFixed(1)}%`;
+      if (barVouch) barVouch.style.width = `${vouchW.toFixed(1)}%`;
+      if (barGw) barGw.style.width = `${gwW.toFixed(1)}%`;
+    }
+
+    function openCreateVoucherModal() {
+      const m = document.getElementById('sc-voucher-modal');
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+      }
+    }
+
+    function closeCreateVoucherModal() {
+      const m = document.getElementById('sc-voucher-modal');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    function submitNewShopVoucher(e) {
+      e.preventDefault();
+      const code = document.getElementById('vouch-code').value.trim().toUpperCase();
+      const type = document.getElementById('vouch-type').value;
+      const amount = Number(document.getElementById('vouch-amount').value) || 40;
+      const minSpend = Number(document.getElementById('vouch-min').value) || 299;
+      const limit = Number(document.getElementById('vouch-limit').value) || 25;
+
+      scState.vouchers.unshift({ code, type, amount, minSpend, limit, used: 0 });
+      pushUpdatesToSharedBuyerApp();
+      closeCreateVoucherModal();
+      renderShopSettingsTab();
+      if (window.lucide) lucide.createIcons();
+      showScToast(`Created ${code} (₱${amount} OFF ${type})!`);
+    }
+
+    function deleteShopVoucher(idx) {
+      const removed = scState.vouchers[idx];
+      if (!removed) return;
+      scState.vouchers.splice(idx, 1);
+      pushUpdatesToSharedBuyerApp();
+      renderShopSettingsTab();
+      if (window.lucide) lucide.createIcons();
+      showScToast(`Deleted voucher ${removed.code}.`);
+    }
+
+    function openSellerPolicyModal() {
+      const m = document.getElementById('sc-policy-modal');
+      if (m) {
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    function closeSellerPolicyModal() {
+      const m = document.getElementById('sc-policy-modal');
+      if (m) {
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+      }
+    }
+
+    function saveTaxCompliance(e) {
+      e.preventDefault();
+      scState.taxTier = document.getElementById('sc-input-taxtier').value;
+      scState.tin = document.getElementById('sc-input-tin').value.trim();
+      showScToast('BIR & DTI compliance profile saved!');
+    }
+
+    async function toggleHostCamera() {
+      const videoEl = document.getElementById('sc-live-video');
+      const imgEl = document.getElementById('sc-live-preview-img');
+      const btn = document.getElementById('sc-toggle-cam-btn');
+      const statusPill = document.getElementById('sc-live-status-pill');
+
+      if (hostCamStream) {
+        hostCamStream.getTracks().forEach(t => t.stop());
+        hostCamStream = null;
+        videoEl.srcObject = null;
+        videoEl.classList.add('hidden');
+        imgEl.classList.remove('hidden');
+        btn.textContent = 'Start Camera';
+        statusPill.textContent = '● Studio Standby';
+        showScToast('Host camera stopped.');
+        return;
+      }
+
+      try {
+        hostCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoEl.srcObject = hostCamStream;
+        videoEl.classList.remove('hidden');
+        imgEl.classList.add('hidden');
+        btn.textContent = 'Stop Camera';
+        statusPill.textContent = '● ON AIR — LIVE';
+        showScToast('LIVE Studio camera active!');
+      } catch (err) {
+        showScToast('Camera permission unavailable on this browser.');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      syncFromSharedBuyerApp();
+      document.getElementById('ob-shop-name').value = scState.shopName;
+      document.getElementById('ob-pickup-address').value = scState.city;
+      document.getElementById('ob-contact-phone').value = scState.gcash;
+      document.getElementById('ob-owner-name').value = scState.ownerName;
+      if (scState.idNumber) document.getElementById('ob-id-number').value = scState.idNumber;
+      if (scState.isOnboarded) {
+        switchSellerTab(scState.activeTab || 'home');
+      } else {
+        goToOnboardingStep(1);
+        renderAllSellerCenter();
+      }
+    });
+
+    // Real-time cross-tab sync with UKAYO Marketplace & Admin Ops Portal
+    window.addEventListener('storage', (e) => {
+      if (e.key === SHARED_STORAGE_KEY && e.newValue) {
+        try {
+          syncFromSharedBuyerApp();
+          renderAllSellerCenter();
+        } catch (err) {}
+      }
+    });
+  </script>
+
+  <!-- Real-Time Cloud Bridge (Firestore Sync Across Devices) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'ukayo-ph-ecosystem';
+    const rawConfig = typeof __firebase_config !== 'undefined'
+      ? JSON.parse(__firebase_config)
+      : (window.UKAYO_FIREBASE_CONFIG || null);
+
+    if (rawConfig && rawConfig.apiKey) {
+      (async () => {
+        try {
+          const app = initializeApp(rawConfig);
+          const auth = getAuth(app);
+          const db = getFirestore(app);
+          const cred = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
+            ? await signInWithCustomToken(auth, __initial_auth_token)
+            : await signInAnonymously(auth);
+          if (!cred.user) return;
+
+          const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'ukayo_ecosystem', 'live_state');
+          let applyingRemote = false;
+
+          window.ukayoCloudSyncPush = async (nextSharedState) => {
+            if (applyingRemote) return;
+            try {
+              await setDoc(docRef, {
+                payloadJson: JSON.stringify(nextSharedState),
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+            } catch (e) {}
+          };
+
+          onSnapshot(docRef, (snap) => {
+            if (!snap.exists() || !snap.data().payloadJson) return;
+            applyingRemote = true;
+            try {
+              localStorage.setItem(SHARED_STORAGE_KEY, snap.data().payloadJson);
+              syncFromSharedBuyerApp();
+              renderAllSellerCenter();
+            } catch (e) {} finally {
+              applyingRemote = false;
+            }
+          }, () => {});
+        } catch (e) {}
+      })();
+    }
+  </script>
+</body>
+</html>

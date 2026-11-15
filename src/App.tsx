@@ -788,6 +788,15 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
+    const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+    if (path === '/seller' || path === '/seller-center') {
+      window.location.replace('/ukayo_seller_center.html');
+    } else if (path === '/admin' || path === '/admin-ops') {
+      window.location.replace('/ukayo_admin_ops.html');
+    }
+  }, []);
+
+  useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
@@ -873,10 +882,12 @@ export default function App() {
   };
 
   const openSellerCenterPortal = () => {
-    setApplyShopName(state.user.shopName || "Mika's Ukay Closet");
-    setApplyShopCity(state.user.city || 'Cebu City');
-    setApplyShopGcash(state.user.gcash || '0917-555-0192');
-    setBecomeSellerOpen(true);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // ignore storage errors
+    }
+    window.location.href = '/ukayo_seller_center.html';
   };
 
   const handleBecomeSellerAction = () => {
