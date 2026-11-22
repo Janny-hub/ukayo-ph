@@ -10,6 +10,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.23.1.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
@@ -3195,6 +3196,106 @@
       }, 750);
     }
 
+    const UKAYO_AGORA_APP_ID = 'df0c2affcab4490097fa942593e13a57';
+    const UKAYO_AGORA_PRIMARY_CERT = '00cbfd8d6a124c9fb14a7f1862310bde';
+    let scAgoraHostClient = null;
+    let scAgoraAudioTrack = null;
+    let scAgoraVideoTrack = null;
+
+    function getScAgoraChannelName(sellerId) {
+      const clean = String(sellerId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+      return `ukayo_live_${clean}`;
+    }
+
+    function scCrc32(str) {
+      const bytes = new TextEncoder().encode(str);
+      let crc = 0 ^ -1;
+      for (let i = 0; i < bytes.length; i++) {
+        let c = (crc ^ bytes[i]) & 0xff;
+        for (let k = 0; k < 8; k++) {
+          c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        crc = (crc >>> 8) ^ c;
+      }
+      return (crc ^ -1) >>> 0;
+    }
+
+    async function buildScAgoraToken006(appId, appCert, channelName, uid) {
+      try {
+        if (!appCert || !window.crypto || !window.crypto.subtle) return null;
+        const uidStr = uid === 0 ? '' : String(uid >>> 0);
+        const nowSec = Math.floor(Date.now() / 1000);
+        const expireTs = nowSec + 24 * 3600;
+        const salt = Math.floor(Math.random() * 0xffffffff) >>> 0;
+        const ts = nowSec + 24 * 3600;
+
+        const putU16 = (arr, v) => arr.push(v & 0xff, (v >>> 8) & 0xff);
+        const putU32 = (arr, v) => arr.push(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
+        const putBytes = (arr, b) => { putU16(arr, b.length); for (let i = 0; i < b.length; i++) arr.push(b[i]); };
+
+        const msg = [];
+        putU32(msg, salt);
+        putU32(msg, ts);
+        putU16(msg, 4);
+        putU16(msg, 1); putU32(msg, expireTs);
+        putU16(msg, 2); putU32(msg, expireTs);
+        putU16(msg, 3); putU32(msg, expireTs);
+        putU16(msg, 4); putU32(msg, expireTs);
+        const rawMsg = new Uint8Array(msg);
+
+        const crcCh = scCrc32(channelName);
+        const crcU = scCrc32(uidStr);
+
+        const toSign = [];
+        putBytes(toSign, new TextEncoder().encode(appId));
+        putU32(toSign, crcCh);
+        putU32(toSign, crcU);
+        putBytes(toSign, rawMsg);
+
+        const key = await window.crypto.subtle.importKey(
+          'raw',
+          new TextEncoder().encode(appCert),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const sigBuf = await window.crypto.subtle.sign('HMAC', key, new Uint8Array(toSign));
+        const sig = new Uint8Array(sigBuf);
+
+        const content = [];
+        putBytes(content, sig);
+        putU32(content, crcCh);
+        putU32(content, crcU);
+        putBytes(content, rawMsg);
+
+        let bin = '';
+        for (let i = 0; i < content.length; i++) bin += String.fromCharCode(content[i]);
+        return '006' + appId + btoa(bin);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function stopScAgoraHost() {
+      try {
+        if (scAgoraAudioTrack) {
+          scAgoraAudioTrack.stop();
+          scAgoraAudioTrack.close();
+          scAgoraAudioTrack = null;
+        }
+        if (scAgoraVideoTrack) {
+          scAgoraVideoTrack.stop();
+          scAgoraVideoTrack.close();
+          scAgoraVideoTrack = null;
+        }
+        if (scAgoraHostClient) {
+          const c = scAgoraHostClient;
+          scAgoraHostClient = null;
+          await c.leave();
+        }
+      } catch (e) {}
+    }
+
     async function toggleHostCamera() {
       const videoEl = document.getElementById('sc-live-video');
       const imgEl = document.getElementById('sc-live-preview-img');
@@ -3204,14 +3305,59 @@
       if (hostCamStream) {
         hostCamStream.getTracks().forEach(t => t.stop());
         hostCamStream = null;
+        await stopScAgoraHost();
         stopHostCamFrameBroadcast();
         videoEl.srcObject = null;
         videoEl.classList.add('hidden');
         imgEl.classList.remove('hidden');
         btn.textContent = 'Start Camera';
         statusPill.textContent = '● ON AIR — Marketplace Live';
-        showScToast('Host camera stopped.');
+        showScToast('Host camera & Agora broadcast stopped.');
         return;
+      }
+
+      if (!scState.ownSellerId) {
+        scState.ownSellerId = 'seller_' + (scState.userId || Date.now());
+      }
+
+      // First try Agora WebRTC Interactive Live Streaming (Single Host -> Audience)
+      if (window.AgoraRTC) {
+        try {
+          window.AgoraRTC.setLogLevel(3);
+          const client = window.AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+          scAgoraHostClient = client;
+          await client.setClientRole('host');
+          const channelName = getScAgoraChannelName(scState.ownSellerId);
+          const uid = Math.floor(10000 + Math.random() * 89999);
+          const token = await buildScAgoraToken006(UKAYO_AGORA_APP_ID, UKAYO_AGORA_PRIMARY_CERT, channelName, uid);
+          try {
+            await client.join(UKAYO_AGORA_APP_ID, channelName, token, uid);
+          } catch (joinErr) {
+            await client.join(UKAYO_AGORA_APP_ID, channelName, null, uid);
+          }
+          const [audioTrack, videoTrack] = await window.AgoraRTC.createMicrophoneAndCameraTracks(
+            {},
+            { encoderConfig: '480p_1' }
+          );
+          scAgoraAudioTrack = audioTrack;
+          scAgoraVideoTrack = videoTrack;
+          hostCamStream = new MediaStream([
+            videoTrack.getMediaStreamTrack(),
+            audioTrack.getMediaStreamTrack()
+          ]);
+          videoEl.srcObject = hostCamStream;
+          videoEl.classList.remove('hidden');
+          imgEl.classList.add('hidden');
+          btn.textContent = 'Stop Camera';
+          statusPill.textContent = '● AGORA LIVE ON AIR (HD VIDEO + AUDIO)';
+          await client.publish([audioTrack, videoTrack]);
+          pushUpdatesToSharedBuyerApp();
+          startHostCamFrameBroadcast(videoEl);
+          showScToast(`Broadcasting LIVE on Agora Channel (${channelName}) to Buyer Marketplace!`);
+          return;
+        } catch (agoraErr) {
+          await stopScAgoraHost();
+        }
       }
 
       try {

@@ -47,6 +47,8 @@ import {
   Minus,
   Headset,
   Edit3,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   startUkayoCloudSync,
@@ -62,6 +64,12 @@ import {
   subscribeToLiveCameraStream,
   LiveCameraBroadcastState,
 } from './firebase';
+import {
+  startAgoraHostBroadcast,
+  stopAgoraHostBroadcast,
+  joinAgoraAudienceChannel,
+  getAgoraChannelName,
+} from './agoraLive';
 
 export const STORAGE_KEY = 'ukayo_marketplace_state_v11';
 
@@ -612,7 +620,15 @@ export default function App() {
   // Camera stream refs & real-time remote camera broadcast viewer state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
+  const agoraRemoteVideoRef = useRef<HTMLDivElement | null>(null);
+  const agoraAudienceCtrlRef = useRef<{
+    leave: () => Promise<void>;
+    setAudioMuted: (muted: boolean) => void;
+  } | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState(false);
+  const [isAgoraRemoteVideoPlaying, setIsAgoraRemoteVideoPlaying] = useState(false);
+  const [isAgoraRemoteAudioPlaying, setIsAgoraRemoteAudioPlaying] = useState(false);
+  const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
   const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>('environment');
   const [remoteLiveStream, setRemoteLiveStream] = useState<LiveCameraBroadcastState | null>(null);
 
@@ -1667,10 +1683,37 @@ export default function App() {
     if (dataUrl) setPendingLiveCoverData(dataUrl);
   };
 
-  const startCameraStreamDirect = async (facing: 'environment' | 'user') => {
+  const startCameraStreamDirect = async (
+    facing: 'environment' | 'user',
+    explicitSellerId?: string
+  ) => {
+    if (agoraAudienceCtrlRef.current) {
+      await agoraAudienceCtrlRef.current.leave();
+      agoraAudienceCtrlRef.current = null;
+    }
     if (liveStreamRef.current) {
       liveStreamRef.current.getTracks().forEach((t) => t.stop());
       liveStreamRef.current = null;
+    }
+
+    const hostSellerId =
+      explicitSellerId ||
+      state.activeLiveSellerId ||
+      state.user.ownSellerId ||
+      'seller_' + (state.user.id || 'host');
+
+    const agoraRes = await startAgoraHostBroadcast(
+      hostSellerId,
+      facing,
+      videoRef.current
+    );
+    if (agoraRes.success && agoraRes.mediaStream) {
+      liveStreamRef.current = agoraRes.mediaStream;
+      setIsCameraStreaming(true);
+      showToast(
+        `LIVE on Agora Channel (${getAgoraChannelName(hostSellerId)}) — HD Video + Voice Active!`
+      );
+      return;
     }
 
     try {
@@ -1772,13 +1815,14 @@ export default function App() {
     });
 
     setLiveSetupOpen(false);
-    await startCameraStreamDirect(cameraFacing);
+    await startCameraStreamDirect(cameraFacing, sellerId);
   };
 
   const toggleCameraLive = async () => {
     if (liveStreamRef.current) {
       liveStreamRef.current.getTracks().forEach((t) => t.stop());
       liveStreamRef.current = null;
+      await stopAgoraHostBroadcast();
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
@@ -2312,8 +2356,13 @@ export default function App() {
     showToast('UKAYO Mobile Web App ready! Tap "Add to Home Screen" on iOS or Android.');
   };
 
-  const openAgoraModal = () => {
-    showToast('WebRTC Live Streaming Engine active.');
+  const toggleLiveAudienceAudio = () => {
+    const nextMuted = !isLiveAudioMuted;
+    setIsLiveAudioMuted(nextMuted);
+    if (agoraAudienceCtrlRef.current) {
+      agoraAudienceCtrlRef.current.setAudioMuted(nextMuted);
+    }
+    showToast(nextMuted ? 'Live stream audio muted.' : 'Live stream audio unmuted!');
   };
 
   // Derived values
@@ -2347,6 +2396,42 @@ export default function App() {
     state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
     state.sellers.find((s) => s.isLive) ||
     state.sellers[0];
+
+  // Subscribe to Agora Interactive Live Streaming channel as Audience when watching a seller's live room
+  useEffect(() => {
+    const sellerId = activeLiveSeller?.id || '';
+    if (state.activeTab !== 'mine' || isCameraStreaming || !sellerId) {
+      if (agoraAudienceCtrlRef.current) {
+        agoraAudienceCtrlRef.current.leave();
+        agoraAudienceCtrlRef.current = null;
+      }
+      setIsAgoraRemoteVideoPlaying(false);
+      setIsAgoraRemoteAudioPlaying(false);
+      return;
+    }
+
+    const ctrl = joinAgoraAudienceChannel(
+      sellerId,
+      agoraRemoteVideoRef.current,
+      {
+        onRemoteVideoStateChange: (playing) => {
+          setIsAgoraRemoteVideoPlaying(playing);
+        },
+        onRemoteAudioStateChange: (playing) => {
+          setIsAgoraRemoteAudioPlaying(playing);
+        },
+      }
+    );
+    ctrl.setAudioMuted(isLiveAudioMuted);
+    agoraAudienceCtrlRef.current = ctrl;
+
+    return () => {
+      ctrl.leave();
+      if (agoraAudienceCtrlRef.current === ctrl) {
+        agoraAudienceCtrlRef.current = null;
+      }
+    };
+  }, [state.activeTab, activeLiveSeller?.id, isCameraStreaming]);
 
   // Subscribe to real-time remote camera frames for the active live seller
   useEffect(() => {
@@ -3227,7 +3312,7 @@ export default function App() {
               onWheel={handleLiveWheel}
               className="fixed inset-0 z-20 max-w-md mx-auto bg-[#070D17] text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
-              {/* Video / Visual Backdrop (Local Camera -> Remote Seller Live Camera -> Pinned Product / Cover) */}
+              {/* Video / Visual Backdrop (Local Camera -> Agora Remote WebRTC Video -> Firestore Frame Stream -> Pinned Product / Cover) */}
               {activeLiveSeller && (
                 <img
                   id="live-fallback-bg"
@@ -3246,9 +3331,18 @@ export default function App() {
                     remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
                       ? 'opacity-100'
                       : 'opacity-85'
-                  } ${isCameraStreaming ? 'hidden' : ''}`}
+                  } ${
+                    isCameraStreaming || isAgoraRemoteVideoPlaying ? 'hidden' : ''
+                  }`}
                 />
               )}
+              <div
+                ref={agoraRemoteVideoRef}
+                id="agora-remote-video-stage"
+                className={`absolute inset-0 w-full h-full overflow-hidden ${
+                  isAgoraRemoteVideoPlaying && !isCameraStreaming ? '' : 'hidden'
+                }`}
+              />
               <video
                 ref={videoRef}
                 id="live-camera-video"
@@ -3320,18 +3414,27 @@ export default function App() {
                 )}
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {(isCameraStreaming || remoteLiveStream?.isCameraLive) && (
+                  {(isCameraStreaming ||
+                    isAgoraRemoteVideoPlaying ||
+                    remoteLiveStream?.isCameraLive) && (
                     <div className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[9px] font-extrabold inline-flex items-center gap-1 shadow">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      <span>LIVE CAM</span>
+                      <span>
+                        {isAgoraRemoteVideoPlaying || isCameraStreaming
+                          ? 'AGORA LIVE'
+                          : 'LIVE CAM'}
+                      </span>
                     </div>
                   )}
-                  {activeLiveSeller && !isCameraStreaming && !remoteLiveStream?.isCameraLive && (
-                    <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
-                      <span>LIVE</span>
-                    </div>
-                  )}
+                  {activeLiveSeller &&
+                    !isCameraStreaming &&
+                    !isAgoraRemoteVideoPlaying &&
+                    !remoteLiveStream?.isCameraLive && (
+                      <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
+                        <span>LIVE</span>
+                      </div>
+                    )}
                   <button
                     onClick={() => switchTab('home')}
                     className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
@@ -3464,11 +3567,19 @@ export default function App() {
                       <Plus className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={openAgoraModal}
-                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                      title="Live Stream Info"
+                      onClick={toggleLiveAudienceAudio}
+                      className={`w-9 h-9 rounded-full ${
+                        !isLiveAudioMuted && isAgoraRemoteAudioPlaying
+                          ? 'bg-[#10B981] text-[#070D17]'
+                          : 'bg-black/50 text-white'
+                      } backdrop-blur-md border border-white/15 flex items-center justify-center cursor-pointer`}
+                      title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
                     >
-                      <Settings className="w-4 h-4" />
+                      {isLiveAudioMuted ? (
+                        <VolumeX className="w-4 h-4" />
+                      ) : (
+                        <Volume2 className="w-4 h-4" />
+                      )}
                     </button>
                     <button
                       onClick={triggerLiveReaction}
