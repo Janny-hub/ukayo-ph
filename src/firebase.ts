@@ -128,6 +128,23 @@ export function clearDeviceSession() {
   }
 }
 
+function mergeMessagesList(baseMsgs: any[] = [], incomingMsgs: any[] = []): any[] {
+  const result: any[] = [];
+  const seen = new Set<string>();
+  const all = [...(Array.isArray(baseMsgs) ? baseMsgs : []), ...(Array.isArray(incomingMsgs) ? incomingMsgs : [])];
+  for (const m of all) {
+    if (!m || typeof m !== 'object' || !m.text) continue;
+    const key = m.id
+      ? String(m.id)
+      : `${m.from || m.sender || ''}|${m.senderName || ''}|${m.text}|${m.time || ''}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(m);
+    }
+  }
+  return result;
+}
+
 function mergeByKey<T extends Record<string, any>>(
   baseList: T[] = [],
   incomingList: T[] = [],
@@ -147,11 +164,39 @@ function mergeByKey<T extends Record<string, any>>(
     if (!prev) {
       map.set(k, item);
     } else {
+      const mergedFollowedBy = Array.from(
+        new Set([
+          ...(Array.isArray(prev.followedBy) ? prev.followedBy : []),
+          ...(Array.isArray(item.followedBy) ? item.followedBy : []),
+        ])
+      );
+      const mergedSteals = Array.from(
+        new Set([
+          ...(Array.isArray(prev.steals) ? prev.steals : []),
+          ...(Array.isArray(item.steals) ? item.steals : []),
+        ])
+      );
       map.set(k, {
         ...prev,
         ...item,
         isSeller: Boolean(prev.isSeller || item.isSeller),
         verified: Boolean(prev.verified || item.verified),
+        followed:
+          typeof item.followed === 'boolean'
+            ? item.followed
+            : Boolean(prev.followed),
+        followedBy: mergedFollowedBy,
+        followers:
+          mergedFollowedBy.length > 0
+            ? Math.max(prev.followers || 1, item.followers || 1, mergedFollowedBy.length)
+            : typeof item.followers === 'number'
+            ? item.followers
+            : prev.followers || 1,
+        pinned:
+          typeof item.pinned === 'boolean' ? item.pinned : Boolean(prev.pinned),
+        pinnedItemId: item.pinnedItemId || prev.pinnedItemId || '',
+        winner: item.winner || item.minedBy || prev.winner || prev.minedBy || null,
+        steals: mergedSteals,
         verificationStatus:
           item.verificationStatus === 'verified' ||
           prev.verificationStatus === 'verified'
@@ -170,10 +215,9 @@ function mergeByKey<T extends Record<string, any>>(
             ? item.products
             : prev.products || [],
         messages:
-          Array.isArray(item.messages) &&
-          item.messages.length >= (prev.messages?.length || 0)
-            ? item.messages
-            : prev.messages || [],
+          Array.isArray(item.messages) || Array.isArray(prev.messages)
+            ? mergeMessagesList(prev.messages || [], item.messages || [])
+            : [],
       });
     }
   }
@@ -207,8 +251,15 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
   merged.activeTab = localState.activeTab || 'home';
   merged.activeFeedCategory = localState.activeFeedCategory || 'ALL';
   merged.activeStoreId = localState.activeStoreId || '';
-  merged.activeLiveSellerId = localState.activeLiveSellerId || '';
-  merged.activePinnedItemId = localState.activePinnedItemId || '';
+  merged.activeLiveSellerId =
+    localState.activeLiveSellerId ||
+    (remoteState as any)?.activeLiveSellerId ||
+    '';
+  // Allow remoteState.activePinnedItemId to update the buyer's live screen when a seller pins a product!
+  merged.activePinnedItemId =
+    (remoteState as any)?.activePinnedItemId ||
+    localState.activePinnedItemId ||
+    '';
   merged.activeChatSellerId = localState.activeChatSellerId || 'admin_support';
   merged.activePurchaseFilter = localState.activePurchaseFilter || 'ALL';
   merged.searchQuery = localState.searchQuery || '';
@@ -345,6 +396,7 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
           avatar: u.avatar || '',
           followers: 1,
           followed: false,
+          followedBy: [],
           rating: 5.0,
           isLive: true,
           liveCategory: 'Jackets',
@@ -385,13 +437,81 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
     }
   });
 
-  merged.sellers = sellers;
+  // Compute device-specific `followed` boolean for each seller based on `followedBy` list or local `followed`
+  const currentUseKey = String(
+    merged.user?.id || merged.user?.email || 'local_device'
+  ).toLowerCase();
+  merged.sellers = sellers.map((s) => {
+    const fList: string[] = Array.isArray(s.followedBy) ? s.followedBy : [];
+    const isFollowedByMe =
+      fList.includes(currentUseKey) ||
+      Boolean(
+        (localState.sellers || []).find((ls: any) => ls.id === s.id)?.followed
+      );
+    return {
+      ...s,
+      followed: isFollowedByMe,
+    };
+  });
   merged.kycApplications = kycApps;
 
-  merged.liveItems = mergeByKey(
+  const mergedLiveItems = mergeByKey(
     localState.liveItems || [],
     (remoteState as any)?.liveItems || [],
     (i) => String(i.id || '')
+  );
+
+  // Also ensure any seller products that aren't in liveItems yet are represented so pinned products always appear
+  merged.sellers.forEach((s: any) => {
+    if (Array.isArray(s.products)) {
+      s.products.forEach((p: any) => {
+        if (!p || !p.id) return;
+        const liveId = String(p.id).startsWith('live_') ? String(p.id) : `live_${p.id}`;
+        const existingIdx = mergedLiveItems.findIndex(
+          (li) => li.id === liveId || li.id === p.id
+        );
+        const mappedLive = {
+          id: liveId,
+          sellerId: s.id,
+          code: p.code || 'A01',
+          title: p.title || 'Ukay Live Piece',
+          price: Number(p.price) || 250,
+          size: p.size || 'Free Size',
+          condition: p.condition || '9.5/10 EUC',
+          image: p.image || s.liveStreamPreview || s.avatar || '',
+          pinned: Boolean(p.pinned),
+          winner: p.minedBy || p.winner || null,
+          steals: Array.isArray(p.steals) ? p.steals : [],
+        };
+        if (existingIdx >= 0) {
+          mergedLiveItems[existingIdx] = {
+            ...mergedLiveItems[existingIdx],
+            ...mappedLive,
+            pinned: Boolean(p.pinned),
+            winner:
+              mergedLiveItems[existingIdx].winner ||
+              mappedLive.winner ||
+              null,
+          };
+        } else {
+          mergedLiveItems.push(mappedLive);
+        }
+      });
+    }
+  });
+
+  merged.liveItems = mergedLiveItems;
+
+  // If a seller pinned a product, make sure activePinnedItemId points to it
+  const pinnedFromItems = mergedLiveItems.find((li) => li.pinned);
+  if (pinnedFromItems && !((remoteState as any)?.activePinnedItemId)) {
+    merged.activePinnedItemId = pinnedFromItems.id;
+  }
+
+  // Merge liveChat across all devices so live comments always appear in real time
+  merged.liveChat = mergeMessagesList(
+    localState.liveChat || [],
+    (remoteState as any)?.liveChat || []
   );
 
   merged.feedPosts = mergeByKey(
@@ -406,11 +526,59 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
     (o) => String(o.id || '')
   );
 
-  merged.supportThreads = mergeByKey(
+  // Merge directChats per conversation key
+  const localDirect =
+    localState.directChats && typeof localState.directChats === 'object'
+      ? localState.directChats
+      : {};
+  const remoteDirect =
+    (remoteState as any)?.directChats &&
+    typeof (remoteState as any).directChats === 'object'
+      ? (remoteState as any).directChats
+      : {};
+  const allDirectKeys = new Set([
+    ...Object.keys(localDirect),
+    ...Object.keys(remoteDirect),
+  ]);
+  const mergedDirectChats: Record<string, any[]> = {};
+  allDirectKeys.forEach((k) => {
+    mergedDirectChats[k] = mergeMessagesList(
+      localDirect[k] || [],
+      remoteDirect[k] || []
+    );
+  });
+  merged.directChats = mergedDirectChats;
+
+  // Merge supportThreads and normalize Admin replies to from: 'admin'
+  const rawSupportThreads = mergeByKey(
     localState.supportThreads || [],
     (remoteState as any)?.supportThreads || [],
     (t) => String(t.id || '')
   );
+  merged.supportThreads = rawSupportThreads.map((t: any) => ({
+    ...t,
+    messages: (Array.isArray(t.messages) ? t.messages : []).map((m: any) => {
+      // Fix legacy admin messages that were tagged from: 'seller' without a seller senderName
+      if (
+        m.from === 'admin' ||
+        (m.senderName && String(m.senderName).toLowerCase().includes('admin'))
+      ) {
+        return {
+          ...m,
+          from: 'admin',
+          senderName: m.senderName || 'UKAYO Customer Service',
+        };
+      }
+      if (m.from === 'me') {
+        return {
+          ...m,
+          from: t.userRole === 'SELLER' ? 'seller' : 'buyer',
+          senderName: m.senderName || t.userName,
+        };
+      }
+      return m;
+    }),
+  }));
 
   merged.payoutRequests = mergeByKey(
     localState.payoutRequests || [],
@@ -526,6 +694,98 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
   );
 
   return unsubscribe;
+}
+
+// ===========================================================================
+// REAL-TIME LIVE CAMERA FRAME BROADCASTER & VIEWER SUBSCRIPTION
+// Streams live camera frames from the host (Seller Center or Marketplace) to
+// all watching buyers via `ukayo_sync/live_stream_<sellerId>`.
+// ===========================================================================
+export interface LiveCameraBroadcastState {
+  sellerId: string;
+  sellerName?: string;
+  isCameraLive: boolean;
+  frameDataUrl: string;
+  pinnedItemId?: string;
+  liveTitle?: string;
+  updatedAt: number;
+}
+
+export async function publishLiveCameraFrame(
+  sellerIdOrPayload: string | LiveCameraBroadcastState,
+  frameDataUrl = '',
+  isCameraLive = false,
+  pinnedItemId = '',
+  liveTitle = ''
+) {
+  const payload: LiveCameraBroadcastState =
+    typeof sellerIdOrPayload === 'object'
+      ? sellerIdOrPayload
+      : {
+          sellerId: sellerIdOrPayload,
+          frameDataUrl,
+          isCameraLive,
+          pinnedItemId,
+          liveTitle,
+          updatedAt: Date.now(),
+        };
+
+  if (!payload.sellerId) return;
+  try {
+    const streamDocRef = doc(db, 'ukayo_sync', `live_stream_${payload.sellerId}`);
+    await setDoc(streamDocRef, {
+      sellerId: payload.sellerId,
+      sellerName: payload.sellerName || '',
+      isCameraLive: payload.isCameraLive,
+      frameDataUrl: payload.isCameraLive ? payload.frameDataUrl : '',
+      pinnedItemId: payload.pinnedItemId || '',
+      liveTitle: payload.liveTitle || '',
+      updatedAt: Date.now(),
+    });
+  } catch {
+    // non-fatal frame drop
+  }
+}
+
+export function subscribeToLiveCameraStream(
+  sellerId: string,
+  onStreamUpdate: (streamState: LiveCameraBroadcastState | null) => void
+) {
+  if (!sellerId) {
+    onStreamUpdate(null);
+    return () => {};
+  }
+  const streamDocRef = doc(db, 'ukayo_sync', `live_stream_${sellerId}`);
+  return onSnapshot(
+    streamDocRef,
+    (snap) => {
+      if (!snap.exists()) {
+        onStreamUpdate(null);
+        return;
+      }
+      const d = snap.data();
+      if (!d) {
+        onStreamUpdate(null);
+        return;
+      }
+      // Consider camera stream active if updated within the last 30 seconds
+      const isFresh =
+        Boolean(d.isCameraLive) &&
+        Boolean(d.frameDataUrl) &&
+        Date.now() - Number(d.updatedAt || 0) < 30000;
+      onStreamUpdate({
+        sellerId: String(d.sellerId || sellerId),
+        isCameraLive: isFresh,
+        frameDataUrl: isFresh ? String(d.frameDataUrl || '') : '',
+        pinnedItemId: String(d.pinnedItemId || ''),
+        liveTitle: String(d.liveTitle || ''),
+        updatedAt: Number(d.updatedAt || 0),
+      });
+    },
+    () => {
+      onStreamUpdate(null);
+    }
+  );
 }
 
 // ===========================================================================

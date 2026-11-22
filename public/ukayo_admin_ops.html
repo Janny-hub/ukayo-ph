@@ -1508,19 +1508,36 @@
 
       if (activeThread) {
         boxEl.innerHTML = (activeThread.messages || []).map(m => {
-          const isFromAdmin = m.from === 'seller';
+          const isFromAdmin =
+            m.from === 'admin' ||
+            (m.senderName &&
+              (m.senderName.toLowerCase().includes('customer service') ||
+                m.senderName.toLowerCase().includes('admin'))) ||
+            (m.from === 'seller' && activeThread.userRole === 'BUYER');
+          const isSellerUser = !isFromAdmin && activeThread.userRole === 'SELLER';
+          const roleBadge = isFromAdmin
+            ? '🎧 UKAYO CUSTOMER SERVICE (ADMIN • YOU)'
+            : isSellerUser
+            ? `🏪 SELLER • ${activeThread.userName}`
+            : `🛍️ BUYER • ${activeThread.userName}`;
+          const bubbleClass = isFromAdmin
+            ? 'bg-[#070D17] text-white border-2 border-[#10B981] rounded-br-xs'
+            : isSellerUser
+            ? 'bg-[#FFFBEB] border-2 border-[#F59E0B] text-[#070D17] rounded-bl-xs'
+            : 'bg-white border-2 border-[#3B82F6] text-[#070D17] rounded-bl-xs';
+          const badgeColor = isFromAdmin
+            ? 'text-[#10B981]'
+            : isSellerUser
+            ? 'text-[#B45309]'
+            : 'text-[#1D4ED8]';
           return `
             <div class="flex ${isFromAdmin ? 'justify-end' : 'justify-start'}">
-              <div class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs ${
-                isFromAdmin
-                  ? 'bg-[#070D17] text-white rounded-br-xs'
-                  : 'bg-white border border-[#CBD5E1] text-[#070D17] rounded-bl-xs'
-              }">
-                <div class="text-[9px] font-extrabold uppercase mb-0.5 ${isFromAdmin ? 'text-[#10B981]' : 'text-slate-400'}">
-                  ${isFromAdmin ? 'UKAYO Admin Support' : escapeHtml(activeThread.userName)}
+              <div class="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs ${bubbleClass}">
+                <div class="text-[9px] font-extrabold uppercase tracking-wider mb-0.5 ${badgeColor}">
+                  ${escapeHtml(roleBadge)}
                 </div>
-                <p>${escapeHtml(m.text)}</p>
-                <div class="text-[9px] opacity-60 mt-1 text-right">${escapeHtml(m.time)}</div>
+                <p class="leading-snug break-words">${escapeHtml(m.text)}</p>
+                <div class="text-[9px] opacity-65 mt-1 text-right">${escapeHtml(m.time)}</div>
               </div>
             </div>
           `;
@@ -1542,24 +1559,22 @@
         return;
       }
 
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const replyMsg = {
-        from: 'seller',
+        id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        from: 'admin',
+        senderName: 'UKAYO Customer Service',
         text,
-        time: 'Just now'
+        time: nowTime
       };
+      activeThread.unreadAdmin = 0;
+      activeThread.unreadUser = (activeThread.unreadUser || 0) + 1;
       activeThread.messages.push(replyMsg);
-
-      // Also sync into directChats.admin_support so Buyer App sees Admin reply immediately
-      if (!adminState.sharedApp.directChats) adminState.sharedApp.directChats = {};
-      if (!Array.isArray(adminState.sharedApp.directChats.admin_support)) {
-        adminState.sharedApp.directChats.admin_support = [];
-      }
-      adminState.sharedApp.directChats.admin_support.push(replyMsg);
 
       inp.value = '';
       saveBackToEcosystem();
       renderAdminSupportInbox();
-      showAdminToast(`Sent reply to ${activeThread.userName}!`);
+      showAdminToast(`Sent Customer Service reply to ${activeThread.userName}!`);
     }
 
     // =====================================================================
@@ -1768,9 +1783,36 @@
         const k = keyFn(item);
         if (!k) return;
         const prev = map.get(k);
-        map.set(k, prev ? { ...prev, ...item, isSeller: Boolean(prev.isSeller || item.isSeller) } : item);
+        if (!prev) {
+          map.set(k, item);
+          return;
+        }
+        const mergedFollowedBy = Array.from(new Set([
+          ...(Array.isArray(prev.followedBy) ? prev.followedBy : []),
+          ...(Array.isArray(item.followedBy) ? item.followedBy : [])
+        ]));
+        map.set(k, {
+          ...prev,
+          ...item,
+          isSeller: Boolean(prev.isSeller || item.isSeller),
+          followedBy: mergedFollowedBy,
+          followers: Math.max(mergedFollowedBy.length, Number(prev.followers) || 0, Number(item.followers) || 0)
+        });
       });
       return Array.from(map.values());
+    }
+
+    function mergeMessagesList(localMsgs = [], remoteMsgs = []) {
+      const seen = new Set();
+      const result = [];
+      [...(Array.isArray(remoteMsgs) ? remoteMsgs : []), ...(Array.isArray(localMsgs) ? localMsgs : [])].forEach(m => {
+        if (!m || typeof m !== 'object' || !m.text) return;
+        const key = m.id ? String(m.id) : `${m.from || m.sender || ''}|${m.badge || ''}|${m.text}|${m.time || ''}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push(m);
+      });
+      return result;
     }
 
     if (rawConfig && rawConfig.apiKey) {
@@ -1838,6 +1880,12 @@
           try {
             const remote = JSON.parse(data.payloadJson);
             const local = adminState.sharedApp || {};
+            const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
+            mergedSupport.forEach(t => {
+              const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
+              const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
+              t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
+            });
             const combined = normalizeEcosystemState({
               ...local,
               ...remote,
@@ -1845,6 +1893,8 @@
               sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
               kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
               liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+              liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
+              supportThreads: mergedSupport,
               feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
               minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
             });

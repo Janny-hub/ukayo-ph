@@ -58,6 +58,9 @@ import {
   fetchUserFirestoreStatusFromServer,
   sendRealFirebasePasswordResetOrVerification,
   FirestoreUserLiveStatus,
+  publishLiveCameraFrame,
+  subscribeToLiveCameraStream,
+  LiveCameraBroadcastState,
 } from './firebase';
 
 export const STORAGE_KEY = 'ukayo_marketplace_state_v11';
@@ -116,6 +119,7 @@ export interface Product {
   size: string;
   condition: string;
   status: string;
+  pinned?: boolean;
   rating: number;
   image: string;
   images?: string[];
@@ -132,6 +136,8 @@ export interface Seller {
   avatar?: string;
   followers: number;
   followed: boolean;
+  followedBy?: string[];
+  pinnedItemId?: string;
   rating: number;
   isLive: boolean;
   liveCategory: string;
@@ -150,15 +156,19 @@ export interface LiveItem {
   size: string;
   condition: string;
   image: string;
+  pinned?: boolean;
   winner: string | null;
   steals: string[];
 }
 
 export interface LiveChatMessage {
+  id?: string;
+  sellerId?: string;
   sender: string;
   badge: string;
   text: string;
   isHost: boolean;
+  time?: string;
 }
 
 export interface FeedPost {
@@ -214,6 +224,7 @@ export interface MinedOrder {
 }
 
 export interface DirectMessage {
+  id?: string;
   from: 'buyer' | 'seller' | 'admin';
   senderName?: string;
   text: string;
@@ -598,11 +609,12 @@ export default function App() {
   const [feedCommentInputs, setFeedCommentInputs] = useState<Record<string, string>>({});
   const [directChatInput, setDirectChatInput] = useState('');
 
-  // Camera stream refs
+  // Camera stream refs & real-time remote camera broadcast viewer state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState(false);
   const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>('environment');
+  const [remoteLiveStream, setRemoteLiveStream] = useState<LiveCameraBroadcastState | null>(null);
 
   // Touch & wheel refs for Mine Na! swipe
   const touchStartYRef = useRef(0);
@@ -1232,18 +1244,18 @@ export default function App() {
   };
 
   // =======================================================================
-  // LIVE SELLING & UKAY FEED FUNCTIONS
+  // LIVE SELLING & UKAY FEED FUNCTIONS (OPEN TO BOTH BUYERS & SELLERS)
   // =======================================================================
   const openLiveSetupModal = () => {
-    if (!state.isAuthenticated || !state.user.isSeller) {
-      showToast('Only registered sellers can host a Live stream. Apply as a seller first!', 'error');
-      if (!state.isAuthenticated) openAuthModal('login');
-      else goToSellerRegistrationPage();
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
+      showToast('Please log in or register first to start your Live Stream!', 'error');
+      openAuthModal('login');
       return;
     }
+    const myHostId = state.user.ownSellerId || 'seller_' + (state.user.id || 'host');
     const seller =
-      state.sellers.find((s) => s.id === state.user.ownSellerId) ||
-      state.sellers[0];
+      state.sellers.find((s) => s.id === myHostId) ||
+      state.sellers.find((s) => s.id === state.activeLiveSellerId);
     setLiveSetupTitle(
       seller?.liveTitle || `${state.user.shopName || state.user.name} Live Ukay Drop!`
     );
@@ -1253,15 +1265,18 @@ export default function App() {
   };
 
   const launchSellerLiveInApp = () => {
-    if (!state.isAuthenticated || !state.user.isSeller) {
-      goToSellerRegistrationPage();
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
+      showToast('Please log in or register first to start your Live Stream!', 'error');
+      openAuthModal('login');
       return;
     }
-    const targetSellerId = state.user.ownSellerId || state.sellers[0]?.id || '';
+    const targetSellerId =
+      state.user.ownSellerId ||
+      'seller_' + (state.user.id || 'host');
     const seller = state.sellers.find((s) => s.id === targetSellerId);
     setState((prev) => ({
       ...prev,
-      role: 'seller',
+      isAuthenticated: true,
       activeLiveSellerId: targetSellerId,
       activeTab: 'mine',
     }));
@@ -1484,10 +1499,13 @@ export default function App() {
         liveChat: [
           ...prev.liveChat,
           {
+            id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            sellerId: seller ? seller.id : item.sellerId,
             sender: prev.user.name,
             badge: 'LOCKED',
             text: `MINED ${item.code} (${item.title}) — ₱${item.price}!`,
             isHost: false,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ],
         minedOrders: [newOrder, ...prev.minedOrders],
@@ -1506,10 +1524,13 @@ export default function App() {
         liveChat: [
           ...prev.liveChat,
           {
+            id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            sellerId: seller ? seller.id : item.sellerId,
             sender: prev.user.name,
             badge: 'MINER',
             text: `Steal / Next in line for ${item.code}!`,
             isHost: false,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ],
       }));
@@ -1521,25 +1542,37 @@ export default function App() {
 
   const sendLiveChat = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       openAuthModal('login');
       return;
     }
     const text = liveChatInput.trim();
     if (!text) return;
 
+    const currentSeller =
+      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
+      state.sellers[0];
+    const myHostId = state.user.ownSellerId || 'seller_' + state.user.id;
+    const isHostOfRoom =
+      Boolean(currentSeller && currentSeller.id === myHostId) ||
+      state.role === 'seller';
+
     setState((prev) => ({
       ...prev,
+      isAuthenticated: true,
       liveChat: [
         ...prev.liveChat,
         {
+          id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          sellerId: currentSeller?.id || '',
           sender:
-            prev.role === 'seller' && prev.user.shopName
+            isHostOfRoom && prev.user.shopName
               ? prev.user.shopName
-              : prev.user.name,
-          badge: prev.role === 'seller' ? 'HOST' : 'MINER',
+              : prev.user.name || 'Ukayo Miner',
+          badge: isHostOfRoom ? 'HOST' : 'MINER',
           text,
-          isHost: prev.role === 'seller',
+          isHost: isHostOfRoom,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ],
     }));
@@ -1547,23 +1580,42 @@ export default function App() {
   };
 
   const toggleFollowCurrentLiveSeller = () => {
-    const seller = state.sellers.find((s) => s.id === state.activeLiveSellerId);
+    const seller =
+      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
+      state.sellers[0];
     if (!seller) return;
-    const nextFollowed = !seller.followed;
+
+    const followerKey = state.user.id || state.user.email || 'guest_device';
+    const existingFollowedBy = Array.isArray(seller.followedBy)
+      ? seller.followedBy
+      : [];
+    const currentlyFollowing =
+      existingFollowedBy.includes(followerKey) || Boolean(seller.followed);
+    const nextFollowed = !currentlyFollowing;
+    const nextFollowedBy = nextFollowed
+      ? Array.from(new Set([...existingFollowedBy, followerKey]))
+      : existingFollowedBy.filter((k) => k !== followerKey);
 
     setState((prev) => ({
       ...prev,
+      activeLiveSellerId: prev.activeLiveSellerId || seller.id,
       sellers: prev.sellers.map((s) =>
         s.id === seller.id
           ? {
               ...s,
               followed: nextFollowed,
-              followers: Math.max(0, s.followers + (nextFollowed ? 1 : -1)),
+              followedBy: nextFollowedBy,
+              followers: Math.max(
+                nextFollowedBy.length,
+                Math.max(0, (s.followers || 0) + (nextFollowed ? 1 : -1))
+              ),
             }
           : s
       ),
     }));
-    showToast(nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
+    showToast(
+      nextFollowed ? `Following ${seller.name}!` : `Unfollowed ${seller.name}`
+    );
   };
 
   const switchToNextRelatedLive = () => {
@@ -1640,9 +1692,11 @@ export default function App() {
 
   const confirmStartLiveSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    const sellerId = state.user.ownSellerId || 'seller_' + state.user.id;
+    const sellerId = state.user.ownSellerId || 'seller_' + (state.user.id || Date.now());
     const existingSeller = state.sellers.find((s) => s.id === sellerId);
-    const title = liveSetupTitle.trim() || `${state.user.shopName || state.user.name} Live Drop!`;
+    const hostDisplayName =
+      state.user.shopName || state.user.name || 'Ukay Live Host';
+    const title = liveSetupTitle.trim() || `${hostDisplayName} Live Drop!`;
     const category = liveSetupCategory;
     const cameraFacing = liveSetupCamera;
     const pinnedId = liveSetupPinnedId;
@@ -1661,6 +1715,7 @@ export default function App() {
                   isLive: true,
                   liveTitle: title,
                   liveCategory: category,
+                  pinnedItemId: pinnedId || s.pinnedItemId || prev.activePinnedItemId,
                   liveStreamPreview: pendingLiveCoverData || s.liveStreamPreview || defaultCover,
                 }
               : s
@@ -1668,19 +1723,25 @@ export default function App() {
         : [
             {
               id: sellerId,
-              name: prev.user.shopName || prev.user.name || 'Ukay Seller',
-              handle: '@' + (prev.user.shopName || 'ukayshop').toLowerCase().replace(/[^a-z0-9]/g, ''),
+              name: hostDisplayName,
+              handle:
+                '@' +
+                hostDisplayName.toLowerCase().replace(/[^a-z0-9]/g, ''),
               city: prev.user.city || 'Metro Manila',
-              bio: 'Verified UKAYO Live Seller',
+              bio: prev.user.isSeller
+                ? 'Verified UKAYO Live Seller'
+                : 'UKAYO Community Live Host',
               avatar: prev.user.avatar,
               followers: 1,
               followed: false,
+              followedBy: [],
+              pinnedItemId: pinnedId || prev.activePinnedItemId,
               rating: 5.0,
               isLive: true,
               liveCategory: category,
               liveTitle: title,
               liveStreamPreview: pendingLiveCoverData || defaultCover,
-              gcash: prev.user.gcash,
+              gcash: prev.user.gcash || prev.user.phone,
               products: [],
             },
             ...prev.sellers,
@@ -1688,16 +1749,23 @@ export default function App() {
 
       return {
         ...prev,
+        user: {
+          ...prev.user,
+          ownSellerId: prev.user.ownSellerId || sellerId,
+        },
         activeLiveSellerId: sellerId,
         activePinnedItemId: pinnedId || prev.activePinnedItemId,
         sellers: updatedSellers,
         liveChat: [
           ...prev.liveChat,
           {
-            sender: prev.user.shopName || prev.user.name,
+            id: 'lc_' + Date.now(),
+            sellerId,
+            sender: hostDisplayName,
             badge: 'HOST',
             text: `LIVE STARTED: "${title}" (${category}) — ${ruleText}`,
             isHost: true,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ],
       };
@@ -1715,6 +1783,21 @@ export default function App() {
         videoRef.current.srcObject = null;
       }
       setIsCameraStreaming(false);
+      const hostSellerId =
+        state.user.ownSellerId ||
+        state.activeLiveSellerId ||
+        'seller_' + state.user.id;
+      if (hostSellerId) {
+        publishLiveCameraFrame({
+          sellerId: hostSellerId,
+          sellerName: state.user.shopName || state.user.name || 'Ukay Host',
+          isCameraLive: false,
+          frameDataUrl: '',
+          pinnedItemId: state.activePinnedItemId || '',
+          liveTitle: liveSetupTitle || '',
+          updatedAt: Date.now(),
+        });
+      }
       showToast('Live camera stopped.');
       return;
     }
@@ -1732,8 +1815,9 @@ export default function App() {
   };
 
   const openSellerDropModal = () => {
-    if (!state.isAuthenticated || !state.user.isSeller) {
-      showToast('Only registered sellers can add live drops.', 'error');
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
+      showToast('Please log in or register first to pin a Live item!', 'error');
+      openAuthModal('login');
       return;
     }
     const nextCode = 'A0' + (state.liveItems.length + 1);
@@ -1755,15 +1839,16 @@ export default function App() {
 
   const submitLiveDropItem = (e: React.FormEvent) => {
     e.preventDefault();
+    const myHostId = state.user.ownSellerId || 'seller_' + (state.user.id || Date.now());
     const sellerId =
       state.activeLiveSellerId ||
-      state.user.ownSellerId ||
-      state.sellers[0]?.id ||
-      'seller_' + state.user.id;
+      myHostId ||
+      state.sellers[0]?.id;
     const defaultImg =
       'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=500&q=80';
+    const prodId = 'prod_' + Date.now();
     const newItem: LiveItem = {
-      id: 'live_' + Date.now(),
+      id: 'live_' + prodId,
       sellerId,
       code: dropCode.trim() || 'A01',
       title: dropTitle.trim() || 'Ukay Live Flash Drop',
@@ -1771,12 +1856,13 @@ export default function App() {
       size: dropSize.trim() || 'Free Size',
       condition: dropCondition.trim() || '10/10 Like New',
       image: dropImage || defaultImg,
+      pinned: true,
       winner: null,
       steals: [],
     };
 
     const newProduct: Product = {
-      id: 'prod_' + Date.now(),
+      id: prodId,
       code: newItem.code,
       title: newItem.title,
       price: newItem.price,
@@ -1784,21 +1870,79 @@ export default function App() {
       size: newItem.size,
       condition: newItem.condition,
       status: 'Available',
+      pinned: true,
       rating: 5.0,
       image: newItem.image,
       description: `${newItem.condition} • ${newItem.size}`,
       reviews: [],
     };
 
-    setState((prev) => ({
-      ...prev,
-      activeLiveSellerId: sellerId,
-      liveItems: [newItem, ...prev.liveItems],
-      activePinnedItemId: newItem.id,
-      sellers: prev.sellers.map((s) =>
-        s.id === sellerId ? { ...s, products: [newProduct, ...s.products] } : s
-      ),
-    }));
+    setState((prev) => {
+      const hasSeller = prev.sellers.some((s) => s.id === sellerId);
+      const hostName = prev.user.shopName || prev.user.name || 'Ukay Live Host';
+      const updatedSellers = hasSeller
+        ? prev.sellers.map((s) =>
+            s.id === sellerId
+              ? {
+                  ...s,
+                  isLive: true,
+                  pinnedItemId: newItem.id,
+                  liveStreamPreview: newItem.image || s.liveStreamPreview,
+                  products: [
+                    newProduct,
+                    ...s.products.map((p) => ({ ...p, pinned: false })),
+                  ],
+                }
+              : s
+          )
+        : [
+            {
+              id: sellerId,
+              name: hostName,
+              handle: '@' + hostName.toLowerCase().replace(/[^a-z0-9]/g, ''),
+              city: prev.user.city || 'Metro Manila',
+              bio: 'UKAYO Live Host',
+              avatar: prev.user.avatar,
+              followers: 1,
+              followed: false,
+              followedBy: [],
+              pinnedItemId: newItem.id,
+              rating: 5.0,
+              isLive: true,
+              liveCategory: 'Jackets & Hoodies',
+              liveTitle: `${hostName} Live Drop!`,
+              liveStreamPreview: newItem.image,
+              gcash: prev.user.gcash || prev.user.phone,
+              products: [newProduct],
+            },
+            ...prev.sellers,
+          ];
+
+      return {
+        ...prev,
+        activeLiveSellerId: sellerId,
+        liveItems: [
+          newItem,
+          ...prev.liveItems.map((i) =>
+            i.sellerId === sellerId ? { ...i, pinned: false } : i
+          ),
+        ],
+        activePinnedItemId: newItem.id,
+        sellers: updatedSellers,
+        liveChat: [
+          ...prev.liveChat,
+          {
+            id: 'lc_' + Date.now(),
+            sellerId,
+            sender: hostName,
+            badge: 'HOST',
+            text: `📌 PINNED [${newItem.code}] ${newItem.title} — ₱${newItem.price}! Tap MINE NA!`,
+            isHost: true,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ],
+      };
+    });
     setLiveDropModalOpen(false);
     showToast(`Pinned [${newItem.code}] ${newItem.title} (₱${newItem.price}) to Live!`);
   };
@@ -1806,7 +1950,16 @@ export default function App() {
   const toggleFollowStore = (sellerId: string) => {
     const seller = state.sellers.find((s) => s.id === sellerId);
     if (!seller) return;
-    const nextFollowed = !seller.followed;
+    const followerKey = state.user.id || state.user.email || 'guest_device';
+    const existingFollowedBy = Array.isArray(seller.followedBy)
+      ? seller.followedBy
+      : [];
+    const currentlyFollowing =
+      existingFollowedBy.includes(followerKey) || Boolean(seller.followed);
+    const nextFollowed = !currentlyFollowing;
+    const nextFollowedBy = nextFollowed
+      ? Array.from(new Set([...existingFollowedBy, followerKey]))
+      : existingFollowedBy.filter((k) => k !== followerKey);
 
     setState((prev) => ({
       ...prev,
@@ -1815,7 +1968,11 @@ export default function App() {
           ? {
               ...s,
               followed: nextFollowed,
-              followers: Math.max(0, s.followers + (nextFollowed ? 1 : -1)),
+              followedBy: nextFollowedBy,
+              followers: Math.max(
+                nextFollowedBy.length,
+                Math.max(0, (s.followers || 0) + (nextFollowed ? 1 : -1))
+              ),
             }
           : s
       ),
@@ -1993,14 +2150,17 @@ export default function App() {
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (sid === 'admin_support') {
-      const threadId = 'sup_' + (state.user.id || 'guest');
-      const roleLabel: 'BUYER' | 'SELLER' = state.user.isSeller && state.role === 'seller' ? 'SELLER' : 'BUYER';
+      const userKey = state.user.id || state.user.email || 'guest';
+      const threadId = 'sup_' + userKey;
+      const roleLabel: 'BUYER' | 'SELLER' =
+        state.user.isSeller && state.role === 'seller' ? 'SELLER' : 'BUYER';
       const senderDisplay =
         roleLabel === 'SELLER' && state.user.shopName
           ? `${state.user.shopName} (${state.user.name})`
           : state.user.name;
 
       const msgObj: DirectMessage = {
+        id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         from: roleLabel === 'SELLER' ? 'seller' : 'buyer',
         senderName: senderDisplay,
         text,
@@ -2008,10 +2168,15 @@ export default function App() {
       };
 
       setState((prev) => {
-        const existingThread = prev.supportThreads.find((t) => t.id === threadId);
+        const existingThread = prev.supportThreads.find(
+          (t) =>
+            t.id === threadId ||
+            t.id === 'support_' + userKey ||
+            (prev.user.id && t.userId === prev.user.id)
+        );
         const updatedThreads = existingThread
           ? prev.supportThreads.map((t) =>
-              t.id === threadId
+              t.id === existingThread.id
                 ? {
                     ...t,
                     userName: senderDisplay,
@@ -2025,7 +2190,7 @@ export default function App() {
           : [
               {
                 id: threadId,
-                userId: prev.user.id,
+                userId: prev.user.id || userKey,
                 userName: senderDisplay,
                 userRole: roleLabel,
                 userAvatar: prev.user.avatar,
@@ -2040,10 +2205,6 @@ export default function App() {
         return {
           ...prev,
           supportThreads: updatedThreads,
-          directChats: {
-            ...prev.directChats,
-            admin_support: [...(prev.directChats.admin_support || []), msgObj],
-          },
         };
       });
 
@@ -2058,6 +2219,7 @@ export default function App() {
         [sid]: [
           ...(prev.directChats[sid] || []),
           {
+            id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             from: 'buyer',
             senderName: prev.user.name,
             text,
@@ -2182,14 +2344,103 @@ export default function App() {
   const isSellerMode = isSellerAccount && state.role === 'seller';
 
   const activeLiveSeller: Seller | undefined =
-    state.sellers.find((s) => s.id === state.activeLiveSellerId) || state.sellers[0];
+    state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
+    state.sellers.find((s) => s.isLive) ||
+    state.sellers[0];
 
+  // Subscribe to real-time remote camera frames for the active live seller
+  useEffect(() => {
+    const sellerId = activeLiveSeller?.id || '';
+    if (!sellerId) {
+      setRemoteLiveStream(null);
+      return;
+    }
+    const unsub = subscribeToLiveCameraStream(sellerId, (streamData) => {
+      setRemoteLiveStream(streamData);
+    });
+    return () => unsub();
+  }, [activeLiveSeller?.id]);
+
+  // Broadcast live camera frames to Firestore every 750ms while hosting camera live in Marketplace
+  useEffect(() => {
+    if (!isCameraStreaming) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 420;
+    const ctx = canvas.getContext('2d');
+
+    const interval = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || !ctx) return;
+      const hostSellerId =
+        stateRef.current.activeLiveSellerId ||
+        stateRef.current.user.ownSellerId ||
+        'seller_' + (stateRef.current.user.id || 'host');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
+      publishLiveCameraFrame({
+        sellerId: hostSellerId,
+        sellerName:
+          stateRef.current.user.shopName ||
+          stateRef.current.user.name ||
+          'Ukay Live Host',
+        isCameraLive: true,
+        frameDataUrl,
+        pinnedItemId: stateRef.current.activePinnedItemId || '',
+        liveTitle: liveSetupTitle || '',
+        updatedAt: Date.now(),
+      });
+    }, 750);
+
+    return () => window.clearInterval(interval);
+  }, [isCameraStreaming, liveSetupTitle]);
+
+  const sellerPinnedProduct = activeLiveSeller?.products?.find((p) => p.pinned);
   const activePinnedItem: LiveItem | undefined =
+    (remoteLiveStream?.pinnedItemId
+      ? state.liveItems.find((i) => i.id === remoteLiveStream.pinnedItemId)
+      : undefined) ||
+    (activeLiveSeller?.pinnedItemId
+      ? state.liveItems.find((i) => i.id === activeLiveSeller.pinnedItemId)
+      : undefined) ||
+    (activeLiveSeller
+      ? state.liveItems.find(
+          (i) => i.sellerId === activeLiveSeller.id && i.pinned
+        )
+      : undefined) ||
     state.liveItems.find((i) => i.id === state.activePinnedItemId) ||
+    (sellerPinnedProduct && activeLiveSeller
+      ? {
+          id: 'live_' + sellerPinnedProduct.id,
+          sellerId: activeLiveSeller.id,
+          code: sellerPinnedProduct.code || 'LIVE',
+          title: sellerPinnedProduct.title,
+          price: sellerPinnedProduct.price,
+          size: sellerPinnedProduct.size || 'Free Size',
+          condition: sellerPinnedProduct.condition || '9.5/10 Preloved',
+          image: sellerPinnedProduct.image,
+          pinned: true,
+          winner:
+            sellerPinnedProduct.status &&
+            sellerPinnedProduct.status.startsWith('Mined by ')
+              ? sellerPinnedProduct.status.replace('Mined by ', '')
+              : null,
+          steals: [],
+        }
+      : undefined) ||
     (activeLiveSeller
       ? state.liveItems.find((i) => i.sellerId === activeLiveSeller.id)
       : undefined) ||
     state.liveItems[0];
+
+  const currentFollowerKey =
+    state.user.id || state.user.email || 'guest_device';
+  const isFollowingActiveLiveSeller = Boolean(
+    activeLiveSeller &&
+      ((Array.isArray(activeLiveSeller.followedBy) &&
+        activeLiveSeller.followedBy.includes(currentFollowerKey)) ||
+        activeLiveSeller.followed)
+  );
 
   const activeStoreSeller: Seller | undefined =
     state.sellers.find((s) => s.id === state.activeStoreId) || state.sellers[0];
@@ -2216,12 +2467,17 @@ export default function App() {
     : ((userNameParts[0]?.[0] || 'U') + (userNameParts[1]?.[0] || 'K')).toUpperCase();
 
   // Build vertical chat thread list (Customer Service + All Sellers)
+  const myUserKey = state.user.id || state.user.email || 'guest';
   const mySupportThread = state.supportThreads.find(
-    (t) => t.id === 'sup_' + (state.user.id || 'guest')
+    (t) =>
+      t.id === 'sup_' + myUserKey ||
+      t.id === 'support_' + myUserKey ||
+      (state.user.id && t.userId === state.user.id) ||
+      (state.user.ownSellerId && t.id === 'support_' + state.user.ownSellerId)
   );
   const supportMessages: DirectMessage[] = mySupportThread
     ? mySupportThread.messages
-    : state.directChats.admin_support || [];
+    : [];
 
   const chatContacts = [
     {
@@ -2971,15 +3227,26 @@ export default function App() {
               onWheel={handleLiveWheel}
               className="fixed inset-0 z-20 max-w-md mx-auto bg-[#070D17] text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
-              {/* Video / Visual Backdrop */}
+              {/* Video / Visual Backdrop (Local Camera -> Remote Seller Live Camera -> Pinned Product / Cover) */}
               {activeLiveSeller && (
                 <img
                   id="live-fallback-bg"
-                  src={activeLiveSeller.liveStreamPreview}
+                  src={
+                    remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
+                      ? remoteLiveStream.frameDataUrl
+                      : activePinnedItem?.image &&
+                        activeLiveSeller.liveStreamPreview === activeLiveSeller.avatar
+                      ? activePinnedItem.image
+                      : activeLiveSeller.liveStreamPreview ||
+                        activePinnedItem?.image ||
+                        'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80'
+                  }
                   alt="Live Ukay Stream"
-                  className={`absolute inset-0 w-full h-full object-cover opacity-80 ${
-                    isCameraStreaming ? 'hidden' : ''
-                  }`}
+                  className={`absolute inset-0 w-full h-full object-cover ${
+                    remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
+                      ? 'opacity-100'
+                      : 'opacity-85'
+                  } ${isCameraStreaming ? 'hidden' : ''}`}
                 />
               )}
               <video
@@ -3031,11 +3298,19 @@ export default function App() {
                       </div>
                     </button>
                     <button
-                      onClick={toggleFollowCurrentLiveSeller}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFollowCurrentLiveSeller();
+                      }}
                       id="live-follow-btn"
-                      className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold shrink-0 cursor-pointer"
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold shrink-0 cursor-pointer transition ${
+                        isFollowingActiveLiveSeller
+                          ? 'bg-[#10B981] text-[#070D17]'
+                          : 'bg-[#EF4444] text-white hover:bg-red-600'
+                      }`}
                     >
-                      {activeLiveSeller.followed ? 'Following' : 'Follow'}
+                      {isFollowingActiveLiveSeller ? '✓ Following' : '+ Follow'}
                     </button>
                   </div>
                 ) : (
@@ -3045,7 +3320,13 @@ export default function App() {
                 )}
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {activeLiveSeller && (
+                  {(isCameraStreaming || remoteLiveStream?.isCameraLive) && (
+                    <div className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[9px] font-extrabold inline-flex items-center gap-1 shadow">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      <span>LIVE CAM</span>
+                    </div>
+                  )}
+                  {activeLiveSeller && !isCameraStreaming && !remoteLiveStream?.isCameraLive && (
                     <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
                       <span>LIVE</span>
@@ -3071,24 +3352,21 @@ export default function App() {
                     No Active Live Streams Right Now
                   </h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    {isSellerAccount
-                      ? 'Your seller account is ready! Tap below to configure your stream title, camera, and first pinned ukay item.'
-                      : 'Register as a Buyer and apply as an Ukayo Seller to launch your own Live Selling room!'}
+                    Start your own Live Stream right here in the Marketplace! Both Buyers and Sellers can turn on their camera and pin ukay drops.
                   </p>
                   <div className="flex flex-col gap-2 pt-1">
-                    {isSellerAccount ? (
-                      <button
-                        onClick={openLiveSetupModal}
-                        className="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
-                      >
-                        Start My Live Stream Now
-                      </button>
-                    ) : (
+                    <button
+                      onClick={openLiveSetupModal}
+                      className="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                    >
+                      Start My Live Stream Now
+                    </button>
+                    {!isSellerAccount && (
                       <button
                         onClick={handleBecomeSellerAction}
-                        className="w-full py-3 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                        className="w-full py-2.5 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
                       >
-                        Register as Ukayo Seller
+                        Register Official Seller Shop (Optional)
                       </button>
                     )}
                     <button
@@ -3134,10 +3412,10 @@ export default function App() {
                     id="live-chat-messages"
                     className="flex-1 max-h-36 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1.5 pr-1"
                   >
-                    {state.liveChat.slice(-14).map((m, idx) => (
+                    {state.liveChat.slice(-18).map((m, idx) => (
                       <div
-                        key={idx}
-                        className="inline-flex items-start gap-1.5 bg-black/45 backdrop-blur-xs rounded-2xl px-2.5 py-1 text-[11px] max-w-full"
+                        key={m.id || idx}
+                        className="inline-flex items-start gap-1.5 bg-black/55 backdrop-blur-xs rounded-2xl px-2.5 py-1 text-[11px] max-w-full border border-white/10"
                       >
                         <span
                           className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${
@@ -3158,37 +3436,33 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Right Vertical Action Rail */}
+                  {/* Right Vertical Action Rail (Available to Both Buyers & Sellers to Go Live & Pin Items) */}
                   <div className="flex flex-col items-center gap-2.5 shrink-0">
-                    {isSellerAccount && (
-                      <>
-                        <button
-                          onClick={toggleCameraLive}
-                          id="tiktok-cam-btn"
-                          className={`w-9 h-9 rounded-full ${
-                            isCameraStreaming ? 'bg-[#EF4444]' : 'bg-black/50'
-                          } backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer`}
-                          title="Go Live Camera"
-                        >
-                          <Video className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={flipLiveCamera}
-                          className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                          title="Flip Camera"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={openSellerDropModal}
-                          id="tiktok-seller-drop-btn"
-                          className="flex w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer"
-                          title="Pin New Live Item"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={toggleCameraLive}
+                      id="tiktok-cam-btn"
+                      className={`w-9 h-9 rounded-full ${
+                        isCameraStreaming ? 'bg-[#EF4444]' : 'bg-black/50'
+                      } backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer`}
+                      title="Go Live Camera (Buyer or Seller)"
+                    >
+                      <Video className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={flipLiveCamera}
+                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
+                      title="Flip Camera"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={openSellerDropModal}
+                      id="tiktok-seller-drop-btn"
+                      className="flex w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer"
+                      title="Pin New Live Item"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={openAgoraModal}
                       className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
@@ -3711,28 +3985,67 @@ export default function App() {
                       </div>
                     ) : (
                       activeChatContact.messages.map((m, idx) => {
-                        const isMine = m.from === 'buyer' || (activeChatContact.isSupport && m.from !== 'admin');
+                        const isCustomerServiceReply =
+                          m.from === 'admin' ||
+                          Boolean(
+                            m.senderName &&
+                              (m.senderName.toLowerCase().includes('customer service') ||
+                                m.senderName.toLowerCase().includes('admin'))
+                          ) ||
+                          Boolean(
+                            activeChatContact.isSupport &&
+                              m.from === 'seller' &&
+                              !isSellerMode
+                          );
+
+                        const isSellerReply =
+                          !isCustomerServiceReply &&
+                          m.from === 'seller' &&
+                          !activeChatContact.isSupport;
+
+                        const isMine =
+                          !isCustomerServiceReply &&
+                          !isSellerReply &&
+                          (m.from === 'buyer' ||
+                            (activeChatContact.isSupport &&
+                              m.from === 'seller' &&
+                              isSellerMode));
+
+                        const roleBadgeText = isCustomerServiceReply
+                          ? '🎧 UKAYO CUSTOMER SERVICE (ADMIN)'
+                          : isSellerReply
+                          ? `🏪 SELLER • ${m.senderName || activeChatContact.name}`
+                          : isSellerMode && activeChatContact.isSupport
+                          ? `YOU (SELLER • ${state.user.shopName || state.user.name})`
+                          : `YOU (BUYER • ${state.user.name || 'Miner'})`;
+
                         return (
                           <div
-                            key={idx}
+                            key={m.id || idx}
                             className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
+                              className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs shadow-2xs ${
                                 isMine
                                   ? 'bg-[#070D17] text-white rounded-br-xs'
-                                  : m.from === 'admin'
-                                  ? 'bg-[#10B981]/15 border border-[#10B981] text-[#070D17] rounded-bl-xs'
-                                  : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
+                                  : isCustomerServiceReply
+                                  ? 'bg-[#ECFDF5] border-2 border-[#10B981] text-[#070D17] rounded-bl-xs'
+                                  : 'bg-[#FFFBEB] border-2 border-[#F59E0B] text-[#070D17] rounded-bl-xs'
                               }`}
                             >
-                              {m.from === 'admin' && (
-                                <div className="text-[9px] font-extrabold uppercase text-[#065F46] mb-0.5">
-                                  UKAYO Admin Support
-                                </div>
-                              )}
-                              <p>{m.text}</p>
-                              <div className="text-[9px] opacity-60 mt-1 text-right">
+                              <div
+                                className={`text-[9px] font-extrabold uppercase tracking-wider mb-0.5 ${
+                                  isMine
+                                    ? 'text-[#10B981]'
+                                    : isCustomerServiceReply
+                                    ? 'text-[#065F46]'
+                                    : 'text-[#B45309]'
+                                }`}
+                              >
+                                {roleBadgeText}
+                              </div>
+                              <p className="leading-snug break-words">{m.text}</p>
+                              <div className="text-[9px] opacity-65 mt-1 text-right">
                                 {m.time}
                               </div>
                             </div>
@@ -4042,13 +4355,31 @@ export default function App() {
                 </div>
 
                 {!isSellerAccount ? (
-                  <div id="account-buyer-apply-actions">
+                  <div id="account-buyer-apply-actions" className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={launchSellerLiveInApp}
+                        className="py-2 px-3 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <Radio className="w-3.5 h-3.5" />
+                        <span>Go LIVE Now (Buyer)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={launchSellerPostInApp}
+                        className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-[#070D17] text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Post on Ukay Feed</span>
+                      </button>
+                    </div>
                     <button
                       onClick={goToSellerRegistrationPage}
                       id="account-seller-banner-btn"
-                      className="px-4 py-2 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
+                      className="w-full py-2 px-4 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold shadow-2xs cursor-pointer inline-flex items-center justify-center gap-1.5"
                     >
-                      <span>Apply Now (Seller Registration)</span>
+                      <span>Apply Now (Official Seller Center Registration)</span>
                       <ChevronRight className="w-3.5 h-3.5 text-[#F59E0B]" />
                     </button>
                   </div>

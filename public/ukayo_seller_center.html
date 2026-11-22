@@ -598,6 +598,24 @@
           </div>
         </div>
 
+        <!-- Real-Time Live Comments & Miner Locks Feed -->
+        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Live Room Comments &amp; Miner Locks</h3>
+            </div>
+            <span class="text-[10px] font-bold text-slate-400">Real-Time Buyer Sync</span>
+          </div>
+          <div id="sc-live-comments-box" class="max-h-40 overflow-y-auto space-y-1.5 p-2.5 rounded-xl bg-[#070D17] text-white"></div>
+          <form onsubmit="sendSellerLiveStudioComment(event)" class="flex items-center gap-1.5">
+            <input type="text" id="sc-live-comment-input" placeholder="Send host announcement or reply to live miners..." class="flex-1 px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17] focus:outline-none" />
+            <button type="submit" class="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold shrink-0 cursor-pointer">
+              Send Host Chat
+            </button>
+          </form>
+        </div>
+
         <!-- Quick Flash Drop Creator -->
         <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2.5">
           <div class="flex items-center justify-between">
@@ -1348,19 +1366,42 @@
           }));
       }
 
+      // Sync live stream comments
+      scState.liveChat = Array.isArray(buyerApp.liveChat) ? buyerApp.liveChat : [];
+
       // Build vertical left chat threads:
       // 1. Always include UKAYO Admin Customer Service at top
-      const supportThreadId = `support_${scState.userId || scState.ownSellerId || 'seller'}`;
-      const existingSupport = (buyerApp.supportThreads || []).find(t => t.id === supportThreadId);
+      const supportThreadIdA = `support_${scState.userId || scState.ownSellerId || 'seller'}`;
+      const supportThreadIdB = `sup_${scState.userId || scState.ownSellerId || 'seller'}`;
+      const existingSupport = (buyerApp.supportThreads || []).find(
+        t =>
+          t.id === supportThreadIdA ||
+          t.id === supportThreadIdB ||
+          (scState.userId && t.userId === scState.userId) ||
+          (scState.ownSellerId && t.id === `support_${scState.ownSellerId}`)
+      );
       const adminMessages = existingSupport && Array.isArray(existingSupport.messages) && existingSupport.messages.length
-        ? existingSupport.messages.map(m => ({
-            from: m.from === 'me' ? 'seller' : 'buyer',
-            text: m.text,
-            time: m.time
-          }))
+        ? existingSupport.messages.map(m => {
+            const isAdminReply =
+              m.from === 'admin' ||
+              (m.senderName &&
+                (m.senderName.toLowerCase().includes('customer service') ||
+                  m.senderName.toLowerCase().includes('admin')));
+            const isSellerOwn = !isAdminReply && (m.from === 'me' || m.from === 'seller');
+            return {
+              id: m.id,
+              from: isAdminReply ? 'admin' : isSellerOwn ? 'seller' : 'admin',
+              senderName: isAdminReply
+                ? m.senderName || 'UKAYO Customer Service'
+                : scState.shopName || 'Seller',
+              text: m.text,
+              time: m.time
+            };
+          })
         : [
             {
-              from: 'buyer',
+              from: 'admin',
+              senderName: 'UKAYO Customer Service',
               text: 'Welcome to UKAYO Seller Support! Message Admin here anytime for KYC, BIR, or order assistance.',
               time: 'Online'
             }
@@ -1381,14 +1422,18 @@
       if (scState.ownSellerId && buyerApp.directChats && Array.isArray(buyerApp.directChats[scState.ownSellerId])) {
         const rawMsgs = buyerApp.directChats[scState.ownSellerId];
         if (rawMsgs.length > 0) {
+          const lastBuyerMsg = [...rawMsgs].reverse().find(m => m.from === 'buyer' && m.senderName);
+          const buyerDisplayName = (lastBuyerMsg && lastBuyerMsg.senderName) || 'Marketplace Miner';
           threads.push({
             id: `buyer_chat_${scState.ownSellerId}`,
-            buyerName: 'Marketplace Miner',
+            buyerName: buyerDisplayName,
             itemTag: scState.shopName || 'Shop Inquiry',
             unread: 0,
             isDirectBuyer: true,
             messages: rawMsgs.map(m => ({
-              from: m.from === 'seller' ? 'seller' : 'buyer',
+              id: m.id,
+              from: m.from === 'seller' ? 'seller' : m.from === 'admin' ? 'admin' : 'buyer',
+              senderName: m.senderName || (m.from === 'seller' ? scState.shopName : buyerDisplayName),
               text: m.text,
               time: m.time
             }))
@@ -1408,6 +1453,7 @@
             messages: [
               {
                 from: 'buyer',
+                senderName: ord.buyerName || 'Miner',
                 text: `Mined "${ord.title}" (₱${ord.price * (ord.quantity || 1)}) via ${ord.paymentMethod}.`,
                 time: 'Order Thread'
               }
@@ -1496,7 +1542,9 @@
         // Upsert Seller in buyerApp.sellers so Live & Storefront work immediately
         const handleSlug = '@' + (scState.shopName || 'ukayshop').toLowerCase().replace(/[^a-z0-9]/g, '');
         const pinnedProd = scState.products.find(p => p.pinned) || scState.products[0];
-        const previewImg = pinnedProd ? pinnedProd.image : scState.avatar;
+        const defaultLiveCover = 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
+        const previewImg = (pinnedProd && pinnedProd.image) ? pinnedProd.image : defaultLiveCover;
+        const activePinnedLiveId = pinnedProd ? `live_${pinnedProd.id}` : '';
 
         const sellerObj = {
           id: scState.ownSellerId,
@@ -1511,6 +1559,7 @@
           liveCategory: scState.niche || 'Jackets',
           liveViewers: Math.max(1, scState.products.length * 12),
           avatar: scState.avatar,
+          pinnedItemId: activePinnedLiveId,
           liveStreamPreview: previewImg,
           responseTime: 'Within minutes',
           shipOnTime: '100%',
@@ -1524,6 +1573,11 @@
           buyerApp.sellers.unshift(sellerObj);
         }
 
+        if (activePinnedLiveId) {
+          buyerApp.activePinnedItemId = activePinnedLiveId;
+        }
+        buyerApp.activeLiveSellerId = scState.ownSellerId;
+
         // Sync seller's products into buyerApp.liveItems so buyers can tap MINE NA! in Live Room
         const otherLiveItems = buyerApp.liveItems.filter(li => li.sellerId !== scState.ownSellerId);
         const myLiveItems = scState.products.map(p => ({
@@ -1533,13 +1587,16 @@
           price: Number(p.price) || 250,
           originalPrice: Math.round((Number(p.price) || 250) * 1.35),
           size: p.size || 'Free Size',
-          condition: '9.5/10 EUC',
+          condition: p.condition || '9.5/10 EUC',
           flawNote: p.description || 'Fresh from bale, ready to wear',
           category: p.category || 'Jackets',
           sellerId: scState.ownSellerId,
           sellerName: scState.shopName,
           sellerCity: scState.city || 'Cebu City',
           image: p.image,
+          pinned: Boolean(p.pinned),
+          winner: p.minedBy || null,
+          steals: [],
           status: p.status === 'Mined' ? 'Mined' : 'Available',
           minedBy: p.minedBy,
           queueCount: 0,
@@ -2033,6 +2090,32 @@
         imgEl.src = pinned.image;
       }
 
+      const commentsBox = document.getElementById('sc-live-comments-box');
+      if (commentsBox) {
+        const comments = Array.isArray(scState.liveChat) ? scState.liveChat.slice(-25) : [];
+        if (!comments.length) {
+          commentsBox.innerHTML = `<div class="text-[11px] text-slate-400 text-center py-3">No live comments yet. Comments &amp; "MINE NA!" locks from buyers watching your stream appear here in real time.</div>`;
+        } else {
+          commentsBox.innerHTML = comments.map(m => {
+            const badgeClass = m.badge === 'HOST'
+              ? 'bg-[#EF4444] text-white'
+              : m.badge === 'LOCKED'
+              ? 'bg-[#10B981] text-white'
+              : 'bg-[#F59E0B] text-[#070D17]';
+            return `
+              <div class="flex items-start gap-1.5 text-[11px] bg-white/10 rounded-xl px-2.5 py-1.5">
+                <span class="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${badgeClass}">${escapeHtml(m.badge || 'MINER')}</span>
+                <div class="min-w-0 flex-1 break-words">
+                  <span class="font-extrabold text-slate-200">${escapeHtml(m.sender || 'Miner')}:</span>
+                  <span class="text-white ml-1">${escapeHtml(m.text || '')}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+          commentsBox.scrollTop = commentsBox.scrollHeight;
+        }
+      }
+
       const queueEl = document.getElementById('sc-live-queue-list');
       if (!queueEl) return;
       if (!scState.products.length) {
@@ -2055,6 +2138,30 @@
           </button>
         </div>
       `).join('');
+    }
+
+    function sendSellerLiveStudioComment(e) {
+      e.preventDefault();
+      const inp = document.getElementById('sc-live-comment-input');
+      if (!inp || !inp.value.trim()) return;
+      const text = inp.value.trim();
+      const msg = {
+        id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        sellerId: scState.ownSellerId,
+        sender: scState.shopName || 'Live Host',
+        badge: 'HOST',
+        text,
+        isHost: true,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      if (!Array.isArray(scState.liveChat)) scState.liveChat = [];
+      scState.liveChat.push(msg);
+      const buyerApp = getSharedAppState();
+      if (!Array.isArray(buyerApp.liveChat)) buyerApp.liveChat = [];
+      buyerApp.liveChat.push(msg);
+      saveSharedAppState(buyerApp);
+      inp.value = '';
+      renderLiveStudioTab();
     }
 
     function renderOrdersTab() {
@@ -2382,18 +2489,36 @@
       }
 
       if (box && activeThread) {
-        box.innerHTML = activeThread.messages.map(m => `
-          <div class="flex ${m.from === 'seller' ? 'justify-end' : 'justify-start'}">
-            <div class="max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
-              m.from === 'seller'
-                ? 'bg-[#070D17] text-white rounded-br-xs'
-                : 'bg-white border border-[#E2E8F0] text-[#1E293B] rounded-bl-xs'
-            }">
-              <p>${escapeHtml(m.text)}</p>
-              <div class="text-[9px] opacity-60 mt-1 text-right">${escapeHtml(m.time)}</div>
+        box.innerHTML = activeThread.messages.map(m => {
+          const isCustomerService =
+            m.from === 'admin' ||
+            (activeThread.isSupport && m.from !== 'seller');
+          const isMineSeller = m.from === 'seller';
+          const roleBadge = isCustomerService
+            ? '🎧 UKAYO CUSTOMER SERVICE (ADMIN)'
+            : isMineSeller
+            ? `YOU (SELLER • ${scState.shopName || 'Shop'})`
+            : `🛍️ BUYER • ${m.senderName || activeThread.buyerName || 'Miner'}`;
+          const bubbleStyle = isMineSeller
+            ? 'bg-[#070D17] text-white rounded-br-xs'
+            : isCustomerService
+            ? 'bg-[#ECFDF5] border-2 border-[#10B981] text-[#070D17] rounded-bl-xs'
+            : 'bg-white border-2 border-[#3B82F6] text-[#070D17] rounded-bl-xs';
+          const badgeColor = isMineSeller
+            ? 'text-[#10B981]'
+            : isCustomerService
+            ? 'text-[#065F46]'
+            : 'text-[#1D4ED8]';
+          return `
+          <div class="flex ${isMineSeller ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[85%] rounded-2xl px-3 py-2 text-xs shadow-2xs ${bubbleStyle}">
+              <div class="text-[9px] font-extrabold uppercase tracking-wider mb-0.5 ${badgeColor}">${escapeHtml(roleBadge)}</div>
+              <p class="leading-snug break-words">${escapeHtml(m.text)}</p>
+              <div class="text-[9px] opacity-65 mt-1 text-right">${escapeHtml(m.time)}</div>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
         box.scrollTop = box.scrollHeight;
       }
 
@@ -2423,11 +2548,15 @@
       const text = input.value.trim();
       const activeThread = scState.chatThreads.find(t => t.id === scState.activeChatThreadId) || scState.chatThreads[0];
       if (!activeThread) return;
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const msgId = 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
       activeThread.messages.push({
+        id: msgId,
         from: 'seller',
+        senderName: scState.shopName || 'Seller',
         text,
-        time: 'Just now'
+        time: nowTime
       });
 
       const buyerApp = getSharedAppState();
@@ -2435,17 +2564,32 @@
       // If messaging UKAYO Admin Customer Service, sync into buyerApp.supportThreads
       if (activeThread.id === 'admin_support') {
         if (!Array.isArray(buyerApp.supportThreads)) buyerApp.supportThreads = [];
-        const supportId = `support_${scState.userId || scState.ownSellerId || 'seller'}`;
-        const existingIdx = buyerApp.supportThreads.findIndex(t => t.id === supportId);
-        const msgObj = { from: 'me', text, time: 'Just now' };
+        const supportIdA = `support_${scState.userId || scState.ownSellerId || 'seller'}`;
+        const supportIdB = `sup_${scState.userId || scState.ownSellerId || 'seller'}`;
+        const existingIdx = buyerApp.supportThreads.findIndex(
+          t =>
+            t.id === supportIdA ||
+            t.id === supportIdB ||
+            (scState.userId && t.userId === scState.userId)
+        );
+        const msgObj = {
+          id: msgId,
+          from: 'seller',
+          senderName: `${scState.shopName} (Seller)`,
+          text,
+          time: nowTime
+        };
         if (existingIdx >= 0) {
+          buyerApp.supportThreads[existingIdx].unreadAdmin = (buyerApp.supportThreads[existingIdx].unreadAdmin || 0) + 1;
           buyerApp.supportThreads[existingIdx].messages.push(msgObj);
         } else {
           buyerApp.supportThreads.unshift({
-            id: supportId,
+            id: supportIdA,
             userId: scState.userId || scState.ownSellerId,
             userName: `${scState.shopName} (Seller)`,
             userRole: 'SELLER',
+            unreadAdmin: 1,
+            unreadUser: 0,
             messages: [msgObj]
           });
         }
@@ -2456,9 +2600,11 @@
           buyerApp.directChats[scState.ownSellerId] = [];
         }
         buyerApp.directChats[scState.ownSellerId].push({
+          id: msgId,
           from: 'seller',
+          senderName: scState.shopName || 'Seller',
           text,
-          time: 'Just now'
+          time: nowTime
         });
         saveSharedAppState(buyerApp);
       }
@@ -2506,8 +2652,24 @@
       });
       const pinned = scState.products.find(p => p.id === prodId);
       pushUpdatesToSharedBuyerApp();
+      if (pinned) {
+        const buyerApp = getSharedAppState();
+        if (!Array.isArray(buyerApp.liveChat)) buyerApp.liveChat = [];
+        const pinMsg = {
+          id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          sellerId: scState.ownSellerId,
+          sender: scState.shopName || 'Live Host',
+          badge: 'HOST',
+          text: `📌 PINNED [${pinned.code}] ${pinned.title} — ₱${pinned.price}! Tap MINE NA!`,
+          isHost: true,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        buyerApp.liveChat.push(pinMsg);
+        scState.liveChat = buyerApp.liveChat;
+        saveSharedAppState(buyerApp);
+      }
       renderAllSellerCenter();
-      if (pinned) showScToast(`Pinned [${pinned.code}] ${pinned.title} to LIVE Studio!`);
+      if (pinned) showScToast(`Pinned [${pinned.code}] ${pinned.title} to Buyer LIVE Room!`);
     }
 
     function sendPaymentReminder(orderId) {
@@ -2985,6 +3147,54 @@
       showScToast('BIR & DTI compliance profile saved!');
     }
 
+    let hostCamBroadcastTimer = null;
+
+    function stopHostCamFrameBroadcast() {
+      if (hostCamBroadcastTimer) {
+        clearInterval(hostCamBroadcastTimer);
+        hostCamBroadcastTimer = null;
+      }
+      if (window.publishSellerLiveFrame && scState.ownSellerId) {
+        const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+        window.publishSellerLiveFrame({
+          sellerId: scState.ownSellerId,
+          sellerName: scState.shopName || 'Ukay Seller',
+          isCameraLive: false,
+          frameDataUrl: '',
+          pinnedItemId: pinned ? `live_${pinned.id}` : '',
+          liveTitle: scState.liveTitle || '',
+          updatedAt: Date.now()
+        });
+      }
+    }
+
+    function startHostCamFrameBroadcast(videoEl) {
+      if (hostCamBroadcastTimer) clearInterval(hostCamBroadcastTimer);
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 420;
+      const ctx = canvas.getContext('2d');
+
+      hostCamBroadcastTimer = setInterval(() => {
+        if (!hostCamStream || !videoEl || videoEl.readyState < 2 || !ctx) return;
+        if (!scState.ownSellerId) return;
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
+        const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+        if (window.publishSellerLiveFrame) {
+          window.publishSellerLiveFrame({
+            sellerId: scState.ownSellerId,
+            sellerName: scState.shopName || 'Ukay Seller',
+            isCameraLive: true,
+            frameDataUrl,
+            pinnedItemId: pinned ? `live_${pinned.id}` : '',
+            liveTitle: scState.liveTitle || '',
+            updatedAt: Date.now()
+          });
+        }
+      }, 750);
+    }
+
     async function toggleHostCamera() {
       const videoEl = document.getElementById('sc-live-video');
       const imgEl = document.getElementById('sc-live-preview-img');
@@ -2994,6 +3204,7 @@
       if (hostCamStream) {
         hostCamStream.getTracks().forEach(t => t.stop());
         hostCamStream = null;
+        stopHostCamFrameBroadcast();
         videoEl.srcObject = null;
         videoEl.classList.add('hidden');
         imgEl.classList.remove('hidden');
@@ -3010,7 +3221,9 @@
         imgEl.classList.add('hidden');
         btn.textContent = 'Stop Camera';
         statusPill.textContent = '● CAMERA LIVE ON AIR';
-        showScToast('LIVE Studio camera active!');
+        pushUpdatesToSharedBuyerApp();
+        startHostCamFrameBroadcast(videoEl);
+        showScToast('LIVE Studio camera streaming to Buyer Marketplace!');
       } catch (err) {
         showScToast('Camera permission unavailable on this browser.');
       }
@@ -3052,9 +3265,36 @@
         const k = keyFn(item);
         if (!k) return;
         const prev = map.get(k);
-        map.set(k, prev ? { ...prev, ...item, isSeller: Boolean(prev.isSeller || item.isSeller) } : item);
+        if (!prev) {
+          map.set(k, item);
+          return;
+        }
+        const mergedFollowedBy = Array.from(new Set([
+          ...(Array.isArray(prev.followedBy) ? prev.followedBy : []),
+          ...(Array.isArray(item.followedBy) ? item.followedBy : [])
+        ]));
+        map.set(k, {
+          ...prev,
+          ...item,
+          isSeller: Boolean(prev.isSeller || item.isSeller),
+          followedBy: mergedFollowedBy,
+          followers: Math.max(mergedFollowedBy.length, Number(prev.followers) || 0, Number(item.followers) || 0)
+        });
       });
       return Array.from(map.values());
+    }
+
+    function mergeMessagesList(localMsgs = [], remoteMsgs = []) {
+      const seen = new Set();
+      const result = [];
+      [...(Array.isArray(remoteMsgs) ? remoteMsgs : []), ...(Array.isArray(localMsgs) ? localMsgs : [])].forEach(m => {
+        if (!m || typeof m !== 'object' || !m.text) return;
+        const key = m.id ? String(m.id) : `${m.from || m.sender || ''}|${m.badge || ''}|${m.text}|${m.time || ''}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        result.push(m);
+      });
+      return result;
     }
 
     if (rawConfig && rawConfig.apiKey) {
@@ -3066,6 +3306,17 @@
         const docRef = doc(db, 'ukayo_sync', 'live_state');
         let applyingRemote = false;
         let lastPushedJson = '';
+
+        window.publishSellerLiveFrame = async (payload) => {
+          if (!payload || !payload.sellerId) return;
+          try {
+            const streamRef = doc(db, 'ukayo_sync', `live_stream_${payload.sellerId}`);
+            await setDoc(streamRef, {
+              ...payload,
+              updatedAt: Date.now()
+            });
+          } catch (e) {}
+        };
 
         window.ukayoCloudSyncPush = async (nextSharedState) => {
           if (applyingRemote) return;
@@ -3106,6 +3357,20 @@
             const localUser = (devSession && devSession.user && devSession.user.email)
               ? devSession.user
               : (local.user || {});
+            const mergedDirectChats = { ...(remote.directChats || {}), ...(local.directChats || {}) };
+            Object.keys(mergedDirectChats).forEach(k => {
+              mergedDirectChats[k] = mergeMessagesList(
+                (local.directChats && local.directChats[k]) || [],
+                (remote.directChats && remote.directChats[k]) || []
+              );
+            });
+            const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
+            mergedSupport.forEach(t => {
+              const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
+              const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
+              t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
+            });
+
             const merged = {
               ...local,
               ...remote,
@@ -3117,6 +3382,9 @@
               sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
               kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
               liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+              liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
+              directChats: mergedDirectChats,
+              supportThreads: mergedSupport,
               feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
               minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
             };
