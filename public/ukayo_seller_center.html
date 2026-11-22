@@ -820,7 +820,6 @@
         <div class="flex items-center justify-between gap-2">
           <div>
             <h2 class="text-base font-display font-extrabold text-[#070D17]">Messages &amp; Admin Help</h2>
-            <p class="text-[11px] text-slate-500">Previous messages on the left • Chat with Miners or Admin Support</p>
           </div>
           <div class="inline-flex p-1 rounded-xl bg-white border border-[#E2E8F0]">
             <button type="button" id="inbox-tab-chat" onclick="switchInboxView('chat')" class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">Chats</button>
@@ -1234,6 +1233,26 @@
       };
     }
 
+    const DEVICE_SESSION_KEY = 'ukayo_device_session_v1';
+
+    function loadScDeviceSession() {
+      try {
+        const raw = localStorage.getItem(DEVICE_SESSION_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return null;
+    }
+
+    function saveScDeviceSession(userObj, role = 'seller') {
+      try {
+        localStorage.setItem(DEVICE_SESSION_KEY, JSON.stringify({
+          isAuthenticated: true,
+          role,
+          user: userObj
+        }));
+      } catch (e) {}
+    }
+
     function saveSharedAppState(buyerApp) {
       try {
         localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(buyerApp));
@@ -1245,9 +1264,28 @@
 
     function syncFromSharedBuyerApp() {
       const buyerApp = getSharedAppState();
-      const u = buyerApp.user || {};
+      const devSession = loadScDeviceSession();
+      const sessionUser = (devSession && devSession.user && devSession.user.email)
+        ? devSession.user
+        : (buyerApp.user || {});
 
-      if (buyerApp.isAuthenticated && u && u.email) {
+      // Look up authoritative record in Firestore-synced registeredUsers & kycApplications
+      const regUsers = Array.isArray(buyerApp.registeredUsers) ? buyerApp.registeredUsers : [];
+      const kycApps = Array.isArray(buyerApp.kycApplications) ? buyerApp.kycApplications : [];
+      const emailKey = (sessionUser.email || scState.email || '').trim().toLowerCase();
+      const matchedReg = regUsers.find(r =>
+        (emailKey && (r.email || '').toLowerCase() === emailKey) ||
+        (sessionUser.id && r.id === sessionUser.id) ||
+        (scState.userId && r.id === scState.userId)
+      );
+      const u = matchedReg ? { ...sessionUser, ...matchedReg } : sessionUser;
+      const matchedKyc = kycApps.find(k =>
+        (u.id && k.userId === u.id) ||
+        (emailKey && (k.email || '').toLowerCase() === emailKey) ||
+        (u.shopName && k.shopName === u.shopName)
+      );
+
+      if ((buyerApp.isAuthenticated || (devSession && devSession.isAuthenticated) || u.email) && u && u.email) {
         scState.userId = u.id || scState.userId;
         scState.email = u.email || scState.email;
         scState.password = u.password || scState.password;
@@ -1263,11 +1301,13 @@
         if (u.taxTier) scState.taxTier = u.taxTier;
         if (u.tin) scState.tin = u.tin;
 
-        if (u.isSeller) {
+        if (u.isSeller || matchedKyc) {
           scState.isOnboarded = true;
-          scState.shopName = u.shopName || `${u.name}'s Ukay Shop`;
+          scState.shopName = (matchedKyc && matchedKyc.shopName) || u.shopName || `${u.name}'s Ukay Shop`;
           scState.ownSellerId = u.ownSellerId || `seller_${u.id}`;
-          scState.sellerStatus = u.sellerStatus || 'pending';
+          scState.sellerStatus = (matchedKyc && matchedKyc.status === 'approved') || u.sellerStatus === 'approved'
+            ? 'approved'
+            : (matchedKyc && matchedKyc.status) || u.sellerStatus || 'pending';
         }
       }
 
@@ -1442,6 +1482,7 @@
         buyerApp.isAuthenticated = true;
         buyerApp.role = 'seller';
         buyerApp.user = updatedUser;
+        saveScDeviceSession(updatedUser, 'seller');
 
         const regIdx = buyerApp.registeredUsers.findIndex(
           u => u.id === updatedUser.id || (u.email && u.email.toLowerCase() === (updatedUser.email || '').toLowerCase())
@@ -1614,6 +1655,7 @@
       buyerApp.isAuthenticated = true;
       buyerApp.role = 'seller';
       buyerApp.user = matched;
+      saveScDeviceSession(matched, 'seller');
       saveSharedAppState(buyerApp);
 
       syncFromSharedBuyerApp();
@@ -1638,13 +1680,16 @@
     function handleSellerLogout() {
       const buyerApp = getSharedAppState();
       buyerApp.role = 'buyer';
+      if (buyerApp.user && buyerApp.user.email) {
+        saveScDeviceSession(buyerApp.user, 'buyer');
+      }
       saveSharedAppState(buyerApp);
       scState.isOnboarded = false;
       window.history.replaceState({}, '', '/ukayo_seller_center.html');
       document.getElementById('sc-auth-gate').classList.remove('hidden');
       document.getElementById('sc-onboarding-wizard').classList.add('hidden');
       document.getElementById('sc-bottom-nav').classList.add('hidden');
-      showScToast('Logged out of UKAYO Seller Center.');
+      showScToast('Logged out of UKAYO Seller Center on this device.');
     }
 
     function openSellerCustomerService() {
@@ -3025,7 +3070,14 @@
         window.ukayoCloudSyncPush = async (nextSharedState) => {
           if (applyingRemote) return;
           try {
-            const payloadJson = JSON.stringify(nextSharedState);
+            // Strip device-local login session fields before writing to shared Firestore
+            const sharedCloudPayload = { ...nextSharedState };
+            delete sharedCloudPayload.isAuthenticated;
+            delete sharedCloudPayload.role;
+            delete sharedCloudPayload.user;
+            delete sharedCloudPayload.activeTab;
+
+            const payloadJson = JSON.stringify(sharedCloudPayload);
             if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
             lastPushedJson = payloadJson;
             await setDoc(docRef, {
@@ -3050,10 +3102,17 @@
           try {
             const remote = JSON.parse(data.payloadJson);
             const local = getSharedAppState();
+            const devSession = loadScDeviceSession();
+            const localUser = (devSession && devSession.user && devSession.user.email)
+              ? devSession.user
+              : (local.user || {});
             const merged = {
               ...local,
               ...remote,
-              user: local.user && local.user.email ? { ...(remote.user || {}), ...local.user } : (remote.user || local.user || {}),
+              // Never overwrite this device's active login session with another device's state
+              isAuthenticated: Boolean(local.isAuthenticated || (devSession && devSession.isAuthenticated) || localUser.email),
+              role: local.role || (devSession && devSession.role) || 'seller',
+              user: localUser,
               registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
               sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
               kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),

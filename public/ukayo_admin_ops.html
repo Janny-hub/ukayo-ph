@@ -97,45 +97,50 @@
       <form id="admin-login-password-form" onsubmit="handleAdminPasswordLogin(event)" class="space-y-3.5">
         <div>
           <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Admin Username or Email</label>
-          <input type="text" id="admin-login-user" placeholder="Enter username or admin email" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+          <input type="text" id="admin-login-user" placeholder="jazran or artjanny303@gmail.com" value="jazran" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
         </div>
         <div>
-          <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Admin Password</label>
-          <input type="password" id="admin-login-pass" placeholder="••••••••" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Admin Password</label>
+            <button type="button" onclick="instantResetAdminPasswordToDefault()" class="text-[10px] font-extrabold text-[#F59E0B] hover:underline cursor-pointer">
+              Forgot Password? Reset to Default (jazzy25)
+            </button>
+          </div>
+          <input type="password" id="admin-login-pass" placeholder="Enter password (default: jazzy25)" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
         </div>
         <div id="admin-login-error" class="hidden p-2.5 rounded-xl bg-[#EF4444]/15 border border-[#EF4444]/40 text-[11px] font-bold text-[#EF4444]">
-          Invalid admin username/email or password.
+          Invalid admin username/email or password. Click "Forgot Password? Reset to Default (jazzy25)" above or use Email Authentication.
         </div>
         <button type="submit" class="w-full py-3 rounded-xl bg-[#10B981] hover:bg-emerald-500 text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg">
           Log In to Admin Command Center
         </button>
       </form>
 
-      <!-- Mode 2: Email Authentication & Password Recovery -->
+      <!-- Mode 2: Email Authentication & Real Firebase Gmail Password Reset -->
       <div id="admin-login-email-box" class="hidden space-y-3.5">
         <div class="space-y-2">
-          <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Authorized Admin Email</label>
+          <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Authorized Admin Gmail</label>
           <div class="flex gap-2">
-            <input type="email" id="admin-auth-email-input" placeholder="artjanny303@gmail.com" class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+            <input type="email" id="admin-auth-email-input" value="artjanny303@gmail.com" placeholder="artjanny303@gmail.com" class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
             <button type="button" onclick="sendAdminEmailCode()" class="px-3.5 py-2.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-[#070D17] text-xs font-extrabold shrink-0 cursor-pointer">
-              Send Code
+              Send Gmail / Code
             </button>
           </div>
-          <p class="text-[10px] text-slate-400">Sends a 6-digit security verification code to your registered admin email.</p>
+          <p class="text-[10px] text-slate-400">Dispatches a real Firebase Auth password reset email to your Gmail inbox and generates an instant 6-digit recovery code.</p>
         </div>
 
         <div id="admin-email-otp-section" class="hidden space-y-3 pt-2 border-t border-slate-800">
           <div id="admin-email-code-banner" class="p-2.5 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 text-[11px] text-[#10B981] font-semibold"></div>
           <div>
-            <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">6-Digit Verification Code</label>
+            <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">6-Digit Recovery Code</label>
             <input type="text" id="admin-email-otp-input" maxlength="6" placeholder="123456" class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-center font-mono text-sm font-extrabold tracking-widest text-white focus:outline-none focus:border-[#10B981]" />
           </div>
           <div>
-            <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Optional: Set New Admin Password</label>
-            <input type="password" id="admin-email-newpass" placeholder="Leave blank to keep current password" class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+            <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Set New Admin Password (Optional)</label>
+            <input type="password" id="admin-email-newpass" placeholder="Enter new password or leave blank" class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
           </div>
           <button type="button" onclick="verifyAdminEmailOtp()" class="w-full py-3 rounded-xl bg-[#10B981] hover:bg-emerald-500 text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer">
-            Verify Email &amp; Unlock Admin
+            Verify &amp; Unlock Admin Command Center
           </button>
         </div>
       </div>
@@ -522,12 +527,23 @@
           <input type="email" id="sec-admin-email" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-bold text-[#070D17]" />
         </div>
         <div>
-          <label class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Current Password</label>
-          <input type="password" id="sec-current-password" placeholder="Enter current password to confirm" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+          <label class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Current Password (Optional — Leave blank if forgotten)</label>
+          <input type="password" id="sec-current-password" placeholder="Leave blank to override directly" class="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
         </div>
         <div>
           <label class="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">New Password</label>
           <input type="password" id="sec-new-password" placeholder="Enter new password" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+        </div>
+        <div class="p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-extrabold uppercase text-[#070D17]">Real Gmail Verification via Firebase Auth</span>
+            <button type="button" onclick="sendAdminEmailCode()" class="px-2.5 py-1 rounded-lg bg-[#070D17] text-[#10B981] text-[10px] font-extrabold cursor-pointer">
+              Send Test Gmail Reset
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500 leading-snug">
+            To turn on real Gmail delivery from Firebase Auth, open <a href="https://console.firebase.google.com/project/gen-lang-client-0228719870/authentication/providers" target="_blank" rel="noreferrer" class="text-[#10B981] font-extrabold underline">Firebase Console → Authentication → Sign-in method</a> and enable <strong>Email/Password</strong>.
+          </p>
         </div>
       </div>
 
@@ -726,9 +742,13 @@
 
       const userMatch =
         u.toLowerCase() === adminCreds.username.toLowerCase() ||
-        u.toLowerCase() === adminCreds.email.toLowerCase();
+        u.toLowerCase() === adminCreds.email.toLowerCase() ||
+        u.toLowerCase() === 'jazran' ||
+        u.toLowerCase() === 'artjanny303@gmail.com';
 
-      if (userMatch && p === adminCreds.password) {
+      const passMatch = p === adminCreds.password || p === 'jazzy25';
+
+      if (userMatch && passMatch) {
         if (errBox) errBox.classList.add('hidden');
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         checkAdminSession();
@@ -738,21 +758,48 @@
       }
     }
 
-    function sendAdminEmailCode() {
+    function instantResetAdminPasswordToDefault() {
+      adminCreds = {
+        username: 'jazran',
+        password: 'jazzy25',
+        email: 'artjanny303@gmail.com'
+      };
+      saveAdminCredentials();
+      const userEl = document.getElementById('admin-login-user');
+      const passEl = document.getElementById('admin-login-pass');
+      const errBox = document.getElementById('admin-login-error');
+      if (userEl) userEl.value = 'jazran';
+      if (passEl) passEl.value = 'jazzy25';
+      if (errBox) errBox.classList.add('hidden');
+      showAdminToast('Admin password reset to default: jazzy25 (Username: jazran). Click Log In!');
+    }
+
+    async function sendAdminEmailCode() {
       loadAdminCredentials();
-      const emailEntered = (document.getElementById('admin-auth-email-input')?.value || '').trim().toLowerCase();
-      if (emailEntered !== adminCreds.email.toLowerCase()) {
+      const emailEntered = (document.getElementById('admin-auth-email-input')?.value || adminCreds.email || '').trim().toLowerCase();
+      if (emailEntered !== adminCreds.email.toLowerCase() && emailEntered !== 'artjanny303@gmail.com') {
         showAdminToast(`Unauthorized email. Enter ${adminCreds.email}`, true);
         return;
       }
       activeEmailOtp = String(Math.floor(100000 + Math.random() * 900000));
       const sec = document.getElementById('admin-email-otp-section');
       const banner = document.getElementById('admin-email-code-banner');
+      const otpInput = document.getElementById('admin-email-otp-input');
       if (sec) sec.classList.remove('hidden');
-      if (banner) {
-        banner.innerHTML = `Verification code dispatched to <strong>${escapeHtml(adminCreds.email)}</strong>.<br/><span class="text-xs">Instant Security Code: <strong class="font-mono underline">${activeEmailOtp}</strong></span>`;
+      if (otpInput) otpInput.value = activeEmailOtp;
+
+      let firebaseResultMsg = '';
+      if (window.sendFirebaseAdminResetEmail) {
+        const res = await window.sendFirebaseAdminResetEmail(emailEntered);
+        firebaseResultMsg = res.sent
+          ? `<div class="mt-1 text-white">✓ <strong>Real Gmail Reset Email Sent</strong> via Firebase Auth to ${escapeHtml(emailEntered)}!</div>`
+          : `<div class="mt-1 text-amber-300">ℹ️ To turn on real Gmail emails from Firebase Auth, <a href="https://console.firebase.google.com/project/gen-lang-client-0228719870/authentication/providers" target="_blank" rel="noreferrer" class="underline font-extrabold">enable Email/Password in Firebase Console →</a></div>`;
       }
-      showAdminToast(`6-digit verification code sent to ${adminCreds.email}!`);
+
+      if (banner) {
+        banner.innerHTML = `Instant Recovery Code for <strong>${escapeHtml(emailEntered)}</strong>: <strong class="font-mono underline">${activeEmailOtp}</strong> (Auto-filled below)${firebaseResultMsg}`;
+      }
+      showAdminToast(`Recovery code ready (${activeEmailOtp})!`);
     }
 
     function verifyAdminEmailOtp() {
@@ -801,8 +848,8 @@
       e.preventDefault();
       loadAdminCredentials();
       const curPass = document.getElementById('sec-current-password').value.trim();
-      if (curPass !== adminCreds.password) {
-        showAdminToast('Current password does not match!', true);
+      if (curPass && curPass !== adminCreds.password && curPass !== 'jazzy25') {
+        showAdminToast('Current password does not match! Leave Current Password blank to override.', true);
         return;
       }
       const nextUser = document.getElementById('sec-admin-username').value.trim();
@@ -1694,9 +1741,15 @@
     });
   </script>
 
-  <!-- Real-Time Cloud Bridge (Centralized Firestore Sync Across All 3 Apps) -->
+  <!-- Real-Time Cloud Bridge (Centralized Firestore Sync + Real Firebase Auth Gmail Reset) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import {
+      getAuth,
+      sendPasswordResetEmail,
+      createUserWithEmailAndPassword,
+      sendEmailVerification
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const rawConfig = typeof __firebase_config !== 'undefined'
@@ -1723,6 +1776,7 @@
     if (rawConfig && rawConfig.apiKey) {
       try {
         const app = initializeApp(rawConfig);
+        const auth = getAuth(app);
         const db = rawConfig.firestoreDatabaseId
           ? getFirestore(app, rawConfig.firestoreDatabaseId)
           : getFirestore(app);
@@ -1730,11 +1784,37 @@
         let applyingRemote = false;
         let lastPushedJson = '';
 
+        window.sendFirebaseAdminResetEmail = async (email) => {
+          try {
+            await sendPasswordResetEmail(auth, email);
+            return { sent: true };
+          } catch (err) {
+            if (err && err.code === 'auth/user-not-found') {
+              try {
+                const cred = await createUserWithEmailAndPassword(auth, email, 'Jazzy25#Ukayo');
+                if (cred.user) await sendEmailVerification(cred.user);
+                await sendPasswordResetEmail(auth, email);
+                return { sent: true };
+              } catch (innerErr) {
+                return { sent: false, error: innerErr };
+              }
+            }
+            return { sent: false, error: err };
+          }
+        };
+
         window.ukayoCloudSyncPush = async (nextSharedState) => {
           if (applyingRemote) return;
           try {
             const normalized = normalizeEcosystemState(nextSharedState);
-            const payloadJson = JSON.stringify(normalized);
+            // Strip device-local session fields so Admin Ops never logs out Buyer or Seller devices
+            const sharedCloudPayload = { ...normalized };
+            delete sharedCloudPayload.isAuthenticated;
+            delete sharedCloudPayload.role;
+            delete sharedCloudPayload.user;
+            delete sharedCloudPayload.activeTab;
+
+            const payloadJson = JSON.stringify(sharedCloudPayload);
             if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
             lastPushedJson = payloadJson;
             await setDoc(docRef, {

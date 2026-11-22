@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import {
+  getAuth,
+  sendPasswordResetEmail,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+} from 'firebase/auth';
 import {
   getFirestore,
   doc,
@@ -12,6 +17,8 @@ import firebaseConfig from '../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+export const DEVICE_SESSION_KEY = 'ukayo_device_session_v1';
 
 export enum OperationType {
   CREATE = 'create',
@@ -31,7 +38,7 @@ export interface FirestoreErrorInfo {
     email?: string | null;
     emailVerified?: boolean | null;
     isAnonymous?: boolean | null;
-    tenantId?: string | null;
+    tenantId?: boolean | string | null;
     providerInfo?: {
       providerId?: string | null;
       email?: string | null;
@@ -79,6 +86,48 @@ async function testConnection() {
 }
 testConnection();
 
+export interface DeviceSessionData {
+  isAuthenticated: boolean;
+  role: 'buyer' | 'seller';
+  user: Record<string, any>;
+}
+
+export function loadDeviceSession(): DeviceSessionData | null {
+  try {
+    const raw = localStorage.getItem(DEVICE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        isAuthenticated: Boolean(
+          parsed.isAuthenticated || (parsed.user && parsed.user.email)
+        ),
+        role: parsed.role === 'seller' ? 'seller' : 'buyer',
+        user: parsed.user || {},
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function saveDeviceSession(session: DeviceSessionData) {
+  try {
+    localStorage.setItem(DEVICE_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore
+  }
+}
+
+export function clearDeviceSession() {
+  try {
+    localStorage.removeItem(DEVICE_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 function mergeByKey<T extends Record<string, any>>(
   baseList: T[] = [],
   incomingList: T[] = [],
@@ -103,6 +152,17 @@ function mergeByKey<T extends Record<string, any>>(
         ...item,
         isSeller: Boolean(prev.isSeller || item.isSeller),
         verified: Boolean(prev.verified || item.verified),
+        verificationStatus:
+          item.verificationStatus === 'verified' ||
+          prev.verificationStatus === 'verified'
+            ? 'verified'
+            : item.verificationStatus || prev.verificationStatus || 'unverified',
+        sellerStatus:
+          item.sellerStatus === 'approved' || prev.sellerStatus === 'approved'
+            ? 'approved'
+            : item.sellerStatus && item.sellerStatus !== 'none'
+            ? item.sellerStatus
+            : prev.sellerStatus || 'none',
         shopName: item.shopName || prev.shopName || '',
         ownSellerId: item.ownSellerId || prev.ownSellerId || '',
         products:
@@ -129,34 +189,50 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
     ...(remoteState || {}),
   };
 
-  // Preserve local session UI tab/auth state while merging all shared collections
+  // CRITICAL FOR MULTI-USER SIGN-IN ACROSS DEVICES:
+  // Never let remoteState overwrite this device's active login session, role, or UI tab.
+  const deviceSession = loadDeviceSession();
+  const localUser =
+    localState.user && (localState.user.email || localState.user.id)
+      ? localState.user
+      : deviceSession?.user || localState.user || {};
+
+  const isLocalAuth = Boolean(
+    localState.isAuthenticated ||
+      (localUser && (localUser.email || localUser.id))
+  );
+
+  merged.isAuthenticated = isLocalAuth;
+  merged.role = localState.role || deviceSession?.role || 'buyer';
   merged.activeTab = localState.activeTab || 'home';
+  merged.activeFeedCategory = localState.activeFeedCategory || 'ALL';
+  merged.activeStoreId = localState.activeStoreId || '';
+  merged.activeLiveSellerId = localState.activeLiveSellerId || '';
+  merged.activePinnedItemId = localState.activePinnedItemId || '';
+  merged.activeChatSellerId = localState.activeChatSellerId || 'admin_support';
+  merged.activePurchaseFilter = localState.activePurchaseFilter || 'ALL';
+  merged.searchQuery = localState.searchQuery || '';
 
-  const localUser = localState.user || {};
   const remoteUser = (remoteState && (remoteState as any).user) || {};
-  merged.user = localState.isAuthenticated
-    ? {
-        ...remoteUser,
-        ...localUser,
-        isSeller: Boolean(localUser.isSeller || (localUser.email && remoteUser.email === localUser.email && remoteUser.isSeller)),
-        shopName: localUser.shopName || (localUser.email === remoteUser.email ? remoteUser.shopName : '') || '',
-        ownSellerId: localUser.ownSellerId || (localUser.email === remoteUser.email ? remoteUser.ownSellerId : '') || '',
-      }
-    : localUser;
 
-  // Merge registeredUsers by email / id
-  let regUsers = mergeByKey(
+  // Merge registeredUsers by email / id across all devices
+  const regUsers = mergeByKey(
     localState.registeredUsers || [],
     (remoteState as any)?.registeredUsers || [],
     (u) => (u.email ? String(u.email).toLowerCase() : String(u.id || ''))
   );
 
-  // Ensure current authenticated user or remote user with email is always in registeredUsers
+  // Ensure any valid user object (local or remote) is preserved in registeredUsers
   [localUser, remoteUser].forEach((u) => {
     if (u && (u.email || u.shopName) && (u.name || u.shopName)) {
-      const emailKey = (u.email || `${(u.shopName || 'seller').toLowerCase().replace(/[^a-z0-9]/g, '')}@ukayo.ph`).toLowerCase();
+      const emailKey = (
+        u.email ||
+        `${(u.shopName || 'seller').toLowerCase().replace(/[^a-z0-9]/g, '')}@ukayo.ph`
+      ).toLowerCase();
       const idx = regUsers.findIndex(
-        (existing) => (existing.email || '').toLowerCase() === emailKey || (u.id && existing.id === u.id)
+        (existing) =>
+          (existing.email || '').toLowerCase() === emailKey ||
+          (u.id && existing.id === u.id)
       );
       const normalizedAcc = {
         id: u.id || 'usr_' + emailKey.replace(/[^a-z0-9]/g, ''),
@@ -177,8 +253,11 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
         sellerStatus: u.sellerStatus || (u.isSeller ? 'pending' : 'none'),
         shopName: u.shopName || '',
         gcash: u.gcash || u.phone || '',
-        ownSellerId: u.ownSellerId || (u.isSeller ? 'seller_' + (u.id || 'shop') : ''),
-        taxTier: u.taxTier || 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+        ownSellerId:
+          u.ownSellerId || (u.isSeller ? 'seller_' + (u.id || 'shop') : ''),
+        taxTier:
+          u.taxTier ||
+          'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
         tin: u.tin || '',
         birImages: Array.isArray(u.birImages) ? u.birImages : [],
         unpaidMines: 0,
@@ -189,6 +268,22 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
           ...regUsers[idx],
           ...normalizedAcc,
           isSeller: Boolean(regUsers[idx].isSeller || normalizedAcc.isSeller),
+          verified: Boolean(regUsers[idx].verified || normalizedAcc.verified),
+          verificationStatus:
+            regUsers[idx].verificationStatus === 'verified' ||
+            normalizedAcc.verificationStatus === 'verified'
+              ? 'verified'
+              : normalizedAcc.verificationStatus ||
+                regUsers[idx].verificationStatus ||
+                'unverified',
+          sellerStatus:
+            regUsers[idx].sellerStatus === 'approved' ||
+            normalizedAcc.sellerStatus === 'approved'
+              ? 'approved'
+              : normalizedAcc.sellerStatus &&
+                normalizedAcc.sellerStatus !== 'none'
+              ? normalizedAcc.sellerStatus
+              : regUsers[idx].sellerStatus || 'none',
           shopName: normalizedAcc.shopName || regUsers[idx].shopName,
           ownSellerId: normalizedAcc.ownSellerId || regUsers[idx].ownSellerId,
         };
@@ -200,28 +295,37 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
 
   merged.registeredUsers = regUsers;
 
-  // Sync current logged-in user with updated registeredUsers record (e.g. if Seller registration or Admin KYC approval happened)
-  if (merged.user && merged.user.email) {
+  // Keep this device's logged-in user, enriched with authoritative verificationStatus & sellerStatus from registeredUsers
+  if (isLocalAuth && localUser && (localUser.email || localUser.id)) {
     const matchedReg = regUsers.find(
-      (r) => (r.email || '').toLowerCase() === String(merged.user.email).toLowerCase()
+      (r) =>
+        (localUser.email &&
+          (r.email || '').toLowerCase() ===
+            String(localUser.email).toLowerCase()) ||
+        (localUser.id && r.id === localUser.id)
     );
-    if (matchedReg) {
-      merged.user = {
-        ...merged.user,
-        ...matchedReg,
-      };
-    }
+    merged.user = matchedReg
+      ? {
+          ...localUser,
+          ...matchedReg,
+          isSeller: Boolean(localUser.isSeller || matchedReg.isSeller),
+          shopName: matchedReg.shopName || localUser.shopName || '',
+          ownSellerId: matchedReg.ownSellerId || localUser.ownSellerId || '',
+        }
+      : localUser;
+  } else {
+    merged.user = localUser;
   }
 
   // Merge sellers
-  let sellers = mergeByKey(
+  const sellers = mergeByKey(
     localState.sellers || [],
     (remoteState as any)?.sellers || [],
     (s) => String(s.id || s.name || '')
   );
 
   // Merge kycApplications
-  let kycApps = mergeByKey(
+  const kycApps = mergeByKey(
     localState.kycApplications || [],
     (remoteState as any)?.kycApplications || [],
     (k) => String(k.id || k.shopName || k.userId || '')
@@ -262,9 +366,12 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
           email: u.email,
           phone: u.phone || u.gcash || '',
           city: u.city || 'Philippines',
-          idType: u.idType || 'Philippine National ID (PhilSys / ePhilID)',
+          idType:
+            u.idType || 'Philippine National ID (PhilSys / ePhilID)',
           idNumber: u.idNumber || 'Submitted',
-          taxTier: u.taxTier || 'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
+          taxTier:
+            u.taxTier ||
+            'Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)',
           tin: u.tin || 'Starter Tier',
           idPhoto: u.idImageData || u.avatar || '',
           selfiePhoto: u.selfieImageData || u.avatar || '',
@@ -342,7 +449,16 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
     if (isApplyingRemote) return;
     try {
       const normalized = normalizeAndMergeUkayoState(nextState, null);
-      const payloadJson = JSON.stringify(normalized);
+      // Strip device-local session fields before writing to shared Firestore so devices never sign each other out
+      const sharedCloudPayload: Record<string, any> = {
+        ...normalized,
+      };
+      delete sharedCloudPayload.isAuthenticated;
+      delete sharedCloudPayload.role;
+      delete sharedCloudPayload.user;
+      delete sharedCloudPayload.activeTab;
+
+      const payloadJson = JSON.stringify(sharedCloudPayload);
       if (
         payloadJson === lastPushedJson ||
         payloadJson.length < 2 ||
@@ -366,14 +482,14 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
     }
   };
 
-  (window as unknown as { ukayoCloudSyncPush?: (s: T) => void }).ukayoCloudSyncPush =
-    pushStateToCloud;
+  (
+    window as unknown as { ukayoCloudSyncPush?: (s: T) => void }
+  ).ukayoCloudSyncPush = pushStateToCloud;
 
   const unsubscribe = onSnapshot(
     syncDocRef,
     (snapshot) => {
       if (!snapshot.exists()) {
-        // Seed initial local state to Firestore if remote document doesn't exist yet
         const current = getCurrentState();
         pushStateToCloud(current);
         return;
@@ -411,3 +527,290 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
 
   return unsubscribe;
 }
+
+// ===========================================================================
+// REAL-TIME FIRESTORE STATUS INDICATOR FOR USER PROFILE
+// Fetches and streams the actual verificationStatus and sellerStatus directly
+// from the centralized Firestore database (ukayo_sync/live_state).
+// ===========================================================================
+export interface FirestoreUserLiveStatus {
+  loading: boolean;
+  connected: boolean;
+  fromServer: boolean;
+  foundInFirestore: boolean;
+  verificationStatus: 'unverified' | 'pending' | 'verified';
+  sellerStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  verified: boolean;
+  isSeller: boolean;
+  shopName: string;
+  kycIdType: string;
+  lastSyncedAt: string;
+}
+
+function extractUserStatusFromFirestorePayload(
+  payloadJson: string,
+  updatedAt: string | undefined,
+  userId: string,
+  userEmail: string,
+  fromServer: boolean
+): FirestoreUserLiveStatus {
+  try {
+    const data = JSON.parse(payloadJson);
+    const regUsers: any[] = Array.isArray(data.registeredUsers)
+      ? data.registeredUsers
+      : [];
+    const kycApps: any[] = Array.isArray(data.kycApplications)
+      ? data.kycApplications
+      : [];
+    const emailLower = (userEmail || '').trim().toLowerCase();
+
+    const matchedUser = regUsers.find(
+      (u) =>
+        (userId && u.id === userId) ||
+        (emailLower && String(u.email || '').toLowerCase() === emailLower)
+    );
+
+    const matchedKyc = kycApps.find(
+      (k) =>
+        (userId && k.userId === userId) ||
+        (emailLower && String(k.email || '').toLowerCase() === emailLower) ||
+        (matchedUser?.shopName && k.shopName === matchedUser.shopName)
+    );
+
+    if (!matchedUser && !matchedKyc) {
+      return {
+        loading: false,
+        connected: true,
+        fromServer,
+        foundInFirestore: false,
+        verificationStatus: 'unverified',
+        sellerStatus: 'none',
+        verified: false,
+        isSeller: false,
+        shopName: '',
+        kycIdType: '',
+        lastSyncedAt: updatedAt
+          ? new Date(updatedAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+          : 'Just now',
+      };
+    }
+
+    const rawVerStatus =
+      matchedKyc?.status === 'approved' ||
+      matchedUser?.verificationStatus === 'verified' ||
+      matchedUser?.verified
+        ? 'verified'
+        : matchedKyc?.status === 'pending' ||
+          matchedUser?.verificationStatus === 'pending'
+        ? 'pending'
+        : 'unverified';
+
+    const isSeller = Boolean(
+      matchedUser?.isSeller || matchedUser?.shopName || matchedKyc
+    );
+    const rawSellerStatus =
+      matchedKyc?.status === 'approved' ||
+      matchedUser?.sellerStatus === 'approved'
+        ? 'approved'
+        : matchedKyc?.status === 'rejected'
+        ? 'rejected'
+        : isSeller ||
+          matchedKyc?.status === 'pending' ||
+          matchedUser?.sellerStatus === 'pending'
+        ? 'pending'
+        : 'none';
+
+    return {
+      loading: false,
+      connected: true,
+      fromServer,
+      foundInFirestore: true,
+      verificationStatus: rawVerStatus,
+      sellerStatus: rawSellerStatus,
+      verified: rawVerStatus === 'verified',
+      isSeller,
+      shopName: matchedKyc?.shopName || matchedUser?.shopName || '',
+      kycIdType: matchedKyc?.idType || matchedUser?.idType || '',
+      lastSyncedAt: updatedAt
+        ? new Date(updatedAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+    };
+  } catch {
+    return {
+      loading: false,
+      connected: false,
+      fromServer: false,
+      foundInFirestore: false,
+      verificationStatus: 'unverified',
+      sellerStatus: 'none',
+      verified: false,
+      isSeller: false,
+      shopName: '',
+      kycIdType: '',
+      lastSyncedAt: 'Error parsing Firestore document',
+    };
+  }
+}
+
+export function subscribeToUserFirestoreStatus(
+  userId: string,
+  userEmail: string,
+  onStatusUpdate: (status: FirestoreUserLiveStatus) => void
+) {
+  const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
+  return onSnapshot(
+    syncDocRef,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onStatusUpdate({
+          loading: false,
+          connected: true,
+          fromServer: !snapshot.metadata.fromCache,
+          foundInFirestore: false,
+          verificationStatus: 'unverified',
+          sellerStatus: 'none',
+          verified: false,
+          isSeller: false,
+          shopName: '',
+          kycIdType: '',
+          lastSyncedAt: 'No Firestore doc yet',
+        });
+        return;
+      }
+      const data = snapshot.data();
+      if (!data || typeof data.payloadJson !== 'string') return;
+      const status = extractUserStatusFromFirestorePayload(
+        data.payloadJson,
+        data.updatedAt,
+        userId,
+        userEmail,
+        !snapshot.metadata.fromCache
+      );
+      onStatusUpdate(status);
+    },
+    (error) => {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes('permission')
+      ) {
+        handleFirestoreError(error, OperationType.GET, SYNC_DOC_PATH);
+      }
+    }
+  );
+}
+
+export async function fetchUserFirestoreStatusFromServer(
+  userId: string,
+  userEmail: string
+): Promise<FirestoreUserLiveStatus> {
+  const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
+  const snapshot = await getDocFromServer(syncDocRef);
+  if (!snapshot.exists()) {
+    return {
+      loading: false,
+      connected: true,
+      fromServer: true,
+      foundInFirestore: false,
+      verificationStatus: 'unverified',
+      sellerStatus: 'none',
+      verified: false,
+      isSeller: false,
+      shopName: '',
+      kycIdType: '',
+      lastSyncedAt: new Date().toLocaleTimeString(),
+    };
+  }
+  const data = snapshot.data();
+  return extractUserStatusFromFirestorePayload(
+    data?.payloadJson || '{}',
+    data?.updatedAt,
+    userId,
+    userEmail,
+    true
+  );
+}
+
+// ===========================================================================
+// REAL FIREBASE AUTH GMAIL PASSWORD RESET & EMAIL VERIFICATION
+// ===========================================================================
+export async function sendRealFirebasePasswordResetOrVerification(
+  email: string,
+  tempPasswordForEnrollment = 'UkayoTemp#2026'
+): Promise<{ sent: boolean; message: string; consoleUrl?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  const consoleUrl = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`;
+  try {
+    await sendPasswordResetEmail(auth, cleanEmail);
+    return {
+      sent: true,
+      message: `Password reset email dispatched via Firebase Auth to ${cleanEmail}! Check your Gmail inbox (and Spam/Promotions folder).`,
+    };
+  } catch (err: any) {
+    const code = String(err?.code || '');
+    if (code === 'auth/user-not-found') {
+      try {
+        const cred = await createUserWithEmailAndPassword(
+          auth,
+          cleanEmail,
+          tempPasswordForEnrollment
+        );
+        if (cred.user) {
+          await sendEmailVerification(cred.user);
+        }
+        await sendPasswordResetEmail(auth, cleanEmail);
+        return {
+          sent: true,
+          message: `Enrolled ${cleanEmail} in Firebase Auth and sent verification & password reset emails to your Gmail inbox!`,
+        };
+      } catch (innerErr: any) {
+        const innerCode = String(innerErr?.code || '');
+        if (
+          innerCode.includes('operation-not-allowed') ||
+          innerCode.includes('configuration-not-found')
+        ) {
+          return {
+            sent: false,
+            consoleUrl,
+            message:
+              'To send real Gmail emails via Firebase Auth, enable the "Email/Password" provider in your Firebase Console (Authentication → Sign-in method → Email/Password → Enable).',
+          };
+        }
+        return {
+          sent: false,
+          consoleUrl,
+          message: innerErr?.message || 'Unable to send Firebase Auth email.',
+        };
+      }
+    }
+    if (
+      code.includes('operation-not-allowed') ||
+      code.includes('configuration-not-found')
+    ) {
+      return {
+        sent: false,
+        consoleUrl,
+        message:
+          'To send real Gmail emails via Firebase Auth, enable the "Email/Password" provider in your Firebase Console (Authentication → Sign-in method → Email/Password → Enable).',
+      };
+    }
+    return {
+      sent: false,
+      consoleUrl,
+      message: err?.message || 'Unable to dispatch Firebase Auth email.',
+    };
+  }
+}
+

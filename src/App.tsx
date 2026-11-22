@@ -51,6 +51,13 @@ import {
 import {
   startUkayoCloudSync,
   normalizeAndMergeUkayoState,
+  loadDeviceSession,
+  saveDeviceSession,
+  clearDeviceSession,
+  subscribeToUserFirestoreStatus,
+  fetchUserFirestoreStatusFromServer,
+  sendRealFirebasePasswordResetOrVerification,
+  FirestoreUserLiveStatus,
 } from './firebase';
 
 export const STORAGE_KEY = 'ukayo_marketplace_state_v11';
@@ -435,27 +442,67 @@ interface FloatingHeart {
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
     const def = getDefaultState();
+    const deviceSession = loadDeviceSession();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        return normalizeAndMergeUkayoState(def, {
-          ...parsed,
-          user: { ...def.user, ...(parsed.user || {}) },
-          ukayPaborito:
-            Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
-              ? parsed.ukayPaborito
-              : DEFAULT_UKAY_CATEGORIES,
-        });
+        const sessionUser =
+          deviceSession?.user && (deviceSession.user.email || deviceSession.user.id)
+            ? deviceSession.user
+            : parsed.user || {};
+        const isAuth = Boolean(
+          deviceSession
+            ? deviceSession.isAuthenticated
+            : parsed.isAuthenticated || sessionUser.email || sessionUser.id
+        );
+        return normalizeAndMergeUkayoState(
+          {
+            ...def,
+            isAuthenticated: isAuth,
+            role: deviceSession?.role || parsed.role || 'buyer',
+            user: { ...def.user, ...sessionUser },
+          },
+          {
+            ...parsed,
+            ukayPaborito:
+              Array.isArray(parsed.ukayPaborito) && parsed.ukayPaborito.length > 0
+                ? parsed.ukayPaborito
+                : DEFAULT_UKAY_CATEGORIES,
+          }
+        );
       }
     } catch {
       // fallback
+    }
+    if (deviceSession?.isAuthenticated && deviceSession.user) {
+      return {
+        ...def,
+        isAuthenticated: true,
+        role: deviceSession.role,
+        user: { ...def.user, ...deviceSession.user },
+      };
     }
     return def;
   });
 
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  const [firestoreLiveStatus, setFirestoreLiveStatus] =
+    useState<FirestoreUserLiveStatus>({
+      loading: true,
+      connected: false,
+      fromServer: false,
+      foundInFirestore: false,
+      verificationStatus: 'unverified',
+      sellerStatus: 'none',
+      verified: false,
+      isSeller: false,
+      shopName: '',
+      kycIdType: '',
+      lastSyncedAt: 'Connecting to Firestore...',
+    });
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [hearts, setHearts] = useState<FloatingHeart[]>([]);
@@ -465,6 +512,12 @@ export default function App() {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [resetEmailNotice, setResetEmailNotice] = useState<{
+    message: string;
+    consoleUrl?: string;
+    newPassMode?: boolean;
+  } | null>(null);
+  const [newResetPassword, setNewResetPassword] = useState('');
 
   // Buyer Registration fields
   const [regName, setRegName] = useState('');
@@ -560,6 +613,13 @@ export default function App() {
   // Save state to localStorage & centralized Firestore real-time sync
   useEffect(() => {
     try {
+      if (state.isAuthenticated && (state.user.email || state.user.id)) {
+        saveDeviceSession({
+          isAuthenticated: true,
+          role: state.role,
+          user: state.user,
+        });
+      }
       let toSave = state;
       const existingRaw = localStorage.getItem(STORAGE_KEY);
       if (existingRaw) {
@@ -589,19 +649,48 @@ export default function App() {
       () => stateRef.current,
       (merged) => {
         const def = getDefaultState();
-        setState({
+        setState((prev) => ({
           ...def,
           ...merged,
+          // Keep this device's active login session intact across multi-device sync
+          isAuthenticated: Boolean(
+            prev.isAuthenticated || prev.user.email || prev.user.id
+          ),
+          role: prev.role,
+          activeTab: prev.activeTab,
           user: { ...def.user, ...(merged.user || {}) },
           ukayPaborito:
             Array.isArray(merged.ukayPaborito) && merged.ukayPaborito.length > 0
               ? merged.ukayPaborito
               : DEFAULT_UKAY_CATEGORIES,
-        });
+        }));
       }
     );
     return () => unsubscribe();
   }, []);
+
+  // Subscribe to real-time Firestore status indicator for verificationStatus & sellerStatus
+  useEffect(() => {
+    if (!state.isAuthenticated || (!state.user.id && !state.user.email)) {
+      setFirestoreLiveStatus((prev) => ({
+        ...prev,
+        loading: false,
+        foundInFirestore: false,
+        verificationStatus: 'unverified',
+        sellerStatus: 'none',
+      }));
+      return;
+    }
+    setFirestoreLiveStatus((prev) => ({ ...prev, loading: true }));
+    const unsub = subscribeToUserFirestoreStatus(
+      state.user.id,
+      state.user.email,
+      (liveStatus) => {
+        setFirestoreLiveStatus(liveStatus);
+      }
+    );
+    return () => unsub();
+  }, [state.isAuthenticated, state.user.id, state.user.email]);
 
   useEffect(() => {
     const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -735,34 +824,42 @@ export default function App() {
       accountStatus: 'active',
     };
 
+    const nextUserObj = {
+      id: newAccount.id,
+      name: newAccount.name,
+      email: newAccount.email,
+      password: newAccount.password,
+      phone: newAccount.phone,
+      address: newAccount.address,
+      avatar: newAccount.avatar,
+      verified: false,
+      verificationStatus: 'unverified' as const,
+      idType: '',
+      idNumber: '',
+      idImageData: '',
+      selfieImageData: '',
+      isSeller: false,
+      sellerStatus: 'none' as const,
+      shopName: '',
+      city: newAccount.city,
+      gcash: newAccount.gcash,
+      ownSellerId: '',
+      taxTier: newAccount.taxTier,
+      tin: '',
+      birImages: [],
+    };
+
+    saveDeviceSession({
+      isAuthenticated: true,
+      role: 'buyer',
+      user: nextUserObj,
+    });
+
     setState((prev) => ({
       ...prev,
       isAuthenticated: true,
       role: 'buyer',
-      user: {
-        id: newAccount.id,
-        name: newAccount.name,
-        email: newAccount.email,
-        password: newAccount.password,
-        phone: newAccount.phone,
-        address: newAccount.address,
-        avatar: newAccount.avatar,
-        verified: false,
-        verificationStatus: 'unverified',
-        idType: '',
-        idNumber: '',
-        idImageData: '',
-        selfieImageData: '',
-        isSeller: false,
-        sellerStatus: 'none',
-        shopName: '',
-        city: newAccount.city,
-        gcash: newAccount.gcash,
-        ownSellerId: '',
-        taxTier: newAccount.taxTier,
-        tin: '',
-        birImages: [],
-      },
+      user: nextUserObj,
       registeredUsers: [...prev.registeredUsers, newAccount],
     }));
 
@@ -774,7 +871,7 @@ export default function App() {
     setRegAddress('');
     setRegAvatar('');
     setAuthModalOpen(false);
-    showToast(`Welcome to UKAYO, ${name}! Your buyer account is active.`);
+    showToast(`Welcome to UKAYO, ${name}! You are signed in across all tabs including Ukay Feed.`);
   };
 
   const handleBuyerLogin = (e: React.FormEvent) => {
@@ -799,39 +896,112 @@ export default function App() {
       return;
     }
 
+    const loggedInUser = {
+      id: found.id,
+      name: found.name,
+      email: found.email,
+      password: found.password,
+      phone: found.phone,
+      address: found.address,
+      avatar: found.avatar,
+      verified: found.verified,
+      verificationStatus: found.verificationStatus,
+      idType: found.idType,
+      idNumber: found.idNumber,
+      idImageData: found.idImageData,
+      selfieImageData: found.selfieImageData,
+      isSeller: found.isSeller,
+      sellerStatus: found.sellerStatus || (found.isSeller ? 'approved' : 'none'),
+      shopName: found.shopName,
+      city: found.city,
+      gcash: found.gcash,
+      ownSellerId: found.ownSellerId,
+      taxTier: found.taxTier,
+      tin: found.tin,
+      birImages: found.birImages || [],
+    };
+
+    saveDeviceSession({
+      isAuthenticated: true,
+      role: found.isSeller ? state.role : 'buyer',
+      user: loggedInUser,
+    });
+
     setState((prev) => ({
       ...prev,
       isAuthenticated: true,
       role: found.isSeller ? prev.role : 'buyer',
-      user: {
-        id: found.id,
-        name: found.name,
-        email: found.email,
-        password: found.password,
-        phone: found.phone,
-        address: found.address,
-        avatar: found.avatar,
-        verified: found.verified,
-        verificationStatus: found.verificationStatus,
-        idType: found.idType,
-        idNumber: found.idNumber,
-        idImageData: found.idImageData,
-        selfieImageData: found.selfieImageData,
-        isSeller: found.isSeller,
-        sellerStatus: found.sellerStatus || (found.isSeller ? 'approved' : 'none'),
-        shopName: found.shopName,
-        city: found.city,
-        gcash: found.gcash,
-        ownSellerId: found.ownSellerId,
-        taxTier: found.taxTier,
-        tin: found.tin,
-        birImages: found.birImages || [],
-      },
+      user: loggedInUser,
     }));
 
     setLoginPassword('');
+    setResetEmailNotice(null);
     setAuthModalOpen(false);
     showToast(`Welcome back, ${found.name}!`);
+  };
+
+  const handleSendPasswordResetEmail = async () => {
+    const emailTarget = (loginEmail || state.user.email || '').trim().toLowerCase();
+    if (!emailTarget || !emailTarget.includes('@')) {
+      showToast('Enter your registered email address first to receive a password reset.', 'error');
+      return;
+    }
+    const res = await sendRealFirebasePasswordResetOrVerification(emailTarget);
+    setResetEmailNotice({
+      message: res.message,
+      consoleUrl: res.consoleUrl,
+      newPassMode: true,
+    });
+    showToast(
+      res.sent
+        ? `Sent Firebase password reset email to ${emailTarget}!`
+        : 'Ready for direct password reset below.'
+    );
+  };
+
+  const handleConfirmDirectPasswordReset = () => {
+    const emailTarget = (loginEmail || state.user.email || '').trim().toLowerCase();
+    const nextPass = newResetPassword.trim();
+    if (!emailTarget || !nextPass) {
+      showToast('Enter your email and your new password.', 'error');
+      return;
+    }
+    const found = state.registeredUsers.find(
+      (u) => u.email.toLowerCase() === emailTarget
+    );
+    if (!found) {
+      showToast('No registered account found with that email.', 'error');
+      return;
+    }
+    setState((prev) => ({
+      ...prev,
+      user:
+        prev.user.email.toLowerCase() === emailTarget
+          ? { ...prev.user, password: nextPass }
+          : prev.user,
+      registeredUsers: prev.registeredUsers.map((u) =>
+        u.email.toLowerCase() === emailTarget ? { ...u, password: nextPass } : u
+      ),
+    }));
+    setLoginPassword(nextPass);
+    setNewResetPassword('');
+    setResetEmailNotice(null);
+    showToast('Password updated and synced to Firestore! You can now log in.');
+  };
+
+  const refreshFirestoreStatusNow = async () => {
+    if (!state.isAuthenticated) return;
+    setFirestoreLiveStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const latest = await fetchUserFirestoreStatusFromServer(
+        state.user.id,
+        state.user.email
+      );
+      setFirestoreLiveStatus(latest);
+      showToast('Fetched latest verificationStatus & sellerStatus from Firestore!');
+    } catch {
+      setFirestoreLiveStatus((prev) => ({ ...prev, loading: false }));
+    }
   };
 
   const handleAccountLogout = () => {
@@ -839,13 +1009,14 @@ export default function App() {
       openAuthModal('login');
       return;
     }
+    clearDeviceSession();
     setState((prev) => ({
       ...prev,
       isAuthenticated: false,
       role: 'buyer',
       user: getDefaultState().user,
     }));
-    showToast('You have been logged out of UKAYO Marketplace.');
+    showToast('You have been logged out on this device.');
   };
 
   const handleProfileAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'reg' | 'edit' | 'direct') => {
@@ -1103,12 +1274,13 @@ export default function App() {
   };
 
   const launchSellerPostInApp = () => {
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       openAuthModal('login');
       return;
     }
     setState((prev) => ({
       ...prev,
+      isAuthenticated: true,
       role: prev.user.isSeller ? 'seller' : 'buyer',
       activeTab: 'feed',
     }));
@@ -1124,7 +1296,7 @@ export default function App() {
 
   const submitNewFeedPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       setFeedComposerOpen(false);
       openAuthModal('login');
       return;
@@ -1192,7 +1364,7 @@ export default function App() {
 
   const addFeedComment = (e: React.FormEvent, postId: string) => {
     e.preventDefault();
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       openAuthModal('login');
       return;
     }
@@ -1201,11 +1373,12 @@ export default function App() {
 
     setState((prev) => ({
       ...prev,
+      isAuthenticated: true,
       feedPosts: prev.feedPosts.map((p) =>
         p.id === postId
           ? {
               ...p,
-              comments: [...p.comments, { user: prev.user.name, text }],
+              comments: [...p.comments, { user: prev.user.name || 'Ukayo Miner', text }],
             }
           : p
       ),
@@ -1214,7 +1387,7 @@ export default function App() {
   };
 
   const claimFeedPost = (postId: string) => {
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       showToast('Please log in or register as a Buyer to Mine items!', 'error');
       openAuthModal('login');
       return;
@@ -1989,7 +2162,23 @@ export default function App() {
   );
   const bayongTotalQty = bayongItems.reduce((sum, o) => sum + (o.quantity || 1), 0);
 
-  const isSellerAccount = Boolean(state.isAuthenticated && state.user.isSeller);
+  const isUserSignedIn = Boolean(
+    state.isAuthenticated || state.user.email || state.user.id
+  );
+  const actualVerificationStatus = state.isAuthenticated && firestoreLiveStatus.foundInFirestore
+    ? firestoreLiveStatus.verificationStatus
+    : state.user.verificationStatus;
+  const actualSellerStatus = state.isAuthenticated && firestoreLiveStatus.foundInFirestore
+    ? firestoreLiveStatus.sellerStatus
+    : state.user.sellerStatus || (state.user.isSeller ? 'pending' : 'none');
+
+  const isSellerAccount = Boolean(
+    isUserSignedIn &&
+      (state.user.isSeller ||
+        firestoreLiveStatus.isSeller ||
+        actualSellerStatus === 'approved' ||
+        actualSellerStatus === 'pending')
+  );
   const isSellerMode = isSellerAccount && state.role === 'seller';
 
   const activeLiveSeller: Seller | undefined =
@@ -2543,7 +2732,7 @@ export default function App() {
                   </div>
                   <button
                     onClick={() => {
-                      if (!state.isAuthenticated) {
+                      if (!isUserSignedIn) {
                         openAuthModal('login');
                         return;
                       }
@@ -2557,7 +2746,7 @@ export default function App() {
                 <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100 text-[11px] font-bold text-[#1E293B]">
                   <button
                     onClick={() => {
-                      if (!state.isAuthenticated) {
+                      if (!isUserSignedIn) {
                         openAuthModal('login');
                         return;
                       }
@@ -2570,7 +2759,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => {
-                      if (!state.isAuthenticated) {
+                      if (!isUserSignedIn) {
                         openAuthModal('login');
                         return;
                       }
@@ -2632,7 +2821,7 @@ export default function App() {
                     </p>
                     <button
                       onClick={() => {
-                        if (!state.isAuthenticated) openAuthModal('login');
+                        if (!isUserSignedIn) openAuthModal('login');
                         else setFeedComposerOpen(true);
                       }}
                       className="px-4 py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
@@ -3403,7 +3592,7 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 6: "CHAT" (TWO-COLUMN LAYOUT: PREVIOUS MESSAGES VERTICAL ON LEFT, ACTIVE THREAD ON RIGHT) */}
+          {/* TAB 6: "CHAT" */}
           {state.activeTab === 'chat' && (
             <section id="tab-chat" className="px-3.5 pt-3 space-y-3 pb-4">
               <div className="flex items-center justify-between gap-2">
@@ -3411,9 +3600,6 @@ export default function App() {
                   <h2 className="text-base font-display font-extrabold text-[#070D17]">
                     Messages &amp; Customer Service
                   </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Previous chats arranged vertically on the left • Chat with Sellers or Admin Help
-                  </p>
                 </div>
                 <button
                   onClick={openCustomerServiceChat}
@@ -3691,18 +3877,18 @@ export default function App() {
                           onClick={openIdVerifyModal}
                           id="account-verified-badge"
                           className={
-                            state.user.verificationStatus === 'verified' ||
-                            state.user.verificationStatus === 'pending'
+                            actualVerificationStatus === 'verified' ||
+                            actualVerificationStatus === 'pending'
                               ? 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 text-[10px] font-bold cursor-pointer'
                               : 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer'
                           }
                         >
-                          {state.user.verificationStatus === 'verified' ||
-                          state.user.verificationStatus === 'pending' ? (
+                          {actualVerificationStatus === 'verified' ||
+                          actualVerificationStatus === 'pending' ? (
                             <>
                               <CheckCircle2 className="w-3 h-3" />
                               <span>
-                                {state.user.verificationStatus === 'verified'
+                                {actualVerificationStatus === 'verified'
                                   ? 'Verified ID'
                                   : 'ID Pending'}
                               </span>
@@ -3718,6 +3904,105 @@ export default function App() {
                     )}
                   </div>
                 </div>
+
+                {/* REAL-TIME FIRESTORE STATUS INDICATOR (verificationStatus & sellerStatus) */}
+                {state.isAuthenticated && (
+                  <div
+                    id="firestore-realtime-status-indicator"
+                    className="mt-3.5 pt-3 border-t border-[#E2E8F0] space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            firestoreLiveStatus.loading
+                              ? 'bg-[#F59E0B] animate-pulse'
+                              : firestoreLiveStatus.connected
+                              ? 'bg-[#10B981]'
+                              : 'bg-[#EF4444]'
+                          }`}
+                        />
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
+                          Live Firestore Account Status
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded bg-[#070D17] text-[#10B981] text-[8px] font-mono font-bold">
+                          {firestoreLiveStatus.fromServer ? 'SERVER' : 'SYNCED'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={refreshFirestoreStatusNow}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 hover:text-[#070D17] cursor-pointer"
+                        title="Fetch latest status directly from Firestore server"
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${
+                            firestoreLiveStatus.loading ? 'animate-spin' : ''
+                          }`}
+                        />
+                        <span>{firestoreLiveStatus.lastSyncedAt}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                        <div className="text-[9px] font-bold uppercase text-slate-500">
+                          Firestore verificationStatus
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs font-display font-extrabold text-[#070D17] capitalize">
+                            {actualVerificationStatus}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                              actualVerificationStatus === 'verified'
+                                ? 'bg-[#10B981] text-[#070D17]'
+                                : actualVerificationStatus === 'pending'
+                                ? 'bg-[#F59E0B] text-[#070D17]'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {actualVerificationStatus === 'verified'
+                              ? '✓ Verified'
+                              : actualVerificationStatus === 'pending'
+                              ? 'Pending'
+                              : 'Unverified'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                        <div className="text-[9px] font-bold uppercase text-slate-500">
+                          Firestore sellerStatus
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs font-display font-extrabold text-[#070D17] capitalize">
+                            {actualSellerStatus}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                              actualSellerStatus === 'approved'
+                                ? 'bg-[#10B981] text-[#070D17]'
+                                : actualSellerStatus === 'pending'
+                                ? 'bg-[#F59E0B] text-[#070D17]'
+                                : actualSellerStatus === 'rejected'
+                                ? 'bg-[#EF4444] text-white'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {actualSellerStatus === 'approved'
+                              ? '✓ Approved'
+                              : actualSellerStatus === 'pending'
+                              ? 'Pending KYC'
+                              : actualSellerStatus === 'rejected'
+                              ? 'Re-upload'
+                              : 'Buyer Only'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Become a Ukayo Seller Card (Directs to Seller Registration Page when Apply Now is clicked) */}
@@ -4289,6 +4574,52 @@ export default function App() {
                   >
                     Log In to UKAYO
                   </button>
+
+                  <div className="pt-1 border-t border-[#E2E8F0] space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleSendPasswordResetEmail}
+                      className="w-full py-1.5 text-[11px] font-extrabold text-[#10B981] hover:underline cursor-pointer"
+                    >
+                      Forgot Password? Send Gmail Reset / Set New Password
+                    </button>
+
+                    {resetEmailNotice && (
+                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#CBD5E1] space-y-2 text-[11px]">
+                        <p className="text-[#070D17] font-semibold leading-snug">
+                          {resetEmailNotice.message}
+                        </p>
+                        {resetEmailNotice.consoleUrl && (
+                          <a
+                            href={resetEmailNotice.consoleUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block text-[10px] font-extrabold text-[#10B981] underline"
+                          >
+                            Open Firebase Console → Authentication → Sign-in method →
+                          </a>
+                        )}
+                        {resetEmailNotice.newPassMode && (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <input
+                              type="password"
+                              value={newResetPassword}
+                              onChange={(e) => setNewResetPassword(e.target.value)}
+                              placeholder="Enter new password now"
+                              className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-[#CBD5E1] text-xs font-semibold"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleConfirmDirectPasswordReset}
+                              className="px-3 py-1.5 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0"
+                            >
+                              Update Password
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleBuyerRegister} className="space-y-2.5">
