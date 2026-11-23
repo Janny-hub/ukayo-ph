@@ -5,8 +5,8 @@ import AgoraRTC, {
   IRemoteAudioTrack,
 } from 'agora-rtc-sdk-ng';
 
-// Suppress verbose Agora console logs in production
-AgoraRTC.setLogLevel(3);
+// Suppress verbose Agora console logs in production (prevent transient WS_ABORT logs on unmount)
+AgoraRTC.setLogLevel(4);
 
 export const UKAYO_AGORA_APP_ID =
   (typeof import.meta !== 'undefined' &&
@@ -17,132 +17,29 @@ export const UKAYO_AGORA_APP_ID =
 export const UKAYO_AGORA_PRIMARY_CERTIFICATE =
   '00cbfd8d6a124c9fb14a7f1862310bde';
 
-export function getAgoraChannelName(sellerId: string): string {
-  const clean = (sellerId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `ukayo_live_${clean}`;
+export function getAgoraChannelName(_sellerId?: string): string {
+  return 'ukayo_live_room';
 }
 
-// ===========================================================================
-// PURE BROWSER WEBSOCKET/WEBCRYPTO AGORA 006 RTC TOKEN BUILDER
-// Supports projects with Primary Certificate enabled (00cbfd8d6a124c9fb14a7f1862310bde)
-// ===========================================================================
-function crc32(str: string): number {
-  const bytes = new TextEncoder().encode(str);
-  let crc = 0 ^ -1;
-  for (let i = 0; i < bytes.length; i++) {
-    let c = (crc ^ bytes[i]) & 0xff;
-    for (let k = 0; k < 8; k++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    crc = (crc >>> 8) ^ c;
-  }
-  return (crc ^ -1) >>> 0;
-}
-
-class ByteBuf {
-  private buf: number[] = [];
-
-  putUint16(v: number) {
-    this.buf.push(v & 0xff, (v >>> 8) & 0xff);
-    return this;
-  }
-
-  putUint32(v: number) {
-    this.buf.push(
-      v & 0xff,
-      (v >>> 8) & 0xff,
-      (v >>> 16) & 0xff,
-      (v >>> 24) & 0xff
-    );
-    return this;
-  }
-
-  putBytes(bytes: Uint8Array) {
-    this.putUint16(bytes.length);
-    for (let i = 0; i < bytes.length; i++) {
-      this.buf.push(bytes[i]);
-    }
-    return this;
-  }
-
-  putString(str: string) {
-    return this.putBytes(new TextEncoder().encode(str));
-  }
-
-  pack(): Uint8Array {
-    return new Uint8Array(this.buf);
-  }
-}
-
-export async function buildAgoraRtcToken006(
-  appId: string,
-  appCertificate: string,
+export async function fetchOfficialAgoraToken(
   channelName: string,
   uid: number,
   role: 'host' | 'audience'
 ): Promise<string | null> {
   try {
-    if (!appCertificate || typeof crypto === 'undefined' || !crypto.subtle) {
-      return null;
-    }
-    const uidStr = uid === 0 ? '' : String(uid >>> 0);
-    const nowSec = Math.floor(Date.now() / 1000);
-    const expireTs = nowSec + 24 * 3600;
-    const salt = Math.floor(Math.random() * 0xffffffff) >>> 0;
-    const ts = nowSec + 24 * 3600;
-
-    const msgBuf = new ByteBuf();
-    msgBuf.putUint32(salt);
-    msgBuf.putUint32(ts);
-
-    if (role === 'host') {
-      msgBuf.putUint16(4);
-      msgBuf.putUint16(1).putUint32(expireTs); // kJoinChannel
-      msgBuf.putUint16(2).putUint32(expireTs); // kPublishAudioStream
-      msgBuf.putUint16(3).putUint32(expireTs); // kPublishVideoStream
-      msgBuf.putUint16(4).putUint32(expireTs); // kPublishDataStream
-    } else {
-      msgBuf.putUint16(1);
-      msgBuf.putUint16(1).putUint32(expireTs); // kJoinChannel
-    }
-    const rawMsg = msgBuf.pack();
-
-    const crcChannel = crc32(channelName);
-    const crcUid = crc32(uidStr);
-
-    const signBuf = new ByteBuf();
-    signBuf.putString(appId);
-    signBuf.putUint32(crcChannel);
-    signBuf.putUint32(crcUid);
-    signBuf.putBytes(rawMsg);
-
-    const keyData = new TextEncoder().encode(appCertificate);
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
+    const res = await fetch(
+      `/api/agora-token?channel=${encodeURIComponent(
+        channelName
+      )}&uid=${encodeURIComponent(String(uid))}&role=${encodeURIComponent(
+        role
+      )}`,
+      { cache: 'no-store' }
     );
-    const sigBuffer = await crypto.subtle.sign(
-      'HMAC',
-      cryptoKey,
-      signBuf.pack().buffer as ArrayBuffer
-    );
-    const signature = new Uint8Array(sigBuffer);
-
-    const contentBuf = new ByteBuf();
-    contentBuf.putBytes(signature);
-    contentBuf.putUint32(crcChannel);
-    contentBuf.putUint32(crcUid);
-    contentBuf.putBytes(rawMsg);
-
-    const contentBytes = contentBuf.pack();
-    let binary = '';
-    for (let i = 0; i < contentBytes.length; i++) {
-      binary += String.fromCharCode(contentBytes[i]);
-    }
-    return '006' + appId + btoa(binary);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.token === 'string' && data.token.length > 10
+      ? data.token
+      : null;
   } catch {
     return null;
   }
@@ -151,7 +48,8 @@ export async function buildAgoraRtcToken006(
 async function joinChannelWithTokenOrFallback(
   client: IAgoraRTCClient,
   channelName: string,
-  role: 'host' | 'audience'
+  role: 'host' | 'audience',
+  isCancelled?: () => boolean
 ) {
   const uid = Math.floor(10000 + Math.random() * 89999);
   const cleanAppId = (
@@ -160,23 +58,12 @@ async function joinChannelWithTokenOrFallback(
       : UKAYO_AGORA_APP_ID
   ).trim();
 
-  const token = await buildAgoraRtcToken006(
-    cleanAppId,
-    UKAYO_AGORA_PRIMARY_CERTIFICATE,
-    channelName,
-    uid,
-    role
-  );
-
-  if (token) {
-    try {
-      await client.join(cleanAppId, channelName, token, uid);
-      return;
-    } catch {
-      // Fall back to null token in case Primary Certificate is disabled
-    }
+  const token = await fetchOfficialAgoraToken(channelName, uid, role);
+  if (isCancelled?.()) return;
+  if (!token) {
+    throw new Error('Agora dynamic token unavailable');
   }
-  await client.join(cleanAppId, channelName, null, uid);
+  await client.join(cleanAppId, channelName, token, uid);
 }
 
 let hostClient: IAgoraRTCClient | null = null;
@@ -242,7 +129,13 @@ export async function stopAgoraHostBroadcast(): Promise<void> {
     if (hostClient) {
       const c = hostClient;
       hostClient = null;
-      await c.leave();
+      if (
+        c.connectionState === 'CONNECTED' ||
+        c.connectionState === 'CONNECTING' ||
+        c.connectionState === 'RECONNECTING'
+      ) {
+        await c.leave();
+      }
     }
   } catch {
     // ignore cleanup errors
@@ -266,14 +159,20 @@ export function joinAgoraAudienceChannel(
   let client: IAgoraRTCClient | null = null;
   let activeRemoteAudio: IRemoteAudioTrack | null = null;
   let audioMuted = false;
+  let joinPromise: Promise<void> | null = null;
 
   const start = async () => {
-    if (!sellerId || !remoteContainer) return;
+    if (!sellerId || !remoteContainer || cancelled) return;
     try {
-      client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
-      await client.setClientRole('audience');
+      const c = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+      client = c;
+      await c.setClientRole('audience');
+      if (cancelled) return;
 
-      client.on('user-published', async (user, mediaType) => {
+      const subscribeToRemoteUser = async (
+        user: any,
+        mediaType: 'video' | 'audio'
+      ) => {
         if (cancelled || !client) return;
         try {
           await client.subscribe(user, mediaType);
@@ -282,6 +181,14 @@ export function joinAgoraAudienceChannel(
           if (mediaType === 'video' && user.videoTrack && remoteContainer) {
             remoteContainer.innerHTML = '';
             user.videoTrack.play(remoteContainer, { fit: 'cover' });
+            setTimeout(() => {
+              const vid = remoteContainer.querySelector('video');
+              if (vid) {
+                vid.style.width = '100%';
+                vid.style.height = '100%';
+                vid.style.objectFit = 'cover';
+              }
+            }, 50);
             callbacks.onRemoteVideoStateChange(true);
           }
 
@@ -295,9 +202,15 @@ export function joinAgoraAudienceChannel(
         } catch {
           // ignore subscription error
         }
+      };
+
+      c.on('user-published', async (user, mediaType) => {
+        if (mediaType === 'video' || mediaType === 'audio') {
+          await subscribeToRemoteUser(user, mediaType);
+        }
       });
 
-      client.on('user-unpublished', (user, mediaType) => {
+      c.on('user-unpublished', (user, mediaType) => {
         if (mediaType === 'video') {
           callbacks.onRemoteVideoStateChange(false);
         }
@@ -309,24 +222,57 @@ export function joinAgoraAudienceChannel(
         }
       });
 
-      client.on('user-left', () => {
+      c.on('user-left', () => {
         callbacks.onRemoteVideoStateChange(false);
         callbacks.onRemoteAudioStateChange(false);
       });
 
       const channelName = getAgoraChannelName(sellerId);
-      await joinChannelWithTokenOrFallback(client, channelName, 'audience');
+      joinPromise = joinChannelWithTokenOrFallback(
+        c,
+        channelName,
+        'audience',
+        () => cancelled
+      );
+      await joinPromise;
+      joinPromise = null;
+
+      if (cancelled) {
+        if (c.connectionState === 'CONNECTED') {
+          await c.leave().catch(() => {});
+        }
+        return;
+      }
+
+      // Also subscribe if host was already publishing in channel
+      if (!cancelled && client && Array.isArray(client.remoteUsers)) {
+        for (const rUser of client.remoteUsers) {
+          if (rUser.hasVideo) {
+            await subscribeToRemoteUser(rUser, 'video');
+          }
+          if (rUser.hasAudio) {
+            await subscribeToRemoteUser(rUser, 'audio');
+          }
+        }
+      }
     } catch {
+      joinPromise = null;
       callbacks.onRemoteVideoStateChange(false);
       callbacks.onRemoteAudioStateChange(false);
     }
   };
 
-  start();
+  // Small 120ms debounce before opening WebSocket so rapid React state/strict-mode re-renders don't abort an in-flight join
+  const startTimer = setTimeout(() => {
+    if (!cancelled) {
+      start();
+    }
+  }, 120);
 
   return {
     leave: async () => {
       cancelled = true;
+      clearTimeout(startTimer);
       callbacks.onRemoteVideoStateChange(false);
       callbacks.onRemoteAudioStateChange(false);
       if (activeRemoteAudio) {
@@ -341,7 +287,12 @@ export function joinAgoraAudienceChannel(
         const c = client;
         client = null;
         try {
-          await c.leave();
+          if (joinPromise) {
+            await joinPromise.catch(() => {});
+          }
+          if (c.connectionState === 'CONNECTED') {
+            await c.leave();
+          }
         } catch {
           // ignore
         }

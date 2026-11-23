@@ -1765,7 +1765,7 @@
       createUserWithEmailAndPassword,
       sendEmailVerification
     } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, disableNetwork, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const rawConfig = typeof __firebase_config !== 'undefined'
       ? JSON.parse(__firebase_config)
@@ -1815,16 +1815,97 @@
       return result;
     }
 
+    let applyingRemote = false;
+    let lastPushedJson = '';
+    let adminQuotaExceeded = false;
+    let adminDebounceTimer = null;
+    let adminServerTimer = null;
+    let adminUnsubscribe = null;
+
+    function applyAdminIncomingPayloadJson(payloadJson) {
+      if (!payloadJson || payloadJson === lastPushedJson) return;
+      applyingRemote = true;
+      try {
+        const remote = JSON.parse(payloadJson);
+        const local = adminState.sharedApp || {};
+        const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
+        mergedSupport.forEach(t => {
+          const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
+          const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
+          t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
+        });
+        const combined = normalizeEcosystemState({
+          ...local,
+          ...remote,
+          registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
+          sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
+          kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
+          liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+          liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
+          supportThreads: mergedSupport,
+          feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
+          minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
+        });
+        lastPushedJson = payloadJson;
+        localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(combined));
+        syncFromEcosystem(false);
+      } catch (e) {} finally {
+        setTimeout(() => { applyingRemote = false; }, 80);
+      }
+    }
+
+    fetch('/api/sync-state')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.payloadJson) {
+          applyAdminIncomingPayloadJson(data.payloadJson);
+        } else if (window.ukayoCloudSyncPush) {
+          window.ukayoCloudSyncPush(adminState.sharedApp);
+        }
+      })
+      .catch(() => {});
+
+    try {
+      const es = new EventSource('/api/sync-events');
+      es.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.type === 'sync_state' && msg.payloadJson) {
+            applyAdminIncomingPayloadJson(msg.payloadJson);
+          }
+        } catch (_) {}
+      };
+    } catch (_) {}
+
     if (rawConfig && rawConfig.apiKey) {
       try {
+        try { setLogLevel('silent'); } catch (_) {}
         const app = initializeApp(rawConfig);
         const auth = getAuth(app);
         const db = rawConfig.firestoreDatabaseId
           ? getFirestore(app, rawConfig.firestoreDatabaseId)
           : getFirestore(app);
         const docRef = doc(db, 'ukayo_sync', 'live_state');
-        let applyingRemote = false;
-        let lastPushedJson = '';
+        const todayUtc = new Date().toISOString().slice(0, 10);
+        if (localStorage.getItem('ukayo_firestore_quota_date_v1') === todayUtc) {
+          adminQuotaExceeded = true;
+          try { disableNetwork(db).catch(() => {}); } catch (_) {}
+        }
+
+        function tripAdminQuotaBreaker(err) {
+          const msg = err && err.message ? String(err.message) : String(err || '');
+          const code = err && err.code ? String(err.code) : '';
+          if (code === 'resource-exhausted' || msg.includes('resource-exhausted') || msg.toLowerCase().includes('quota')) {
+            adminQuotaExceeded = true;
+            try { localStorage.setItem('ukayo_firestore_quota_date_v1', todayUtc); } catch (_) {}
+            try { setLogLevel('silent'); } catch (_) {}
+            try { disableNetwork(db).catch(() => {}); } catch (_) {}
+            if (adminUnsubscribe) {
+              try { adminUnsubscribe(); } catch (_) {}
+              adminUnsubscribe = null;
+            }
+          }
+        }
 
         window.sendFirebaseAdminResetEmail = async (email) => {
           try {
@@ -1845,66 +1926,62 @@
           }
         };
 
-        window.ukayoCloudSyncPush = async (nextSharedState) => {
+        window.ukayoCloudSyncPush = (nextSharedState) => {
           if (applyingRemote) return;
-          try {
-            const normalized = normalizeEcosystemState(nextSharedState);
-            // Strip device-local session fields so Admin Ops never logs out Buyer or Seller devices
-            const sharedCloudPayload = { ...normalized };
-            delete sharedCloudPayload.isAuthenticated;
-            delete sharedCloudPayload.role;
-            delete sharedCloudPayload.user;
-            delete sharedCloudPayload.activeTab;
+          const normalized = normalizeEcosystemState(nextSharedState);
+          const sharedCloudPayload = { ...normalized };
+          delete sharedCloudPayload.isAuthenticated;
+          delete sharedCloudPayload.role;
+          delete sharedCloudPayload.user;
+          delete sharedCloudPayload.activeTab;
 
-            const payloadJson = JSON.stringify(sharedCloudPayload);
-            if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+          const payloadJson = JSON.stringify(sharedCloudPayload);
+          if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+
+          if (adminServerTimer) clearTimeout(adminServerTimer);
+          adminServerTimer = setTimeout(() => {
+            if (applyingRemote) return;
             lastPushedJson = payloadJson;
-            await setDoc(docRef, {
-              payloadJson,
-              updatedAt: new Date().toISOString(),
-              updatedBy: 'admin_ops'
-            });
-          } catch (e) {
-            console.error('Admin Ops Firestore sync error:', e);
-          }
+            fetch('/api/sync-state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                payloadJson,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'admin_ops'
+              })
+            }).catch(() => {});
+          }, 150);
+
+          if (adminQuotaExceeded) return;
+          if (adminDebounceTimer) clearTimeout(adminDebounceTimer);
+          adminDebounceTimer = setTimeout(async () => {
+            if (applyingRemote || adminQuotaExceeded) return;
+            try {
+              await setDoc(docRef, {
+                payloadJson,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'admin_ops'
+              });
+            } catch (e) {
+              tripAdminQuotaBreaker(e);
+            }
+          }, 2200);
         };
 
-        onSnapshot(docRef, (snap) => {
-          if (!snap.exists()) {
-            if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(adminState.sharedApp);
-            return;
-          }
-          const data = snap.data();
-          if (!data || !data.payloadJson || data.payloadJson === lastPushedJson) return;
-          applyingRemote = true;
-          try {
-            const remote = JSON.parse(data.payloadJson);
-            const local = adminState.sharedApp || {};
-            const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
-            mergedSupport.forEach(t => {
-              const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
-              const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
-              t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
-            });
-            const combined = normalizeEcosystemState({
-              ...local,
-              ...remote,
-              registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
-              sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
-              kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
-              liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
-              liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
-              supportThreads: mergedSupport,
-              feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
-              minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
-            });
-            lastPushedJson = data.payloadJson;
-            localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(combined));
-            syncFromEcosystem(false);
-          } catch (e) {} finally {
-            setTimeout(() => { applyingRemote = false; }, 80);
-          }
-        }, () => {});
+        if (!adminQuotaExceeded) {
+          adminUnsubscribe = onSnapshot(docRef, (snap) => {
+            if (!snap.exists()) {
+              if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(adminState.sharedApp);
+              return;
+            }
+            const data = snap.data();
+            if (!data || !data.payloadJson) return;
+            applyAdminIncomingPayloadJson(data.payloadJson);
+          }, (err) => {
+            tripAdminQuotaBreaker(err);
+          });
+        }
       } catch (e) {}
     }
   </script>

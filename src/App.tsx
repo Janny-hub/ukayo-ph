@@ -49,6 +49,13 @@ import {
   Edit3,
   Volume2,
   VolumeX,
+  Flag,
+  ShieldAlert,
+  FileText,
+  Ban,
+  Power,
+  Clock,
+  Share2,
 } from 'lucide-react';
 import {
   startUkayoCloudSync,
@@ -357,6 +364,9 @@ export interface AppState {
     status: 'pending' | 'released';
     date?: string;
   }[];
+  deletedUserIds?: string[];
+  blockedUserIds?: string[];
+  hiddenPostIds?: string[];
 }
 
 export function compressImageFile(file: File, maxWidth = 320, quality = 0.65): Promise<string> {
@@ -444,6 +454,9 @@ function getDefaultState(): AppState {
     platformVouchers: [],
     sellerVouchers: [],
     payoutRequests: [],
+    deletedUserIds: [],
+    blockedUserIds: [],
+    hiddenPostIds: [],
   };
 }
 
@@ -563,6 +576,23 @@ export default function App() {
   const [idVerifyOpen, setIdVerifyOpen] = useState(false);
   const [liveDropModalOpen, setLiveDropModalOpen] = useState(false);
 
+  // Apple App Store Compliance Modals (Account Deletion 5.1.1(v), UGC Report/Block 1.2, Privacy/Terms/EULA 5.1.1(i))
+  const [regAgreedTerms, setRegAgreedTerms] = useState(true);
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [privacyTermsModalOpen, setPrivacyTermsModalOpen] = useState(false);
+  const [privacyTermsTab, setPrivacyTermsTab] = useState<'privacy' | 'terms' | 'ugc'>('privacy');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{
+    kind: 'post' | 'live';
+    id: string;
+    authorId: string;
+    authorName: string;
+    title: string;
+  } | null>(null);
+  const [reportReason, setReportReason] = useState('Counterfeit / Misleading Ukay Item');
+  const [reportNotes, setReportNotes] = useState('');
+
   // Feed Composer states
   const [postTitle, setPostTitle] = useState('');
   const [postPrice, setPostPrice] = useState('250');
@@ -626,6 +656,8 @@ export default function App() {
     setAudioMuted: (muted: boolean) => void;
   } | null>(null);
   const [isCameraStreaming, setIsCameraStreaming] = useState(false);
+  const [liveStreamStartedAt, setLiveStreamStartedAt] = useState<number | null>(null);
+  const [liveElapsedSeconds, setLiveElapsedSeconds] = useState(0);
   const [isAgoraRemoteVideoPlaying, setIsAgoraRemoteVideoPlaying] = useState(false);
   const [isAgoraRemoteAudioPlaying, setIsAgoraRemoteAudioPlaying] = useState(false);
   const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
@@ -811,6 +843,11 @@ export default function App() {
 
     if (!name || !email || !password) {
       showToast('Please complete your name, email, and password.', 'error');
+      return;
+    }
+
+    if (!regAgreedTerms) {
+      showToast('Please agree to the UKAYO Terms of Service, Privacy Policy & UGC EULA.', 'error');
       return;
     }
 
@@ -1047,6 +1084,164 @@ export default function App() {
     showToast('You have been logged out on this device.');
   };
 
+  // Apple App Store Guideline 5.1.1(v): Permanent In-App Account & Data Deletion
+  const handlePermanentDeleteAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!state.isAuthenticated) return;
+    if (deleteConfirmText.trim().toUpperCase() !== 'DELETE') {
+      showToast('Please type DELETE to confirm permanent account deletion.', 'error');
+      return;
+    }
+    const targetUserId = (state.user.id || '').trim();
+    const targetEmail = (state.user.email || '').trim().toLowerCase();
+    const targetSellerId = (state.user.ownSellerId || '').trim();
+    const tombstones = [targetUserId, targetEmail, targetSellerId].filter(Boolean);
+
+    clearDeviceSession();
+    setState((prev) => {
+      const nextDeleted = Array.from(
+        new Set([...(prev.deletedUserIds || []), ...tombstones])
+      );
+      return {
+        ...prev,
+        isAuthenticated: false,
+        role: 'buyer',
+        user: getDefaultState().user,
+        deletedUserIds: nextDeleted,
+        registeredUsers: prev.registeredUsers.filter(
+          (u) =>
+            u.id !== targetUserId &&
+            u.email.toLowerCase() !== targetEmail &&
+            (!targetSellerId || u.ownSellerId !== targetSellerId)
+        ),
+        sellers: prev.sellers.filter(
+          (s) =>
+            s.id !== targetSellerId &&
+            s.name.toLowerCase() !== (prev.user.shopName || '').toLowerCase()
+        ),
+        kycApplications: prev.kycApplications.filter(
+          (k) =>
+            k.userId !== targetUserId &&
+            k.email.toLowerCase() !== targetEmail
+        ),
+      };
+    });
+    setDeleteConfirmText('');
+    setDeleteAccountModalOpen(false);
+    showToast('Your account and personal data have been permanently deleted from UKAYO.');
+  };
+
+  // Apple App Store Guideline 1.2: UGC Report & Block User / Content
+  const openReportContentModal = (target: {
+    kind: 'post' | 'live';
+    id: string;
+    authorId: string;
+    authorName: string;
+    title: string;
+  }) => {
+    setReportTarget(target);
+    setReportReason('Counterfeit / Misleading Ukay Item');
+    setReportNotes('');
+    setReportModalOpen(true);
+  };
+
+  const submitUgcReport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportTarget) return;
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const reporterKey = state.user.id || state.user.email || 'guest_reporter';
+    const reporterName = state.user.name || 'Marketplace User';
+    const threadId = 'sup_' + reporterKey;
+    const reportMsgText = `[UGC REPORT • ${reportTarget.kind.toUpperCase()}] Target: ${reportTarget.authorName} (${reportTarget.title}) • Reason: ${reportReason}${
+      reportNotes.trim() ? ' • Details: ' + reportNotes.trim() : ''
+    }`;
+
+    setState((prev) => {
+      const nextHidden =
+        reportTarget.kind === 'post'
+          ? Array.from(new Set([...(prev.hiddenPostIds || []), reportTarget.id]))
+          : prev.hiddenPostIds || [];
+
+      const existingIdx = prev.supportThreads.findIndex((t) => t.id === threadId);
+      const newMsg: DirectMessage = {
+        id: 'msg_' + Date.now(),
+        from: prev.user.isSeller ? 'seller' : 'buyer',
+        senderName: reporterName,
+        text: reportMsgText,
+        time: nowTime,
+      };
+      const nextThreads = [...prev.supportThreads];
+      if (existingIdx >= 0) {
+        nextThreads[existingIdx] = {
+          ...nextThreads[existingIdx],
+          unreadAdmin: (nextThreads[existingIdx].unreadAdmin || 0) + 1,
+          messages: [...nextThreads[existingIdx].messages, newMsg],
+        };
+      } else {
+        nextThreads.unshift({
+          id: threadId,
+          userId: reporterKey,
+          userName: reporterName,
+          userRole: prev.user.isSeller ? 'SELLER' : 'BUYER',
+          subject: 'UGC Safety Report',
+          unreadAdmin: 1,
+          unreadUser: 0,
+          messages: [newMsg],
+        });
+      }
+
+      return {
+        ...prev,
+        hiddenPostIds: nextHidden,
+        supportThreads: nextThreads,
+      };
+    });
+
+    setReportModalOpen(false);
+    showToast(
+      `Report submitted to UKAYO Trust & Safety Admin Ops. Content hidden from your feed.`
+    );
+  };
+
+  const handleBlockUserFromModal = () => {
+    if (!reportTarget) return;
+    const blockKeys = [
+      reportTarget.authorId,
+      reportTarget.authorName.toLowerCase(),
+    ].filter(Boolean);
+
+    setState((prev) => ({
+      ...prev,
+      blockedUserIds: Array.from(
+        new Set([...(prev.blockedUserIds || []), ...blockKeys])
+      ),
+      hiddenPostIds:
+        reportTarget.kind === 'post'
+          ? Array.from(new Set([...(prev.hiddenPostIds || []), reportTarget.id]))
+          : prev.hiddenPostIds || [],
+    }));
+
+    setReportModalOpen(false);
+    if (reportTarget.kind === 'live') {
+      switchTab('feed');
+    }
+    showToast(
+      `Blocked ${reportTarget.authorName}. You will no longer see their posts or live streams.`
+    );
+  };
+
+  const handleUnblockAllUsers = () => {
+    setState((prev) => ({
+      ...prev,
+      blockedUserIds: [],
+      hiddenPostIds: [],
+    }));
+    showToast('Cleared blocked users and restored hidden feed posts.');
+  };
+
   const handleProfileAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'reg' | 'edit' | 'direct') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1158,15 +1353,16 @@ export default function App() {
     setState((prev) => ({
       ...prev,
       searchQuery: q,
-      activeTab: prev.activeTab === 'home' && q.length > 0 ? 'feed' : prev.activeTab,
+      activeTab: prev.activeTab === 'home' && q.length > 0 ? 'store' : prev.activeTab,
     }));
   };
 
   const browseUkayCategory = (catId: string) => {
     setState((prev) => ({
       ...prev,
-      activeFeedCategory: catId,
-      activeTab: 'feed',
+      activeFeedCategory: catId || 'ALL',
+      activeStoreId: '',
+      activeTab: 'store',
     }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1186,14 +1382,11 @@ export default function App() {
   };
 
   const openSellerStore = (sellerId?: string) => {
-    const targetId = sellerId || state.user.ownSellerId || state.sellers[0]?.id || '';
-    if (!targetId) {
-      showToast('No seller storefront available yet.', 'error');
-      return;
-    }
+    const targetId = sellerId || '';
     setState((prev) => ({
       ...prev,
       activeStoreId: targetId,
+      activeFeedCategory: 'ALL',
       activeTab: 'store',
     }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1260,12 +1453,56 @@ export default function App() {
   };
 
   // =======================================================================
-  // LIVE SELLING & UKAY FEED FUNCTIONS (OPEN TO BOTH BUYERS & SELLERS)
+  // LIVE SELLING & UKAY FEED FUNCTIONS (LIVE HOSTING FOR REGISTERED SELLERS ONLY)
   // =======================================================================
+  const checkIsRegisteredSeller = () =>
+    Boolean(
+      (state.isAuthenticated || state.user.email || state.user.id) &&
+        (state.user.isSeller ||
+          firestoreLiveStatus.isSeller ||
+          firestoreLiveStatus.sellerStatus === 'approved' ||
+          firestoreLiveStatus.sellerStatus === 'pending' ||
+          state.user.sellerStatus === 'approved' ||
+          state.user.sellerStatus === 'pending')
+    );
+
+  const isOwnSellerProduct = (
+    targetSellerId?: string,
+    targetSellerName?: string
+  ) => {
+    if (!checkIsRegisteredSeller()) return false;
+    if (isCameraStreaming) return true;
+    const myIds = new Set(
+      [
+        state.user.ownSellerId,
+        state.user.id ? 'seller_' + state.user.id : '',
+        state.user.id,
+      ].filter(Boolean)
+    );
+    if (targetSellerId && myIds.has(targetSellerId)) return true;
+    const myShop = (state.user.shopName || '').trim().toLowerCase();
+    if (
+      myShop &&
+      targetSellerName &&
+      targetSellerName.trim().toLowerCase() === myShop
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   const openLiveSetupModal = () => {
     if (!state.isAuthenticated && !state.user.email && !state.user.id) {
-      showToast('Please log in or register first to start your Live Stream!', 'error');
+      showToast('Please log in or register first!', 'error');
       openAuthModal('login');
+      return;
+    }
+    if (!checkIsRegisteredSeller()) {
+      showToast(
+        'Only registered UKAYO Sellers can start a Live Stream. Register as a Seller in My Account first!',
+        'error'
+      );
+      handleBecomeSellerAction();
       return;
     }
     const myHostId = state.user.ownSellerId || 'seller_' + (state.user.id || 'host');
@@ -1282,8 +1519,16 @@ export default function App() {
 
   const launchSellerLiveInApp = () => {
     if (!state.isAuthenticated && !state.user.email && !state.user.id) {
-      showToast('Please log in or register first to start your Live Stream!', 'error');
+      showToast('Please log in or register first!', 'error');
       openAuthModal('login');
+      return;
+    }
+    if (!checkIsRegisteredSeller()) {
+      showToast(
+        'Only registered UKAYO Sellers can start a Live Stream. Register as a Seller first!',
+        'error'
+      );
+      handleBecomeSellerAction();
       return;
     }
     const targetSellerId =
@@ -1425,6 +1670,13 @@ export default function App() {
     }
     const post = state.feedPosts.find((p) => p.id === postId);
     if (!post || post.minedBy) return;
+    if (isOwnSellerProduct(post.sellerId, post.authorName)) {
+      showToast(
+        'As the Seller, you cannot Mine or Lock your own product. Only Buyers can tap MINE NA!',
+        'error'
+      );
+      return;
+    }
 
     const newOrder: MinedOrder = {
       id: 'ord_' + Date.now(),
@@ -1467,15 +1719,34 @@ export default function App() {
   };
 
   const claimLiveItem = (itemId: string) => {
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       showToast('Please log in or register as a Buyer to Mine live items!', 'error');
       openAuthModal('login');
       return;
     }
-    const item = state.liveItems.find((i) => i.id === itemId);
+    const item =
+      state.liveItems.find((i) => i.id === itemId) ||
+      (activePinnedItem && activePinnedItem.id === itemId
+        ? activePinnedItem
+        : undefined);
     if (!item) return;
     const seller =
-      state.sellers.find((s) => s.id === item.sellerId) || state.sellers[0];
+      state.sellers.find((s) => s.id === item.sellerId) ||
+      activeLiveSeller ||
+      state.sellers[0];
+
+    if (
+      isOwnSellerProduct(
+        item.sellerId || seller?.id,
+        seller?.name || remoteLiveStream?.sellerName
+      )
+    ) {
+      showToast(
+        'As the Seller, you cannot Mine or Lock your own pinned product. Only Buyers can Mine & Lock!',
+        'error'
+      );
+      return;
+    }
 
     if (!item.winner) {
       const newOrder: MinedOrder = {
@@ -1486,7 +1757,10 @@ export default function App() {
         quantity: 1,
         image: item.image,
         sellerId: seller ? seller.id : item.sellerId,
-        sellerName: seller ? seller.name : state.user.shopName || 'Ukay Seller',
+        sellerName:
+          seller?.name ||
+          remoteLiveStream?.sellerName ||
+          'Ukay Seller',
         buyerId: state.user.id,
         buyerName: state.user.name,
         buyerAddress: state.user.address || state.user.city,
@@ -1507,25 +1781,31 @@ export default function App() {
         ],
       };
 
-      setState((prev) => ({
-        ...prev,
-        liveItems: prev.liveItems.map((i) =>
-          i.id === itemId ? { ...i, winner: prev.user.name } : i
-        ),
-        liveChat: [
-          ...prev.liveChat,
-          {
-            id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            sellerId: seller ? seller.id : item.sellerId,
-            sender: prev.user.name,
-            badge: 'LOCKED',
-            text: `MINED ${item.code} (${item.title}) — ₱${item.price}!`,
-            isHost: false,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ],
-        minedOrders: [newOrder, ...prev.minedOrders],
-      }));
+      setState((prev) => {
+        const existsInList = prev.liveItems.some((i) => i.id === itemId);
+        const nextLiveItems = existsInList
+          ? prev.liveItems.map((i) =>
+              i.id === itemId ? { ...i, winner: prev.user.name } : i
+            )
+          : [{ ...item, winner: prev.user.name }, ...prev.liveItems];
+        return {
+          ...prev,
+          liveItems: nextLiveItems,
+          liveChat: [
+            ...prev.liveChat,
+            {
+              id: 'lc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+              sellerId: seller ? seller.id : item.sellerId,
+              sender: prev.user.name,
+              badge: 'LOCKED',
+              text: `MINED ${item.code} (${item.title}) — ₱${item.price}!`,
+              isHost: false,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ],
+          minedOrders: [newOrder, ...prev.minedOrders],
+        };
+      });
       showToast(`First to Mine! ${item.code} added to My Bayong.`);
     } else if (item.winner !== state.user.name) {
       const nextSteals = item.steals.includes(state.user.name)
@@ -1683,6 +1963,33 @@ export default function App() {
     if (dataUrl) setPendingLiveCoverData(dataUrl);
   };
 
+  // Live stream duration counter effect (calculates time elapsed from the moment the stream starts)
+  useEffect(() => {
+    if (!isCameraStreaming) {
+      return;
+    }
+    const startTs = liveStreamStartedAt || Date.now();
+    if (!liveStreamStartedAt) {
+      setLiveStreamStartedAt(startTs);
+    }
+    const updateElapsed = () => {
+      setLiveElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTs) / 1000)));
+    };
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [isCameraStreaming, liveStreamStartedAt]);
+
+  const formatLiveDuration = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return hrs > 0
+      ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}`
+      : `${pad(mins)}:${pad(secs)}`;
+  };
+
   const startCameraStreamDirect = async (
     facing: 'environment' | 'user',
     explicitSellerId?: string
@@ -1701,6 +2008,10 @@ export default function App() {
       state.activeLiveSellerId ||
       state.user.ownSellerId ||
       'seller_' + (state.user.id || 'host');
+
+    const nowTs = Date.now();
+    setLiveStreamStartedAt((prev) => prev || nowTs);
+    setLiveElapsedSeconds(0);
 
     const agoraRes = await startAgoraHostBroadcast(
       hostSellerId,
@@ -1728,13 +2039,80 @@ export default function App() {
       setIsCameraStreaming(true);
       showToast('You are now LIVE on Mine Na!');
     } catch {
-      setIsCameraStreaming(false);
-      showToast('Live stream active! (Camera preview using cover backdrop).');
+      setIsCameraStreaming(true);
+      showToast('Live stream active! (Timer running with cover preview).');
     }
+  };
+
+  const endSellerLiveStream = async () => {
+    if (liveStreamRef.current) {
+      liveStreamRef.current.getTracks().forEach((t) => t.stop());
+      liveStreamRef.current = null;
+    }
+    await stopAgoraHostBroadcast();
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    const finalDuration = formatLiveDuration(liveElapsedSeconds);
+    setIsCameraStreaming(false);
+    setLiveStreamStartedAt(null);
+    setLiveElapsedSeconds(0);
+
+    const hostSellerId =
+      state.user.ownSellerId ||
+      state.activeLiveSellerId ||
+      'seller_' + state.user.id;
+    const hostDisplayName =
+      state.user.shopName || state.user.name || 'Ukay Host';
+
+    if (hostSellerId) {
+      publishLiveCameraFrame({
+        sellerId: hostSellerId,
+        sellerName: hostDisplayName,
+        isCameraLive: false,
+        frameDataUrl: '',
+        pinnedItemId: state.activePinnedItemId || '',
+        liveTitle: liveSetupTitle || '',
+        updatedAt: Date.now(),
+      });
+    }
+
+    setState((prev) => ({
+      ...prev,
+      sellers: prev.sellers.map((s) =>
+        s.id === hostSellerId ? { ...s, isLive: false } : s
+      ),
+      liveChat: [
+        ...prev.liveChat,
+        {
+          id: 'lc_' + Date.now(),
+          sellerId: hostSellerId,
+          sender: hostDisplayName,
+          badge: 'HOST',
+          text: `Live stream ended (Duration: ${finalDuration}). Thank you for mining!`,
+          isHost: true,
+          time: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        },
+      ],
+    }));
+
+    showToast(`Live stream ended • Total duration: ${finalDuration}`);
   };
 
   const confirmStartLiveSession = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!checkIsRegisteredSeller()) {
+      setLiveSetupOpen(false);
+      showToast(
+        'Only registered UKAYO Sellers can host a Live Stream. Apply as a Seller first!',
+        'error'
+      );
+      handleBecomeSellerAction();
+      return;
+    }
     const sellerId = state.user.ownSellerId || 'seller_' + (state.user.id || Date.now());
     const existingSeller = state.sellers.find((s) => s.id === sellerId);
     const hostDisplayName =
@@ -1748,6 +2126,8 @@ export default function App() {
       'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
 
     setLiveFacingMode(cameraFacing);
+    setLiveStreamStartedAt(Date.now());
+    setLiveElapsedSeconds(0);
 
     setState((prev) => {
       const updatedSellers = existingSeller
@@ -1819,30 +2199,8 @@ export default function App() {
   };
 
   const toggleCameraLive = async () => {
-    if (liveStreamRef.current) {
-      liveStreamRef.current.getTracks().forEach((t) => t.stop());
-      liveStreamRef.current = null;
-      await stopAgoraHostBroadcast();
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      setIsCameraStreaming(false);
-      const hostSellerId =
-        state.user.ownSellerId ||
-        state.activeLiveSellerId ||
-        'seller_' + state.user.id;
-      if (hostSellerId) {
-        publishLiveCameraFrame({
-          sellerId: hostSellerId,
-          sellerName: state.user.shopName || state.user.name || 'Ukay Host',
-          isCameraLive: false,
-          frameDataUrl: '',
-          pinnedItemId: state.activePinnedItemId || '',
-          liveTitle: liveSetupTitle || '',
-          updatedAt: Date.now(),
-        });
-      }
-      showToast('Live camera stopped.');
+    if (isCameraStreaming || liveStreamRef.current) {
+      await endSellerLiveStream();
       return;
     }
     openLiveSetupModal();
@@ -1862,6 +2220,14 @@ export default function App() {
     if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       showToast('Please log in or register first to pin a Live item!', 'error');
       openAuthModal('login');
+      return;
+    }
+    if (!checkIsRegisteredSeller()) {
+      showToast(
+        'Only registered UKAYO Sellers can pin Live items. Register as a Seller first!',
+        'error'
+      );
+      handleBecomeSellerAction();
       return;
     }
     const nextCode = 'A0' + (state.liveItems.length + 1);
@@ -1987,6 +2353,16 @@ export default function App() {
         ],
       };
     });
+    publishLiveCameraFrame({
+      sellerId,
+      sellerName: state.user.shopName || state.user.name || 'Ukay Live Host',
+      isCameraLive: isCameraStreaming,
+      frameDataUrl: remoteLiveStream?.frameDataUrl || newItem.image || '',
+      pinnedItemId: newItem.id,
+      pinnedItem: newItem,
+      liveTitle: liveSetupTitle || '',
+      updatedAt: Date.now(),
+    });
     setLiveDropModalOpen(false);
     showToast(`Pinned [${newItem.code}] ${newItem.title} (₱${newItem.price}) to Live!`);
   };
@@ -2025,7 +2401,7 @@ export default function App() {
   };
 
   const claimStoreProduct = (sellerId: string, prodId: string) => {
-    if (!state.isAuthenticated) {
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       showToast('Please log in or register as a Buyer to Mine items!', 'error');
       openAuthModal('login');
       return;
@@ -2033,6 +2409,13 @@ export default function App() {
     const seller = state.sellers.find((s) => s.id === sellerId);
     const prod = seller?.products.find((p) => p.id === prodId);
     if (!seller || !prod) return;
+    if (isOwnSellerProduct(seller.id, seller.name)) {
+      showToast(
+        'As the Seller, you cannot Mine or Lock your own store product. Only Buyers can tap MINE NA!',
+        'error'
+      );
+      return;
+    }
 
     const newOrder: MinedOrder = {
       id: 'ord_' + Date.now(),
@@ -2399,8 +2782,7 @@ export default function App() {
 
   // Subscribe to Agora Interactive Live Streaming channel as Audience when watching a seller's live room
   useEffect(() => {
-    const sellerId = activeLiveSeller?.id || '';
-    if (state.activeTab !== 'mine' || isCameraStreaming || !sellerId) {
+    if (state.activeTab !== 'mine' || isCameraStreaming) {
       if (agoraAudienceCtrlRef.current) {
         agoraAudienceCtrlRef.current.leave();
         agoraAudienceCtrlRef.current = null;
@@ -2410,8 +2792,9 @@ export default function App() {
       return;
     }
 
+    const targetSellerId = activeLiveSeller?.id || 'ukayo_live_room';
     const ctrl = joinAgoraAudienceChannel(
-      sellerId,
+      targetSellerId,
       agoraRemoteVideoRef.current,
       {
         onRemoteVideoStateChange: (playing) => {
@@ -2431,60 +2814,30 @@ export default function App() {
         agoraAudienceCtrlRef.current = null;
       }
     };
-  }, [state.activeTab, activeLiveSeller?.id, isCameraStreaming]);
+  }, [state.activeTab, isCameraStreaming]);
 
   // Subscribe to real-time remote camera frames for the active live seller
   useEffect(() => {
-    const sellerId = activeLiveSeller?.id || '';
-    if (!sellerId) {
-      setRemoteLiveStream(null);
-      return;
-    }
+    const sellerId = activeLiveSeller?.id || 'any';
     const unsub = subscribeToLiveCameraStream(sellerId, (streamData) => {
       setRemoteLiveStream(streamData);
     });
     return () => unsub();
   }, [activeLiveSeller?.id]);
 
-  // Broadcast live camera frames to Firestore every 750ms while hosting camera live in Marketplace
-  useEffect(() => {
-    if (!isCameraStreaming) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 420;
-    const ctx = canvas.getContext('2d');
-
-    const interval = window.setInterval(() => {
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || !ctx) return;
-      const hostSellerId =
-        stateRef.current.activeLiveSellerId ||
-        stateRef.current.user.ownSellerId ||
-        'seller_' + (stateRef.current.user.id || 'host');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
-      publishLiveCameraFrame({
-        sellerId: hostSellerId,
-        sellerName:
-          stateRef.current.user.shopName ||
-          stateRef.current.user.name ||
-          'Ukay Live Host',
-        isCameraLive: true,
-        frameDataUrl,
-        pinnedItemId: stateRef.current.activePinnedItemId || '',
-        liveTitle: liveSetupTitle || '',
-        updatedAt: Date.now(),
-      });
-    }, 750);
-
-    return () => window.clearInterval(interval);
-  }, [isCameraStreaming, liveSetupTitle]);
-
   const sellerPinnedProduct = activeLiveSeller?.products?.find((p) => p.pinned);
+  const remoteStreamPinnedItem =
+    remoteLiveStream?.pinnedItem &&
+    typeof remoteLiveStream.pinnedItem === 'object' &&
+    remoteLiveStream.pinnedItem.title
+      ? (remoteLiveStream.pinnedItem as LiveItem)
+      : undefined;
+
   const activePinnedItem: LiveItem | undefined =
     (remoteLiveStream?.pinnedItemId
       ? state.liveItems.find((i) => i.id === remoteLiveStream.pinnedItemId)
       : undefined) ||
+    remoteStreamPinnedItem ||
     (activeLiveSeller?.pinnedItemId
       ? state.liveItems.find((i) => i.id === activeLiveSeller.pinnedItemId)
       : undefined) ||
@@ -2518,6 +2871,50 @@ export default function App() {
       : undefined) ||
     state.liveItems[0];
 
+  // Broadcast live camera frames every 750ms while hosting camera live in Marketplace
+  useEffect(() => {
+    if (!isCameraStreaming) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 420;
+    const ctx = canvas.getContext('2d');
+
+    const interval = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || !ctx) return;
+      const hostSellerId =
+        stateRef.current.activeLiveSellerId ||
+        stateRef.current.user.ownSellerId ||
+        'seller_' + (stateRef.current.user.id || 'host');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
+      const currentPinned =
+        stateRef.current.liveItems.find(
+          (i) => i.id === stateRef.current.activePinnedItemId
+        ) ||
+        stateRef.current.liveItems.find(
+          (i) => i.sellerId === hostSellerId && i.pinned
+        ) ||
+        stateRef.current.liveItems[0] ||
+        null;
+      publishLiveCameraFrame({
+        sellerId: hostSellerId,
+        sellerName:
+          stateRef.current.user.shopName ||
+          stateRef.current.user.name ||
+          'Ukay Live Host',
+        isCameraLive: true,
+        frameDataUrl,
+        pinnedItemId: currentPinned?.id || stateRef.current.activePinnedItemId || '',
+        pinnedItem: currentPinned,
+        liveTitle: liveSetupTitle || '',
+        updatedAt: Date.now(),
+      });
+    }, 750);
+
+    return () => window.clearInterval(interval);
+  }, [isCameraStreaming, liveSetupTitle]);
+
   const currentFollowerKey =
     state.user.id || state.user.email || 'guest_device';
   const isFollowingActiveLiveSeller = Boolean(
@@ -2527,10 +2924,23 @@ export default function App() {
         activeLiveSeller.followed)
   );
 
-  const activeStoreSeller: Seller | undefined =
-    state.sellers.find((s) => s.id === state.activeStoreId) || state.sellers[0];
+  const activeStoreSeller: Seller | undefined = state.activeStoreId
+    ? state.sellers.find((s) => s.id === state.activeStoreId)
+    : undefined;
+
+  const blockedSet = new Set(
+    (state.blockedUserIds || []).map((x) => String(x).toLowerCase())
+  );
+  const hiddenPostSet = new Set(state.hiddenPostIds || []);
 
   const filteredFeedPosts = state.feedPosts.filter((p) => {
+    if (hiddenPostSet.has(p.id)) return false;
+    if (
+      (p.sellerId && blockedSet.has(p.sellerId.toLowerCase())) ||
+      (p.authorName && blockedSet.has(p.authorName.toLowerCase()))
+    ) {
+      return false;
+    }
     const catOk =
       state.activeFeedCategory === 'ALL' || p.category === state.activeFeedCategory;
     const searchOk =
@@ -2587,7 +2997,7 @@ export default function App() {
     chatContacts.find((c) => c.id === state.activeChatSellerId) || chatContacts[0];
 
   return (
-    <div className="bg-[#F4F6F9] text-[#1E293B] antialiased selection:bg-[#10B981]/20 min-h-[100dvh]">
+    <div className="bg-[#F4FAF8] text-[#1E293B] antialiased selection:bg-[#2DD4BF]/20 min-h-[100dvh]">
       {/* Toast Notification Container */}
       <div
         id="toast-box"
@@ -2599,12 +3009,12 @@ export default function App() {
             className={`px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 transition-all duration-300 ${
               t.type === 'error'
                 ? 'bg-[#EF4444] text-white'
-                : 'bg-[#070D17] text-white border border-slate-700'
+                : 'bg-[#0D9488] text-white border border-slate-700'
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                t.type === 'error' ? 'bg-white' : 'bg-[#10B981]'
+                t.type === 'error' ? 'bg-white' : 'bg-[#2DD4BF]'
               } shrink-0`}
             />
             <span>{t.message}</span>
@@ -2615,15 +3025,15 @@ export default function App() {
       {/* Mobile App Shell */}
       <div
         id="ukayo-app-shell"
-        className="max-w-md mx-auto min-h-[100dvh] bg-[#F4F6F9] flex flex-col relative shadow-sm"
+        className="max-w-md mx-auto min-h-[100dvh] bg-[#F4FAF8] flex flex-col relative shadow-sm"
       >
-        {/* TOP HEADER BAR (#070D17) */}
+        {/* TOP HEADER BAR — CLEAN & ORGANIZED TWO-COLOR PALETTE (#0F766E & #2DD4BF) */}
         {state.activeTab !== 'mine' && (
           <header
             id="main-app-header"
-            className="sticky top-0 z-30 bg-[#070D17] text-white px-3 py-2.5 border-b border-slate-800/80"
+            className="sticky top-0 z-30 bg-[#0D9488] text-white px-3.5 py-2.5"
           >
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2.5">
               {/* Crisp High-Contrast UKAYO Hanger Wordmark */}
               <button
                 onClick={() => switchTab('home')}
@@ -2631,7 +3041,7 @@ export default function App() {
                 title="UKAYO Home"
               >
                 <svg
-                  className="w-[70px] h-9 text-white"
+                  className="w-[66px] h-8 text-white"
                   viewBox="0 0 800 450"
                   fill="none"
                   stroke="currentColor"
@@ -2658,109 +3068,85 @@ export default function App() {
                 </svg>
               </button>
 
-              {/* Search Pill */}
-              <div className="flex-1 flex items-center bg-white rounded-full px-3 py-1.5 text-[#1E293B] min-w-0">
-                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1.5" />
+              {/* Clean Light Search Bar with Left Search & Right Camera Icon (Matching Reference Image 6) */}
+              <div className="flex-1 flex items-center bg-white rounded-xl px-3 py-2 text-[#132A2E] min-w-0 shadow-2xs">
+                <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
                 <input
                   type="text"
                   id="global-search-input"
                   value={state.searchQuery}
                   onChange={(e) => handleGlobalSearch(e.target.value)}
-                  placeholder="Search ukay items, bales..."
-                  className="w-full text-xs bg-transparent focus:outline-none truncate"
+                  placeholder="Search ukay items, live bales..."
+                  className="w-full text-xs font-medium text-[#132A2E] placeholder-slate-400 bg-transparent focus:outline-none truncate"
                 />
+                <button
+                  type="button"
+                  onClick={() => switchTab('feed')}
+                  className="text-slate-400 hover:text-[#0D9488] shrink-0 ml-1.5 cursor-pointer"
+                  title="Browse Visual Ukay Feed"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Customer Service Icon (Connect Buyer & Seller with Admin for Help) */}
-              <button
-                onClick={openCustomerServiceChat}
-                className="relative p-1.5 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#070D17] shrink-0 cursor-pointer transition"
-                title="Customer Service — Chat with Admin for Help"
-              >
-                <Headset className="w-4 h-4" />
-              </button>
-
-              {/* My Bayong Shortcut */}
-              <button
-                onClick={() => switchTab('bag')}
-                className="relative p-1.5 text-white hover:text-[#10B981] shrink-0 cursor-pointer"
-                title="My Bayong"
-              >
-                <ShoppingBag className="w-5 h-5" />
-                <span
-                  id="header-bag-badge"
-                  className="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center"
-                >
-                  {bayongTotalQty}
-                </span>
-              </button>
-
-              {/* Direct Chat Shortcut */}
-              <button
-                onClick={() => switchTab('chat')}
-                className="relative p-1.5 text-white hover:text-[#10B981] shrink-0 cursor-pointer"
-                title="Messages"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#10B981]" />
-              </button>
-
-              {/* Header Login / User Status Pill */}
-              {!state.isAuthenticated ? (
+              {/* Clean Right Icon Pair: Cart / Bayong + Chat with Pill Counters (Matching Reference Images) */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => openAuthModal('login')}
-                  className="px-2.5 py-1 rounded-full bg-[#10B981] text-[#070D17] text-[10px] font-extrabold shrink-0 cursor-pointer"
+                  onClick={() => switchTab('bag')}
+                  className="relative p-1.5 text-white hover:text-[#0D9488] shrink-0 cursor-pointer transition"
+                  title="My Bayong"
                 >
-                  Log In
+                  <ShoppingBag className="w-5 h-5" />
+                  <span
+                    id="header-bag-badge"
+                    className="absolute -top-0.5 -right-1 min-w-[17px] h-4 px-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold flex items-center justify-center border border-[#0D9488]"
+                  >
+                    {bayongTotalQty}
+                  </span>
                 </button>
-              ) : (
+
                 <button
-                  onClick={() => switchTab('account')}
-                  className="w-7 h-7 rounded-full overflow-hidden border border-[#10B981] bg-[#111827] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0 cursor-pointer"
-                  title={state.user.name}
+                  onClick={() => switchTab('chat')}
+                  className="relative p-1.5 text-white hover:text-[#0D9488] shrink-0 cursor-pointer transition"
+                  title="Messages & Customer Service"
                 >
-                  {state.user.avatar ? (
-                    <img
-                      src={state.user.avatar}
-                      alt={state.user.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    userInitials
-                  )}
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="absolute -top-0.5 -right-1 min-w-[17px] h-4 px-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold flex items-center justify-center border border-[#0D9488]">
+                    {chatContacts.length}
+                  </span>
                 </button>
-              )}
+              </div>
             </div>
           </header>
         )}
 
         {/* MAIN CONTENT AREA */}
         <main className="flex-1 pb-20">
-          {/* TAB 1: "HOME" */}
+          {/* TAB 1: "HOME" (LIGHT, AIRY, ORGANIZED LAYOUT MATCHING REFERENCE IMAGE 6) */}
           {state.activeTab === 'home' && (
-            <section id="tab-home" className="space-y-3 pb-4">
-              <div className="bg-[#070D17] px-3.5 pt-1 pb-5 rounded-b-3xl space-y-2.5">
-                {/* Auth Welcome Banner if Not Logged In */}
+            <section id="tab-home" className="space-y-2.5 pb-4">
+              {/* Top Navy Accent Extension + Light Wallet / Check-In Strip */}
+              <div className="bg-[#0D9488] px-3.5 pt-0.5 pb-3 rounded-b-2xl space-y-2.5">
                 {!state.isAuthenticated && (
-                  <div className="bg-[#111827] border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                  <div className="bg-white/10 backdrop-blur-xs border border-white/15 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="text-xs font-extrabold text-white">
-                        Welcome to UKAYO Marketplace!
+                      <div className="text-xs font-extrabold text-white truncate">
+                        Welcome to UKAYO Marketplace
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate">
-                        Register a Buyer account first, then apply as a Seller.
+                      <div className="text-[10px] text-slate-300 truncate">
+                        Sign in to Mine live items or register your shop
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => openAuthModal('register')}
-                        className="px-2.5 py-1.5 rounded-xl bg-[#10B981] text-[#070D17] text-[10px] font-extrabold cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-[#2DD4BF] text-[#132A2E] text-[10px] font-extrabold cursor-pointer"
                       >
                         Register
                       </button>
                       <button
                         onClick={() => openAuthModal('login')}
-                        className="px-2.5 py-1.5 rounded-xl bg-white/10 text-white text-[10px] font-bold cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white text-[#132A2E] text-[10px] font-bold cursor-pointer"
                       >
                         Log In
                       </button>
@@ -2768,17 +3154,73 @@ export default function App() {
                   </div>
                 )}
 
-                {/* 5 Uniform Brand-Palette Quick-Shortcut Icons */}
-                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-xs">
-                  <div className="grid grid-cols-5 gap-1.5 text-center">
+                {/* 3-Column Wallet / Points / Vouchers Bar — Organized & Untruncated */}
+                <div className="bg-white rounded-2xl p-2 shadow-2xs grid grid-cols-3 divide-x divide-[#E2F2EE] text-left">
+                  <button
+                    onClick={() => switchTab('bag')}
+                    className="px-2 py-1 flex items-center gap-2 cursor-pointer min-w-0"
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center shrink-0">
+                      <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-display font-extrabold text-[#132A2E] tabular-price leading-tight truncate">
+                        ₱{bayongGrandTotal.toLocaleString()}
+                      </div>
+                      <div className="text-[9.5px] font-medium text-slate-500 leading-tight mt-0.5">
+                        Bayong Escrow
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => openPerksModal('referral')}
+                    className="px-2 py-1 flex items-center gap-2 cursor-pointer min-w-0"
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                      <Award className="w-3.5 h-3.5 text-amber-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-display font-extrabold text-[#132A2E] leading-tight">
+                        Check In
+                      </div>
+                      <div className="text-[9.5px] font-medium text-slate-500 leading-tight mt-0.5">
+                        Daily Points
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => openPerksModal('vouchers')}
+                    className="px-2 py-1 flex items-center gap-2 cursor-pointer min-w-0"
+                  >
+                    <div className="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                      <Ticket className="w-3.5 h-3.5 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-display font-extrabold text-[#132A2E] leading-tight">
+                        Ukay Perks
+                      </div>
+                      <div className="text-[9.5px] font-medium text-slate-500 leading-tight mt-0.5">
+                        Vouchers
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-3 space-y-2.5">
+                {/* 5 Uniform Quick-Shortcut Icons on Crisp White Card (Shopee-Style Colorful Icon Badges) */}
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] px-3 py-3.5 shadow-2xs">
+                  <div className="grid grid-cols-5 gap-2 text-center">
                     <button
                       onClick={() => openPerksModal('referral')}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/15 border border-[#F59E0B]/30 text-[#070D17] flex items-center justify-center group-active:scale-95 transition">
-                        <Award className="w-5 h-5 text-[#F59E0B]" />
+                      <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center group-active:scale-95 transition">
+                        <Award className="w-5 h-5 text-amber-500" />
                       </div>
-                      <span className="text-[10px] font-semibold text-[#1E293B] leading-tight">
+                      <span className="text-[10px] font-medium text-[#132A2E] leading-tight">
                         Referral
                         <br />
                         Points
@@ -2789,10 +3231,10 @@ export default function App() {
                       onClick={() => openPerksModal('discounts')}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/25 text-[#EF4444] flex items-center justify-center group-active:scale-95 transition">
-                        <Percent className="w-5 h-5" />
+                      <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-200 text-rose-500 flex items-center justify-center group-active:scale-95 transition">
+                        <Percent className="w-5 h-5 text-rose-500" />
                       </div>
-                      <span className="text-[10px] font-semibold text-[#1E293B] leading-tight">
+                      <span className="text-[10px] font-medium text-[#132A2E] leading-tight">
                         Ukay
                         <br />
                         Discounts
@@ -2803,10 +3245,10 @@ export default function App() {
                       onClick={() => openPerksModal('vouchers')}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#10B981]/15 border border-[#10B981]/30 text-[#10B981] flex items-center justify-center group-active:scale-95 transition">
-                        <Ticket className="w-5 h-5" />
+                      <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center group-active:scale-95 transition">
+                        <Ticket className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <span className="text-[10px] font-semibold text-[#1E293B] leading-tight">
+                      <span className="text-[10px] font-medium text-[#132A2E] leading-tight">
                         Free
                         <br />
                         Vouchers
@@ -2817,12 +3259,12 @@ export default function App() {
                       onClick={handleBecomeSellerAction}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#070D17] text-[#F59E0B] flex items-center justify-center group-active:scale-95 transition shadow-2xs">
-                        <Store className="w-5 h-5" />
+                      <div className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-200 text-orange-500 flex items-center justify-center group-active:scale-95 transition shadow-2xs">
+                        <Store className="w-5 h-5 text-orange-500" />
                       </div>
                       <span
                         id="home-become-seller-label"
-                        className="text-[10px] font-bold text-[#070D17] leading-tight"
+                        className="text-[10px] font-bold text-[#132A2E] leading-tight"
                       >
                         {isSellerAccount ? (
                           <>
@@ -2834,7 +3276,7 @@ export default function App() {
                           <>
                             Become
                             <br />
-                            Ukayo Seller
+                            Seller
                           </>
                         )}
                       </span>
@@ -2844,10 +3286,10 @@ export default function App() {
                       onClick={openCustomerServiceChat}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-[#070D17] flex items-center justify-center group-active:scale-95 transition">
-                        <Headset className="w-5 h-5 text-[#10B981]" />
+                      <div className="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-200 text-sky-500 flex items-center justify-center group-active:scale-95 transition">
+                        <Headset className="w-5 h-5 text-sky-500" />
                       </div>
-                      <span className="text-[10px] font-semibold text-[#1E293B] leading-tight">
+                      <span className="text-[10px] font-medium text-[#132A2E] leading-tight">
                         Customer
                         <br />
                         Service
@@ -2855,27 +3297,26 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="px-3.5 space-y-3">
-                {/* Side-by-Side UKAYO LIVE & UKAY FEED Preview Cards */}
+                {/* Side-by-Side UKAYO LIVE & UKAY FEED Split Cards (Matching Reference Image 6 Middle Split) */}
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs space-y-2">
+                  {/* Left Card: UKAYO LIVE */}
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs space-y-2.5">
                     <button
                       onClick={() => switchTab('mine')}
                       className="w-full flex items-center justify-between text-left cursor-pointer"
                     >
-                      <span className="text-xs font-display font-extrabold text-[#EF4444] tracking-tight">
-                        UKAYO LIVE
+                      <span className="text-xs font-display font-extrabold text-[#132A2E] tracking-tight flex items-center gap-1">
+                        <span>UKAYO LIVE</span>
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
                     {state.sellers.length === 0 ? (
                       <div
                         onClick={() => switchTab('mine')}
-                        className="rounded-xl bg-[#070D17] text-white p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
+                        className="rounded-xl bg-[#0D9488] text-white p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
                       >
-                        <Radio className="w-5 h-5 text-[#EF4444] mb-1" />
+                        <Radio className="w-5 h-5 text-[#0D9488] mb-1" />
                         <div className="text-[10px] font-extrabold">No Live Streams Yet</div>
                         <div className="text-[9px] text-slate-400">
                           Register as Seller to Go LIVE
@@ -2887,23 +3328,21 @@ export default function App() {
                           <button
                             key={s.id}
                             onClick={() => openLiveRoomForSeller(s.id)}
-                            className="relative rounded-xl overflow-hidden aspect-[4/5] bg-[#111827] text-left group cursor-pointer"
+                            className="relative rounded-xl overflow-hidden aspect-[3/4] bg-[#0D9488] text-left group cursor-pointer"
                           >
                             <img
                               src={s.liveStreamPreview}
                               alt={s.name}
-                              className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition"
+                              className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase">
-                              LIVE
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#2DD4BF] text-[#132A2E] text-[8px] font-extrabold uppercase inline-flex items-center gap-0.5">
+                              <span className="w-1 h-1 rounded-full bg-[#0D9488]" />
+                              <span>LIVE</span>
                             </span>
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                              <div className="text-[10px] font-bold text-white truncate">
-                                {s.name}
-                              </div>
-                              <div className="text-[8px] text-[#10B981] font-semibold truncate">
-                                {s.liveCategory}
+                              <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">
+                                {s.liveTitle || s.name}
                               </div>
                             </div>
                           </button>
@@ -2912,12 +3351,13 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs space-y-2">
+                  {/* Right Card: UKAY FEED */}
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs space-y-2.5">
                     <button
                       onClick={() => switchTab('feed')}
                       className="w-full flex items-center justify-between text-left cursor-pointer"
                     >
-                      <span className="text-xs font-display font-extrabold text-[#070D17] tracking-tight">
+                      <span className="text-xs font-display font-extrabold text-[#132A2E] tracking-tight">
                         UKAY FEED
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
@@ -2925,10 +3365,10 @@ export default function App() {
                     {state.feedPosts.length === 0 ? (
                       <div
                         onClick={() => switchTab('feed')}
-                        className="rounded-xl bg-[#F4F6F9] border border-dashed border-[#CBD5E1] p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
+                        className="rounded-xl bg-[#F4FAF8] border border-dashed border-[#CBE7E0] p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
                       >
-                        <ImageIcon className="w-5 h-5 text-[#10B981] mb-1" />
-                        <div className="text-[10px] font-extrabold text-[#070D17]">
+                        <ImageIcon className="w-5 h-5 text-[#0D9488] mb-1" />
+                        <div className="text-[10px] font-extrabold text-[#132A2E]">
                           No Feed Drops Yet
                         </div>
                         <div className="text-[9px] text-slate-500">Tap to post first item</div>
@@ -2939,23 +3379,20 @@ export default function App() {
                           <button
                             key={p.id}
                             onClick={() => switchTab('feed')}
-                            className="relative rounded-xl overflow-hidden aspect-[4/5] bg-slate-100 text-left group cursor-pointer"
+                            className="relative rounded-xl overflow-hidden aspect-[3/4] bg-slate-100 text-left group cursor-pointer"
                           >
                             <img
                               src={p.image}
                               alt={p.itemTitle}
                               className="w-full h-full object-cover group-hover:scale-105 transition"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-[#070D17]/85 text-[#10B981] text-[8px] font-extrabold tabular-price">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#0D9488]/80 text-[#0D9488] text-[8px] font-extrabold tabular-price">
                               ₱{p.price}
                             </span>
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                              <div className="text-[10px] font-bold text-white truncate">
+                              <div className="text-[10px] font-bold text-white leading-tight line-clamp-2">
                                 {p.itemTitle}
-                              </div>
-                              <div className="text-[8px] text-slate-300 truncate">
-                                {p.authorName}
                               </div>
                             </div>
                           </button>
@@ -2965,25 +3402,26 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Ukay Paborito Picture-Icon Grid (Synced & Editable in Admin Center) */}
-                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+                {/* Ukay Paborito Clean Light Grid */}
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">
-                      Ukay Paborito
+                    <h2 className="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">
+                      Ukay Paborito Categories
                     </h2>
                     <button
-                      onClick={() => switchTab('feed')}
-                      className="text-[11px] font-bold text-[#10B981] cursor-pointer"
+                      onClick={() => browseUkayCategory('ALL')}
+                      className="text-[11px] font-bold text-[#0D9488] inline-flex items-center gap-0.5 cursor-pointer"
                     >
-                      Browse All
+                      <span>Visit Tindahan Mall</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <div id="home-categories-grid" className="grid grid-cols-3 gap-2">
+                  <div id="home-categories-grid" className="grid grid-cols-3 gap-2.5">
                     {state.ukayPaborito.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => browseUkayCategory(c.id)}
-                        className="rounded-xl border border-[#E2E8F0] bg-[#F4F6F9] hover:border-[#070D17] overflow-hidden text-center group cursor-pointer transition"
+                        className="rounded-xl border border-[#E2F2EE] bg-[#F4FAF8] hover:border-[#2DD4BF] overflow-hidden text-center group cursor-pointer transition"
                       >
                         <div className="aspect-square w-full overflow-hidden bg-white">
                           <img
@@ -2992,7 +3430,7 @@ export default function App() {
                             className="w-full h-full object-cover group-hover:scale-105 transition"
                           />
                         </div>
-                        <div className="py-1.5 px-1 text-[10px] font-bold text-[#070D17] truncate">
+                        <div className="py-2 px-1.5 text-[11px] font-semibold text-[#132A2E] truncate bg-white">
                           {c.label}
                         </div>
                       </button>
@@ -3005,24 +3443,24 @@ export default function App() {
 
           {/* TAB 2: "UKAY FEED" */}
           {state.activeTab === 'feed' && (
-            <section id="tab-feed" className="px-3.5 pt-3 space-y-3 pb-4">
+            <section id="tab-feed" className="px-3 pt-3 space-y-2.5 pb-4">
               {/* Compact Live Stories Strip */}
               {state.sellers.length > 0 && (
-                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-2.5 shadow-2xs">
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
+                    <span className="text-[11px] font-extrabold text-[#132A2E]">
                       Live Bales &amp; Active Tindahan
                     </span>
                     <button
                       onClick={() => switchTab('mine')}
-                      className="text-[10px] font-bold text-[#EF4444] cursor-pointer"
+                      className="text-[11px] font-bold text-[#0D9488] cursor-pointer"
                     >
-                      Watch All Live →
+                      Watch Live →
                     </button>
                   </div>
                   <div
                     id="feed-stories-strip"
-                    className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-0.5"
+                    className="flex items-center gap-3.5 overflow-x-auto no-scrollbar pb-0.5"
                   >
                     {state.sellers.map((s) => (
                       <button
@@ -3030,8 +3468,8 @@ export default function App() {
                         onClick={() => openLiveRoomForSeller(s.id)}
                         className="flex flex-col items-center gap-1 shrink-0 cursor-pointer"
                       >
-                        <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#EF4444] to-[#F59E0B]">
-                          <div className="w-10 h-10 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center border-2 border-white overflow-hidden">
+                        <div className="relative p-0.5 rounded-full bg-[#2DD4BF]">
+                          <div className="w-11 h-11 rounded-full bg-[#0D9488] text-white font-display font-extrabold text-xs flex items-center justify-center border-2 border-white overflow-hidden">
                             {s.avatar ? (
                               <img
                                 src={s.avatar}
@@ -3043,12 +3481,12 @@ export default function App() {
                             )}
                           </div>
                           {s.isLive && (
-                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded bg-[#EF4444] text-white text-[7px] font-extrabold uppercase">
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-[#0D9488] text-[#0D9488] text-[7px] font-extrabold uppercase border border-[#2DD4BF]">
                               LIVE
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-semibold text-[#1E293B] max-w-[64px] truncate">
+                        <span className="text-[10px] font-medium text-[#132A2E] max-w-[64px] truncate">
                           {s.name.split(' ')[0]}
                         </span>
                       </button>
@@ -3058,9 +3496,9 @@ export default function App() {
               )}
 
               {/* Community Feed Composer */}
-              <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+              <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-9 h-9 rounded-full bg-[#0D9488] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
                     {state.user.avatar ? (
                       <img
                         src={state.user.avatar}
@@ -3079,12 +3517,12 @@ export default function App() {
                       }
                       setFeedComposerOpen(true);
                     }}
-                    className="flex-1 text-left px-3.5 py-2 rounded-full bg-[#F4F6F9] hover:bg-slate-200/70 text-xs text-slate-500 font-medium cursor-pointer transition"
+                    className="flex-1 text-left px-3.5 py-2 rounded-full bg-[#F4FAF8] hover:bg-slate-100 text-xs text-slate-500 font-medium cursor-pointer transition"
                   >
-                    What&apos;s your ukay drop or looking-for today?
+                    Share an ukay drop or looking-for post...
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100 text-[11px] font-bold text-[#1E293B]">
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#E2F2EE] text-[11px] font-semibold text-[#132A2E]">
                   <button
                     onClick={() => {
                       if (!isUserSignedIn) {
@@ -3093,9 +3531,9 @@ export default function App() {
                       }
                       setFeedComposerOpen(true);
                     }}
-                    className="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-1.5 rounded-xl hover:bg-[#F4FAF8] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <ImageIcon className="w-3.5 h-3.5 text-[#10B981]" />
+                    <ImageIcon className="w-4 h-4 text-[#0D9488]" />
                     <span>Photo / Bale</span>
                   </button>
                   <button
@@ -3106,17 +3544,17 @@ export default function App() {
                       }
                       setFeedComposerOpen(true);
                     }}
-                    className="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-1.5 rounded-xl hover:bg-[#F4FAF8] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Tag className="w-3.5 h-3.5 text-[#F59E0B]" />
+                    <Tag className="w-4 h-4 text-[#132A2E]" />
                     <span>Post Item</span>
                   </button>
                   <button
                     onClick={() => switchTab('mine')}
-                    className="py-1.5 rounded-xl hover:bg-[#F4F6F9] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="py-1.5 rounded-xl hover:bg-[#F4FAF8] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <Radio className="w-3.5 h-3.5 text-[#EF4444]" />
-                    <span>Live Drops</span>
+                    <Radio className="w-4 h-4 text-[#0D9488]" />
+                    <span>Watch Live</span>
                   </button>
                 </div>
               </div>
@@ -3135,10 +3573,10 @@ export default function App() {
                       onClick={() =>
                         setState((prev) => ({ ...prev, activeFeedCategory: c }))
                       }
-                      className={`px-3 py-1.5 rounded-full text-[11px] font-bold shrink-0 cursor-pointer transition ${
+                      className={`px-3.5 py-1.5 rounded-full text-[11px] font-bold shrink-0 cursor-pointer transition ${
                         active
-                          ? 'bg-[#070D17] text-white'
-                          : 'bg-white text-[#1E293B] border border-[#E2E8F0]'
+                          ? 'bg-[#0D9488] text-white'
+                          : 'bg-white text-[#132A2E] border border-[#CBE7E0]'
                       }`}
                     >
                       {c === 'ALL' ? 'All Drops' : catObj?.label || c}
@@ -3148,13 +3586,13 @@ export default function App() {
               </div>
 
               {/* Community Posts Feed */}
-              <div id="feed-posts-list" className="space-y-3">
+              <div id="feed-posts-list" className="space-y-2.5">
                 {filteredFeedPosts.length === 0 ? (
-                  <div className="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#F4F6F9] text-[#070D17] flex items-center justify-center mx-auto">
-                      <ImageIcon className="w-6 h-6 text-[#10B981]" />
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] p-8 text-center space-y-2.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F4FAF8] text-[#132A2E] flex items-center justify-center mx-auto">
+                      <ImageIcon className="w-6 h-6 text-[#0D9488]" />
                     </div>
-                    <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                       No Ukay Feed Posts Yet
                     </h3>
                     <p className="text-xs text-slate-500">
@@ -3165,7 +3603,7 @@ export default function App() {
                         if (!isUserSignedIn) openAuthModal('login');
                         else setFeedComposerOpen(true);
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
                     >
                       + Create First Feed Post
                     </button>
@@ -3174,14 +3612,14 @@ export default function App() {
                   filteredFeedPosts.map((post) => (
                     <article
                       key={post.id}
-                      className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs"
+                      className="bg-white rounded-2xl border border-[#E2F2EE] overflow-hidden shadow-2xs"
                     >
-                      <div className="p-3 flex items-center justify-between gap-2">
+                      <div className="p-3.5 flex items-center justify-between gap-2">
                         <button
                           onClick={() => openSellerStore(post.sellerId)}
                           className="flex items-center gap-2.5 text-left min-w-0 cursor-pointer group"
                         >
-                          <div className="w-9 h-9 rounded-full bg-[#070D17] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                          <div className="w-9 h-9 rounded-full bg-[#0D9488] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
                             {post.authorAvatar ? (
                               <img
                                 src={post.authorAvatar}
@@ -3193,53 +3631,77 @@ export default function App() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-extrabold text-[#070D17] group-hover:underline truncate">
+                            <div className="text-xs font-extrabold text-[#132A2E] group-hover:underline truncate">
                               {post.authorName}
                             </div>
                             <div className="text-[10px] text-slate-400 truncate">
-                              {post.authorRole} • {post.timeAgo}
+                              {post.authorRole} · {post.timeAgo}
                             </div>
                           </div>
                         </button>
-                        <span className="px-2 py-0.5 rounded-full bg-[#10B981]/10 text-[#10B981] text-[9px] font-extrabold shrink-0">
-                          {post.condition}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-bold text-[#0D9488]">
+                            {post.condition}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openReportContentModal({
+                                kind: 'post',
+                                id: post.id,
+                                authorId: post.sellerId || post.authorName,
+                                authorName: post.authorName,
+                                title: post.itemTitle,
+                              })
+                            }
+                            className="p-1.5 rounded-full text-slate-400 hover:text-[#132A2E] hover:bg-slate-100 transition cursor-pointer"
+                            title="Report or Block User / Post"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="px-3 pb-2.5 space-y-1.5">
-                        <p className="text-xs text-[#1E293B] leading-relaxed">
+                      <div className="px-3.5 pb-2.5 space-y-1">
+                        <p className="text-xs text-[#132A2E] leading-relaxed">
                           {post.caption}
                         </p>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {(post.tags || []).map((t, i) => (
-                            <span key={i} className="text-[10px] font-bold text-[#10B981]">
+                            <span key={i} className="text-[10px] font-semibold text-[#0D9488]">
                               {t}
                             </span>
                           ))}
                         </div>
                       </div>
 
-                      <div className="relative bg-[#F4F6F9]">
+                      <div className="relative bg-[#F4FAF8]">
                         <img
                           src={post.image}
                           alt={post.itemTitle}
                           className="w-full max-h-72 object-cover"
                         />
-                        <div className="p-2.5 bg-[#070D17] text-white flex items-center justify-between gap-2">
+                        <div className="p-3 bg-white border-t border-[#E2F2EE] flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-xs font-bold truncate">{post.itemTitle}</div>
-                            <div className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                              ₱{post.price}
+                            <div className="text-xs font-bold text-[#132A2E] truncate">
+                              {post.itemTitle}
+                            </div>
+                            <div className="text-sm font-display font-extrabold text-[#0D9488] tabular-price">
+                              ₱{post.price.toLocaleString()}
                             </div>
                           </div>
                           {post.minedBy ? (
-                            <span className="px-3 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold shrink-0">
+                            <span className="px-3 py-1.5 rounded-xl bg-[#F4FAF8] text-[#132A2E] border border-[#CBE7E0] text-[11px] font-extrabold shrink-0">
                               Mined by {post.minedBy}
+                            </span>
+                          ) : isOwnSellerProduct(post.sellerId, post.authorName) ? (
+                            <span className="px-3 py-1.5 rounded-xl bg-[#F4FAF8] text-[#132A2E] text-[10px] font-extrabold shrink-0">
+                              Your Seller Listing
                             </span>
                           ) : (
                             <button
                               onClick={() => claimFeedPost(post.id)}
-                              className="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shrink-0 cursor-pointer"
+                              className="px-4 py-2 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E] text-xs font-extrabold shrink-0 cursor-pointer"
                             >
                               MINE NA!
                             </button>
@@ -3247,34 +3709,34 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="px-3 py-2 border-t border-[#E2E8F0] flex items-center justify-between text-[11px] text-slate-500">
+                      <div className="px-3.5 py-2 border-t border-[#E2F2EE] flex items-center justify-between text-[11px] text-slate-500">
                         <button
                           onClick={() => toggleLikePost(post.id)}
-                          className={`inline-flex items-center gap-1 font-bold ${
-                            post.liked ? 'text-[#EF4444]' : 'text-slate-600'
+                          className={`inline-flex items-center gap-1.5 font-bold ${
+                            post.liked ? 'text-[#0D9488]' : 'text-slate-600'
                           } cursor-pointer`}
                         >
                           <Heart
-                            className={`w-3.5 h-3.5 ${post.liked ? 'fill-current' : ''}`}
+                            className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`}
                           />
                           <span>{post.likes} Likes</span>
                         </button>
                         <span>{post.comments.length} Comments</span>
                       </div>
 
-                      <div className="px-3 pb-3 space-y-1.5 border-t border-slate-100 pt-2">
+                      <div className="px-3.5 pb-3.5 space-y-1.5 border-t border-[#E2F2EE] pt-2.5">
                         {post.comments.map((c, idx) => (
                           <div
                             key={idx}
-                            className="bg-[#F4F6F9] rounded-xl px-2.5 py-1.5 text-[11px]"
+                            className="bg-[#F4FAF8] rounded-xl px-3 py-1.5 text-[11px]"
                           >
-                            <span className="font-extrabold text-[#070D17]">{c.user}:</span>{' '}
-                            <span className="text-[#1E293B]">{c.text}</span>
+                            <span className="font-extrabold text-[#132A2E]">{c.user}:</span>{' '}
+                            <span className="text-slate-700">{c.text}</span>
                           </div>
                         ))}
                         <form
                           onSubmit={(e) => addFeedComment(e, post.id)}
-                          className="flex items-center gap-1.5 pt-1"
+                          className="flex items-center gap-2 pt-1"
                         >
                           <input
                             type="text"
@@ -3286,11 +3748,11 @@ export default function App() {
                               }))
                             }
                             placeholder="Ask measurements or comment..."
-                            className="flex-1 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-[11px] focus:outline-none"
+                            className="flex-1 px-3.5 py-1.5 rounded-full bg-[#F4FAF8] border border-[#CBE7E0] text-[11px] focus:outline-none"
                           />
                           <button
                             type="submit"
-                            className="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-full bg-[#0D9488] text-white text-[10px] font-bold cursor-pointer"
                           >
                             Post
                           </button>
@@ -3303,26 +3765,28 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 3: "MINE NA!" (TIKTOK LIVE SELLING ROOM) */}
+          {/* TAB 3: "MINE NA!" LIVE SELLING ROOM (MATCHING REFERENCE IMAGE 7 SPACING + DURATION COUNTER + END LIVE ICON) */}
           {state.activeTab === 'mine' && (
             <section
               id="tab-mine"
               onTouchStart={handleLiveTouchStart}
               onTouchEnd={handleLiveTouchEnd}
               onWheel={handleLiveWheel}
-              className="fixed inset-0 z-20 max-w-md mx-auto bg-[#070D17] text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
+              className="fixed inset-0 z-20 max-w-md mx-auto bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
-              {/* Video / Visual Backdrop (Local Camera -> Agora Remote WebRTC Video -> Firestore Frame Stream -> Pinned Product / Cover) */}
-              {activeLiveSeller && (
+              {/* Video / Visual Backdrop (Local Camera -> Agora Remote WebRTC Video -> Server/Cloud Frame Stream -> Pinned Product / Cover) */}
+              {(activeLiveSeller ||
+                (remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl) ||
+                activePinnedItem) && (
                 <img
                   id="live-fallback-bg"
                   src={
                     remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
                       ? remoteLiveStream.frameDataUrl
                       : activePinnedItem?.image &&
-                        activeLiveSeller.liveStreamPreview === activeLiveSeller.avatar
+                        activeLiveSeller?.liveStreamPreview === activeLiveSeller?.avatar
                       ? activePinnedItem.image
-                      : activeLiveSeller.liveStreamPreview ||
+                      : activeLiveSeller?.liveStreamPreview ||
                         activePinnedItem?.image ||
                         'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80'
                   }
@@ -3339,8 +3803,10 @@ export default function App() {
               <div
                 ref={agoraRemoteVideoRef}
                 id="agora-remote-video-stage"
-                className={`absolute inset-0 w-full h-full overflow-hidden ${
-                  isAgoraRemoteVideoPlaying && !isCameraStreaming ? '' : 'hidden'
+                className={`absolute inset-0 w-full h-full overflow-hidden transition-opacity ${
+                  isAgoraRemoteVideoPlaying && !isCameraStreaming
+                    ? 'opacity-100 z-[2]'
+                    : 'opacity-0 pointer-events-none z-0'
                 }`}
               />
               <video
@@ -3349,531 +3815,1072 @@ export default function App() {
                 autoPlay
                 playsInline
                 muted
-                className={`absolute inset-0 w-full h-full object-cover ${
+                className={`absolute inset-0 w-full h-full object-cover z-[3] ${
                   isCameraStreaming ? '' : 'hidden'
                 }`}
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-transparent to-black/90 pointer-events-none" />
+              <div className="absolute inset-0 z-[4] bg-gradient-to-b from-black/60 via-transparent to-black/85 pointer-events-none" />
 
-              {/* Top TikTok Live Overlay */}
-              <div className="relative z-10 p-3 pt-3.5 flex items-center justify-between gap-2">
-                {activeLiveSeller ? (
-                  <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full pl-1.5 pr-2 py-1 border border-white/15 min-w-0">
+              {/* TOP LIVE OVERLAY — EXACT LAYOUT & SPACING FROM REFERENCE IMAGE 7 */}
+              <div className="relative z-10 px-3.5 pt-3 space-y-2.5">
+                {/* Row 1: Top Navigation Bar (Profile & Search on Left | Video • Live • Tindahan • For You in Center | End Live / Live Studio Icon on Right) */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => openSellerStore(activeLiveSeller.id)}
-                      className="flex items-center gap-2 text-left min-w-0 cursor-pointer"
+                      type="button"
+                      onClick={() => switchTab('account')}
+                      className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center text-white hover:text-[#0D9488] cursor-pointer"
+                      title="My Account"
                     >
-                      <div className="w-8 h-8 rounded-full bg-[#F59E0B] text-[#070D17] font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
-                        {activeLiveSeller.avatar ? (
-                          <img
-                            src={activeLiveSeller.avatar}
-                            alt={activeLiveSeller.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          activeLiveSeller.name.slice(0, 2).toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div
-                          id="live-host-name"
-                          className="text-[11px] font-extrabold text-white truncate"
-                        >
-                          {activeLiveSeller.name}
-                        </div>
-                        <div
-                          id="live-host-category"
-                          className="text-[9px] text-[#10B981] font-bold truncate"
-                        >
-                          {activeLiveSeller.liveTitle ||
-                            activeLiveSeller.liveCategory ||
-                            'Ukay Live'}
-                        </div>
-                      </div>
+                      <User className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFollowCurrentLiveSeller();
-                      }}
-                      id="live-follow-btn"
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold shrink-0 cursor-pointer transition ${
-                        isFollowingActiveLiveSeller
-                          ? 'bg-[#10B981] text-[#070D17]'
-                          : 'bg-[#EF4444] text-white hover:bg-red-600'
-                      }`}
+                      onClick={() => switchTab('feed')}
+                      className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center text-white hover:text-[#0D9488] cursor-pointer"
+                      title="Search Ukay Drops"
                     >
-                      {isFollowingActiveLiveSeller ? '✓ Following' : '+ Follow'}
+                      <Search className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
-                  <div className="px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-xs font-extrabold">
-                    UKAYO Live Studio
-                  </div>
-                )}
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {(isCameraStreaming ||
-                    isAgoraRemoteVideoPlaying ||
-                    remoteLiveStream?.isCameraLive) && (
-                    <div className="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[9px] font-extrabold inline-flex items-center gap-1 shadow">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      <span>
-                        {isAgoraRemoteVideoPlaying || isCameraStreaming
-                          ? 'AGORA LIVE'
-                          : 'LIVE CAM'}
-                      </span>
+                  {/* Center Horizontal Live Tabs (Live / Tindahan) */}
+                  <div className="flex items-center gap-5 text-xs">
+                    <button
+                      type="button"
+                      className="font-extrabold text-white relative pb-1 cursor-pointer"
+                    >
+                      <span>Live</span>
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-[#2DD4BF]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        activeLiveSeller
+                          ? openSellerStore(activeLiveSeller.id)
+                          : switchTab('store')
+                      }
+                      className="font-semibold text-white/75 hover:text-white cursor-pointer"
+                    >
+                      Tindahan
+                    </button>
+                  </div>
+
+                  {/* Right Slot: Seller End Live Icon or Start Live / Exit Icon */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isCameraStreaming ? (
+                      <button
+                        type="button"
+                        onClick={endSellerLiveStream}
+                        id="top-end-live-btn"
+                        className="h-8 px-2.5 rounded-full bg-[#EF4444] hover:bg-red-600 text-white text-[10px] font-extrabold inline-flex items-center gap-1 shadow-md cursor-pointer"
+                        title="End Live Stream"
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                        <span>End Live</span>
+                      </button>
+                    ) : isSellerAccount ? (
+                      <button
+                        type="button"
+                        onClick={openLiveSetupModal}
+                        className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#0D9488] cursor-pointer"
+                        title="Start Seller Live Stream"
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => switchTab('home')}
+                        className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center text-white cursor-pointer"
+                        title="Exit Live"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: Host Pill + Follow Button on Left | Seller Duration Counter + End Live Icon / Explore Pill on Right */}
+                <div className="flex items-center justify-between gap-2">
+                  {activeLiveSeller || remoteLiveStream?.sellerName ? (
+                    <div className="flex items-center gap-2 bg-black/45 backdrop-blur-md rounded-full pl-1 pr-2 py-1 border border-white/15 min-w-0">
+                      <button
+                        onClick={() =>
+                          activeLiveSeller && openSellerStore(activeLiveSeller.id)
+                        }
+                        className="flex items-center gap-2 text-left min-w-0 cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[#0D9488] border border-[#2DD4BF] text-[#0D9488] font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                          {activeLiveSeller?.avatar ? (
+                            <img
+                              src={activeLiveSeller.avatar}
+                              alt={activeLiveSeller.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            (
+                              activeLiveSeller?.name ||
+                              remoteLiveStream?.sellerName ||
+                              'UK'
+                            )
+                              .slice(0, 2)
+                              .toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0 pr-0.5">
+                          <div
+                            id="live-host-name"
+                            className="text-[11px] font-extrabold text-white truncate leading-tight"
+                          >
+                            {activeLiveSeller?.name ||
+                              remoteLiveStream?.sellerName ||
+                              'Ukay Live Seller'}
+                          </div>
+                          <div
+                            id="live-host-category"
+                            className="text-[9px] text-white/85 font-semibold truncate leading-tight"
+                          >
+                            {(activeLiveSeller?.followers || 1).toLocaleString()} Followers ·{' '}
+                            {((activeLiveSeller?.followers || 15) + 2).toLocaleString()} Viewers
+                          </div>
+                        </div>
+                      </button>
+                      {activeLiveSeller &&
+                        !isOwnSellerProduct(
+                          activeLiveSeller.id,
+                          activeLiveSeller.name
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFollowCurrentLiveSeller();
+                            }}
+                            id="live-follow-btn"
+                            className={`px-3 py-1 rounded-full text-[10px] font-extrabold shrink-0 cursor-pointer transition ${
+                              isFollowingActiveLiveSeller
+                                ? 'bg-white/20 text-white'
+                                : 'bg-[#2DD4BF] text-[#132A2E] hover:bg-emerald-400'
+                            }`}
+                          >
+                            {isFollowingActiveLiveSeller ? '✓ Following' : '+ Follow'}
+                          </button>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-extrabold">
+                      UKAYO Live Studio
                     </div>
                   )}
-                  {activeLiveSeller &&
-                    !isCameraStreaming &&
-                    !isAgoraRemoteVideoPlaying &&
-                    !remoteLiveStream?.isCameraLive && (
-                      <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-[10px] font-extrabold inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-ping" />
-                        <span>LIVE</span>
+
+                  {/* Right Side of Row 2: Active Seller Duration Counter + End Live Icon OR Buyer Explore / Report */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(isCameraStreaming ||
+                      isOwnSellerProduct(
+                        activeLiveSeller?.id,
+                        activeLiveSeller?.name
+                      )) && (
+                      <div
+                        id="seller-live-duration-counter"
+                        className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-[#2DD4BF]/60 text-white text-[10px] font-mono font-extrabold inline-flex items-center gap-1.5 shadow-sm"
+                        title="Active Live Stream Elapsed Time"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-[#2DD4BF] animate-pulse" />
+                        <Clock className="w-3 h-3 text-[#0D9488]" />
+                        <span className="tabular-nums">
+                          {formatLiveDuration(liveElapsedSeconds)}
+                        </span>
                       </div>
                     )}
-                  <button
-                    onClick={() => switchTab('home')}
-                    className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                    title="Exit Live"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+
+                    {!isCameraStreaming &&
+                      (isAgoraRemoteVideoPlaying ||
+                        remoteLiveStream?.isCameraLive) && (
+                        <div className="px-2.5 py-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold inline-flex items-center gap-1 shadow">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#0D9488]" />
+                          <span>LIVE</span>
+                        </div>
+                      )}
+
+                    <button
+                      type="button"
+                      onClick={switchToNextRelatedLive}
+                      className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-bold text-white inline-flex items-center gap-1 cursor-pointer"
+                      title="Explore Next Live Room"
+                    >
+                      <Radio className="w-3 h-3 text-[#0D9488]" />
+                      <span>Explore</span>
+                      <ChevronRight className="w-3 h-3 text-white/70" />
+                    </button>
+
+                    {activeLiveSeller && !isCameraStreaming && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openReportContentModal({
+                            kind: 'live',
+                            id: activeLiveSeller.id,
+                            authorId: activeLiveSeller.id,
+                            authorName: activeLiveSeller.name,
+                            title:
+                              activeLiveSeller.liveTitle ||
+                              activeLiveSeller.name + ' Live Stream',
+                          })
+                        }
+                        className="w-7 h-7 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/80 hover:text-white cursor-pointer"
+                        title="Report or Block Live Stream / Host"
+                      >
+                        <Flag className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Center Empty State if No Seller is Live Yet */}
-              {!activeLiveSeller && !isCameraStreaming ? (
-                <div className="relative z-10 px-6 text-center space-y-3 my-auto">
-                  <div className="w-14 h-14 rounded-3xl bg-white/10 border border-white/15 flex items-center justify-center mx-auto text-[#EF4444]">
-                    <Radio className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-base font-display font-extrabold">
-                    No Active Live Streams Right Now
-                  </h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Start your own Live Stream right here in the Marketplace! Both Buyers and Sellers can turn on their camera and pin ukay drops.
-                  </p>
-                  <div className="flex flex-col gap-2 pt-1">
-                    <button
-                      onClick={openLiveSetupModal}
-                      className="w-full py-3 rounded-2xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
-                    >
-                      Start My Live Stream Now
-                    </button>
-                    {!isSellerAccount && (
+              {!activeLiveSeller &&
+                !isCameraStreaming &&
+                !isAgoraRemoteVideoPlaying &&
+                !remoteLiveStream?.isCameraLive && (
+                  <div className="relative z-10 px-6 text-center space-y-3 my-auto">
+                    <div className="w-14 h-14 rounded-3xl bg-white/10 border border-white/15 flex items-center justify-center mx-auto text-[#0D9488]">
+                      <Radio className="w-7 h-7" />
+                    </div>
+                    <h3 className="text-base font-display font-extrabold">
+                      No Active Live Streams Right Now
+                    </h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {isSellerAccount
+                        ? 'Start your Seller Live Stream right here in the Marketplace and pin ukay drops for buyers to Mine & Lock!'
+                        : 'Waiting for a Verified UKAYO Seller to go live. Want to host your own live selling room? Register as a Seller in My Account!'}
+                    </p>
+                    <div className="flex flex-col gap-2 pt-1">
+                      {isSellerAccount ? (
+                        <button
+                          onClick={openLiveSetupModal}
+                          className="w-full py-3 rounded-2xl bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                        >
+                          Start My Seller Live Stream Now
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleBecomeSellerAction}
+                          className="w-full py-3 rounded-2xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                        >
+                          Register as a UKAYO Seller to Go Live
+                        </button>
+                      )}
                       <button
-                        onClick={handleBecomeSellerAction}
-                        className="w-full py-2.5 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                        onClick={() => switchTab('feed')}
+                        className="w-full py-2.5 rounded-2xl bg-white/10 text-white text-xs font-bold cursor-pointer"
                       >
-                        Register Official Seller Shop (Optional)
+                        Browse Ukay Feed Instead
                       </button>
-                    )}
-                    <button
-                      onClick={() => switchTab('feed')}
-                      className="w-full py-2.5 rounded-2xl bg-white/10 text-white text-xs font-bold cursor-pointer"
-                    >
-                      Browse Ukay Feed Instead
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                state.sellers.length > 1 && (
-                  <div className="relative z-10 flex justify-center">
-                    <button
-                      onClick={switchToNextRelatedLive}
-                      className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[10px] font-bold text-slate-200 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <ChevronsUp className="w-3.5 h-3.5 text-[#10B981]" />
-                      <span>Swipe up for next live room</span>
-                    </button>
-                  </div>
-                )
-              )}
+                )}
 
-              {/* Bottom TikTok Live HUD */}
-              <div className="relative z-10 px-3 pb-20 space-y-2.5">
+              {/* BOTTOM LIVE HUD — EXACT SPACING & ELEMENTS FROM REFERENCE IMAGE 7 */}
+              <div className="relative z-10 px-3.5 pb-20 space-y-2.5">
                 <div id="floating-hearts-container" className="relative h-0">
                   {hearts.map((h) => (
                     <div
                       key={h.id}
                       style={{ right: `${h.right}px` }}
-                      className="floating-heart text-[#EF4444] text-xl"
+                      className="floating-heart text-[#0D9488] text-xl"
                     >
                       ❤️
                     </div>
                   ))}
                 </div>
 
-                <div className="flex items-end justify-between gap-2">
-                  {/* Bottom-Left Live Comments */}
+                {/* Safe Transaction Notice & Live Chat Stream (Matching Reference Image 7 Bottom-Left) */}
+                <div className="space-y-1.5 max-w-[88%]">
+                  <div className="bg-black/40 backdrop-blur-xs rounded-xl px-2.5 py-1.5 text-[11px] text-white/95 leading-snug flex items-start gap-2">
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold shrink-0 mt-0.5">
+                      SAFE
+                    </span>
+                    <span>
+                      Welcome to UKAYO Live! Stay safe — only transact inside UKAYO to avoid scams.
+                    </span>
+                  </div>
+
                   <div
                     ref={liveChatBoxRef}
                     id="live-chat-messages"
-                    className="flex-1 max-h-36 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1.5 pr-1"
+                    className="max-h-32 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1 pr-1"
                   >
-                    {state.liveChat.slice(-18).map((m, idx) => (
+                    {state.liveChat.slice(-16).map((m, idx) => (
                       <div
                         key={m.id || idx}
-                        className="inline-flex items-start gap-1.5 bg-black/55 backdrop-blur-xs rounded-2xl px-2.5 py-1 text-[11px] max-w-full border border-white/10"
+                        className="inline-flex items-start gap-1.5 bg-black/35 backdrop-blur-xs rounded-xl px-2.5 py-1 text-xs max-w-full"
                       >
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${
-                            m.badge === 'HOST'
-                              ? 'bg-[#EF4444] text-white'
-                              : m.badge === 'LOCKED'
-                              ? 'bg-[#10B981] text-white'
-                              : 'bg-[#F59E0B] text-[#070D17]'
-                          }`}
-                        >
-                          {m.badge}
-                        </span>
+                        {m.badge && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${
+                              m.badge === 'HOST'
+                                ? 'bg-[#2DD4BF] text-[#132A2E]'
+                                : m.badge === 'LOCKED'
+                                ? 'bg-white text-[#132A2E]'
+                                : 'bg-white/20 text-white'
+                            }`}
+                          >
+                            {m.badge}
+                          </span>
+                        )}
                         <p className="text-white leading-snug break-words">
-                          <span className="font-bold text-slate-200">{m.sender}:</span>{' '}
+                          <span className="font-bold text-white/85">{m.sender}:</span>{' '}
                           {m.text}
                         </p>
                       </div>
                     ))}
                   </div>
 
-                  {/* Right Vertical Action Rail (Available to Both Buyers & Sellers to Go Live & Pin Items) */}
-                  <div className="flex flex-col items-center gap-2.5 shrink-0">
-                    <button
-                      onClick={toggleCameraLive}
-                      id="tiktok-cam-btn"
-                      className={`w-9 h-9 rounded-full ${
-                        isCameraStreaming ? 'bg-[#EF4444]' : 'bg-black/50'
-                      } backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer`}
-                      title="Go Live Camera (Buyer or Seller)"
-                    >
-                      <Video className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={flipLiveCamera}
-                      className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
-                      title="Flip Camera"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={openSellerDropModal}
-                      id="tiktok-seller-drop-btn"
-                      className="flex w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] items-center justify-center shadow-md cursor-pointer"
-                      title="Pin New Live Item"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={toggleLiveAudienceAudio}
-                      className={`w-9 h-9 rounded-full ${
-                        !isLiveAudioMuted && isAgoraRemoteAudioPlaying
-                          ? 'bg-[#10B981] text-[#070D17]'
-                          : 'bg-black/50 text-white'
-                      } backdrop-blur-md border border-white/15 flex items-center justify-center cursor-pointer`}
-                      title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
-                    >
-                      {isLiveAudioMuted ? (
-                        <VolumeX className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={triggerLiveReaction}
-                      className="w-10 h-10 rounded-full bg-[#EF4444] text-white flex items-center justify-center shadow-lg active:scale-90 transition cursor-pointer"
-                      title="Send Love"
-                    >
-                      <Heart className="w-5 h-5 fill-current" />
-                    </button>
+                  {/* Quick Comment Greeting Pills (Matching "Hello, ShopeeFam! ❤️❤️❤️" | "Powertap po..." in Image 7) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                    {[
+                      'Hello, UkayoFam! ❤️❤️❤️',
+                      'Mine Na! 🔥',
+                      'Size & condition po?',
+                    ].map((quickText) => (
+                      <button
+                        key={quickText}
+                        type="button"
+                        onClick={() => setLiveChatInput(quickText)}
+                        className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-[11px] font-medium text-white whitespace-nowrap shrink-0 cursor-pointer hover:bg-black/60"
+                      >
+                        {quickText}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Pinned Item Card with Unique MINE NA! Button */}
+                {/* Pinned Item Card (Buyers see MINE NA!; Seller sees PINNED BY YOU) */}
                 {activePinnedItem ? (
                   <div id="live-pinned-item-card">
-                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-xl border border-white flex items-center gap-2.5">
-                      <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-slate-100 shrink-0">
+                    <div className="bg-white rounded-2xl p-2.5 shadow-lg flex items-center gap-2.5">
+                      <div className="relative w-13 h-13 rounded-xl overflow-hidden bg-[#F4FAF8] shrink-0">
                         <img
                           src={activePinnedItem.image}
                           alt={activePinnedItem.title}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-[#070D17] text-white text-[9px] font-extrabold">
+                        <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[8px] font-extrabold">
                           {activePinnedItem.code}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-[11px] font-extrabold text-[#070D17] truncate">
+                        <div className="text-xs font-extrabold text-[#132A2E] truncate">
                           {activePinnedItem.title}
                         </div>
                         <div className="text-[10px] text-slate-500 truncate">
-                          {activePinnedItem.size} • {activePinnedItem.condition}
+                          {activePinnedItem.size} · {activePinnedItem.condition}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                            ₱{activePinnedItem.price}
+                          <span className="text-sm font-display font-extrabold text-[#0D9488] tabular-price">
+                            ₱{activePinnedItem.price.toLocaleString()}
                           </span>
                           {activePinnedItem.winner ? (
-                            <span className="px-1.5 py-0.2 rounded bg-[#F59E0B]/20 text-[#070D17] text-[9px] font-extrabold truncate">
+                            <span className="text-[10px] font-bold text-[#132A2E] truncate">
                               Mined: {activePinnedItem.winner}
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold text-[#10B981]">
+                            <span className="text-[10px] font-bold text-[#0D9488]">
                               Available
                             </span>
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => claimLiveItem(activePinnedItem.id)}
-                        className={`px-3 py-2.5 rounded-xl ${
-                          activePinnedItem.winner
+                      {isOwnSellerProduct(
+                        activePinnedItem.sellerId || activeLiveSeller?.id,
+                        activeLiveSeller?.name || remoteLiveStream?.sellerName
+                      ) ? (
+                        <span className="px-3 py-2 rounded-xl bg-[#0D9488] text-[#0D9488] text-[10px] font-extrabold shrink-0 text-center">
+                          {activePinnedItem.winner
+                            ? `Locked: ${activePinnedItem.winner}`
+                            : 'PINNED BY YOU'}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => claimLiveItem(activePinnedItem.id)}
+                          className={`px-3.5 py-2 rounded-xl ${
+                            activePinnedItem.winner
+                              ? 'bg-[#0D9488] text-white'
+                              : 'bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E]'
+                          } text-xs font-extrabold shrink-0 cursor-pointer shadow-2xs`}
+                        >
+                          {activePinnedItem.winner
                             ? activePinnedItem.winner === state.user.name
-                              ? 'bg-[#F59E0B] text-[#070D17]'
-                              : 'bg-[#070D17] text-white'
-                            : 'bg-[#10B981] hover:bg-emerald-600 text-white'
-                        } text-[11px] font-extrabold shrink-0 cursor-pointer shadow-sm`}
-                      >
-                        {activePinnedItem.winner
-                          ? activePinnedItem.winner === state.user.name
-                            ? 'LOCKED!'
-                            : 'STEAL'
-                          : 'MINE NA!'}
-                      </button>
+                              ? 'LOCKED!'
+                              : 'STEAL'
+                            : 'MINE NA!'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
                   isSellerAccount && (
                     <button
                       onClick={openSellerDropModal}
-                      className="w-full py-2.5 rounded-2xl bg-[#F59E0B] text-[#070D17] text-xs font-extrabold cursor-pointer shadow-md"
+                      className="w-full py-2 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer shadow-sm"
                     >
                       + Pin First Item to Live Rack
                     </button>
                   )
                 )}
 
-                {/* Live Comment Input Bar */}
-                <form onSubmit={sendLiveChat} className="flex items-center gap-2">
+                {/* Bottom Action Row — Matching Reference Image 7: Bag w/ Count Badge | Comment Pill | Circular Action Icons */}
+                <form
+                  onSubmit={sendLiveChat}
+                  className="flex items-center gap-2 pt-0.5"
+                >
+                  {/* Shopping Bag Badge Button on Left (Matches Orange/Emerald Bag with Number in Image 7) */}
                   <button
                     type="button"
                     onClick={() => switchTab('bag')}
-                    className="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0 cursor-pointer shadow-sm"
-                    title="My Bayong"
+                    className="relative w-10 h-10 rounded-xl bg-[#2DD4BF] text-[#132A2E] flex flex-col items-center justify-center shrink-0 cursor-pointer shadow-md"
+                    title="My Bayong & Live Rack"
                   >
-                    <ShoppingBag className="w-4 h-4" />
+                    <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+                    <span className="text-[9px] font-extrabold leading-none mt-0.5 tabular-nums">
+                      {bayongTotalQty || state.liveItems.length}
+                    </span>
                   </button>
+
+                  {/* Translucent Comment Input Pill */}
                   <input
                     type="text"
                     id="live-chat-input"
                     value={liveChatInput}
                     onChange={(e) => setLiveChatInput(e.target.value)}
-                    placeholder="Say something or ask measurements..."
-                    className="flex-1 px-3.5 py-2 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-xs text-white placeholder-slate-300 focus:outline-none"
+                    placeholder="Comment"
+                    className="flex-1 min-w-0 px-4 py-2.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs text-white placeholder-white/70 focus:outline-none"
                   />
+
+                  {/* Seller Host Controls (Only for Registered Sellers: Camera, Flip, Pin, End Live Icon) */}
+                  {isSellerAccount && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={toggleCameraLive}
+                        id="tiktok-cam-btn"
+                        className={`w-9 h-9 rounded-full ${
+                          isCameraStreaming
+                            ? 'bg-[#2DD4BF] text-[#132A2E]'
+                            : 'bg-black/45 text-white'
+                        } backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 cursor-pointer`}
+                        title={
+                          isCameraStreaming
+                            ? 'Camera Active'
+                            : 'Start Seller Live Camera'
+                        }
+                      >
+                        <Video className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={flipLiveCamera}
+                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
+                        title="Flip Camera"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openSellerDropModal}
+                        id="tiktok-seller-drop-btn"
+                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#0D9488] flex items-center justify-center shrink-0 cursor-pointer"
+                        title="Pin New Live Item"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      {isCameraStreaming && (
+                        <button
+                          type="button"
+                          onClick={endSellerLiveStream}
+                          id="seller-end-live-btn"
+                          className="w-9 h-9 rounded-full bg-[#EF4444] text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
+                          title="End Live Stream"
+                        >
+                          <Power className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Mute/Unmute Audio Circle Button */}
                   <button
-                    type="submit"
-                    className="px-3.5 py-2 rounded-full bg-[#10B981] text-white text-xs font-extrabold shrink-0 cursor-pointer"
+                    type="button"
+                    onClick={toggleLiveAudienceAudio}
+                    className={`w-9 h-9 rounded-full ${
+                      !isLiveAudioMuted && isAgoraRemoteAudioPlaying
+                        ? 'bg-[#2DD4BF] text-[#132A2E]'
+                        : 'bg-black/45 text-white'
+                    } backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 cursor-pointer`}
+                    title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
                   >
-                    Send
+                    {isLiveAudioMuted ? (
+                      <VolumeX className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {/* Share / Next Live Room Circle Button */}
+                  <button
+                    type="button"
+                    onClick={switchToNextRelatedLive}
+                    className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
+                    title="Next Live Room"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+
+                  {/* Heart Reaction Circle Button on Far Right */}
+                  <button
+                    type="button"
+                    onClick={triggerLiveReaction}
+                    className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:text-[#0D9488] flex items-center justify-center shrink-0 active:scale-90 transition cursor-pointer"
+                    title="Send Love"
+                  >
+                    <Heart className="w-4 h-4 fill-current" />
                   </button>
                 </form>
               </div>
             </section>
           )}
 
-          {/* TAB 4: "NASA TINDAHAN" (SELLER STOREFRONT PORTAL) */}
+          {/* TAB 4: "TINDAHAN" (MAIN UKAYO MALL & MARKETPLACE — CATEGORIES + SHOPS + ALL PRODUCTS) */}
           {state.activeTab === 'store' && (
-            <section id="tab-store" className="px-3.5 pt-3 space-y-3 pb-4">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => switchTab('feed')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#070D17] cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Feed</span>
-                </button>
-                <span className="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">
-                  Nasa Tindahan
-                </span>
-                {isSellerAccount ? (
-                  <button
-                    onClick={openSellerDropModal}
-                    id="store-add-product-btn"
-                    className="px-2.5 py-1 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer"
-                  >
-                    + Add Item
-                  </button>
-                ) : (
-                  <span className="w-12" />
-                )}
+            <section id="tab-store" className="px-3 pt-3 space-y-2.5 pb-4">
+              {/* Top Mall Header Bar */}
+              <div className="bg-white rounded-2xl border border-[#E2F2EE] px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  {activeStoreSeller ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setState((prev) => ({ ...prev, activeStoreId: '' }))
+                      }
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#132A2E] cursor-pointer"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>All Tindahan</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Store className="w-4 h-4 text-[#0D9488]" />
+                      <span className="text-xs font-display font-extrabold text-[#132A2E]">
+                        Tindahan Mall &amp; Marketplace
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {state.activeFeedCategory !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setState((prev) => ({
+                          ...prev,
+                          activeFeedCategory: 'ALL',
+                        }))
+                      }
+                      className="px-2 py-1 rounded-lg bg-[#F4FAF8] border border-[#CBE7E0] text-[10px] font-bold text-[#132A2E] cursor-pointer"
+                    >
+                      Reset Filter
+                    </button>
+                  )}
+                  {isSellerAccount && (
+                    <button
+                      onClick={openSellerDropModal}
+                      id="store-add-product-btn"
+                      className="px-2.5 py-1 rounded-lg bg-[#2DD4BF] text-[#132A2E] text-[10px] font-extrabold cursor-pointer"
+                    >
+                      + Add Product
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {!activeStoreSeller ? (
-                <div className="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
-                  <Store className="w-8 h-8 text-[#F59E0B] mx-auto" />
-                  <h3 className="text-sm font-display font-extrabold text-[#070D17]">
-                    No Active Seller Storefront Yet
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Register as a Seller to launch your own Nasa Tindahan storefront!
-                  </p>
+              {/* Horizontal Category Selector Pills (From Home Categories) */}
+              <div className="bg-white rounded-2xl border border-[#E2F2EE] p-2.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[11px] font-extrabold text-[#132A2E]">
+                    Shop by Category
+                  </span>
+                  <span className="text-[10px] font-semibold text-[#0D9488]">
+                    {state.activeFeedCategory === 'ALL'
+                      ? 'Showing All Categories'
+                      : state.activeFeedCategory}
+                  </span>
                 </div>
-              ) : (
-                <>
-                  <div id="storefront-hero">
-                    <div className="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-12 h-12 rounded-2xl bg-[#111827] border border-slate-700 text-[#F59E0B] font-display font-extrabold text-base flex items-center justify-center shrink-0 overflow-hidden">
-                            {activeStoreSeller.avatar ? (
+                <div
+                  id="tindahan-category-pills"
+                  className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"
+                >
+                  {['ALL', ...state.ukayPaborito.map((u) => u.id)].map((catId) => {
+                    const active = state.activeFeedCategory === catId;
+                    const catObj = state.ukayPaborito.find((u) => u.id === catId);
+                    return (
+                      <button
+                        key={catId}
+                        type="button"
+                        onClick={() =>
+                          setState((prev) => ({
+                            ...prev,
+                            activeFeedCategory: catId,
+                          }))
+                        }
+                        className={`px-3 py-1.5 rounded-full text-[11px] font-bold shrink-0 cursor-pointer transition flex items-center gap-1.5 ${
+                          active
+                            ? 'bg-[#0D9488] text-white shadow-2xs'
+                            : 'bg-[#F4FAF8] text-[#132A2E] border border-[#CBE7E0]'
+                        }`}
+                      >
+                        {catObj?.image && (
+                          <img
+                            src={catObj.image}
+                            alt={catObj.label}
+                            className="w-4 h-4 rounded-full object-cover"
+                          />
+                        )}
+                        <span>
+                          {catId === 'ALL' ? 'All Items' : catObj?.label || catId}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Official Tindahan Shops Strip */}
+              {state.sellers.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-[#132A2E]">
+                      Verified Tindahan Shops
+                    </span>
+                    {activeStoreSeller && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setState((prev) => ({ ...prev, activeStoreId: '' }))
+                        }
+                        className="text-[10px] font-bold text-[#0D9488] cursor-pointer"
+                      >
+                        View All Shops
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setState((prev) => ({ ...prev, activeStoreId: '' }))
+                      }
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer border transition ${
+                        !activeStoreSeller
+                          ? 'bg-[#2DD4BF] text-[#132A2E] border-[#2DD4BF]'
+                          : 'bg-[#F4FAF8] text-[#132A2E] border-[#CBE7E0]'
+                      }`}
+                    >
+                      All Mall Shops ({state.sellers.length})
+                    </button>
+                    {state.sellers.map((s) => {
+                      const isSelected = activeStoreSeller?.id === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              activeStoreId: isSelected ? '' : s.id,
+                            }))
+                          }
+                          className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 cursor-pointer border transition flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#0D9488] text-white border-[#0D9488]'
+                              : 'bg-[#F4FAF8] text-[#132A2E] border-[#CBE7E0]'
+                          }`}
+                        >
+                          <div className="w-4 h-4 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[8px] font-extrabold flex items-center justify-center overflow-hidden">
+                            {s.avatar ? (
                               <img
-                                src={activeStoreSeller.avatar}
-                                alt={activeStoreSeller.name}
+                                src={s.avatar}
+                                alt={s.name}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              activeStoreSeller.name.slice(0, 2).toUpperCase()
+                              s.name.slice(0, 1).toUpperCase()
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h2 className="text-sm font-display font-extrabold truncate">
-                                {activeStoreSeller.name}
-                              </h2>
-                              {activeStoreSeller.isLive && (
-                                <span className="px-1.5 py-0.2 rounded bg-[#EF4444] text-white text-[8px] font-extrabold uppercase shrink-0">
-                                  LIVE
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 truncate">
-                              {activeStoreSeller.city} • {activeStoreSeller.rating} ★ •{' '}
-                              {activeStoreSeller.followers.toLocaleString()} Followers
-                            </div>
+                          <span className="max-w-[96px] truncate">{s.name}</span>
+                          <span className="text-[9px] opacity-80 font-semibold">
+                            ({(s.followers || 0).toLocaleString()})
+                          </span>
+                          {s.isLive && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Seller Profile Card with Prominent Follower Count when Seller Profile is Clicked */}
+              {activeStoreSeller && (
+                <div id="storefront-hero">
+                  <div className="bg-white border border-[#E2F2EE] text-[#132A2E] rounded-2xl p-4 space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-full bg-[#0D9488] text-white font-display font-extrabold text-base flex items-center justify-center shrink-0 overflow-hidden">
+                          {activeStoreSeller.avatar ? (
+                            <img
+                              src={activeStoreSeller.avatar}
+                              alt={activeStoreSeller.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            activeStoreSeller.name.slice(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h2 className="text-sm font-display font-extrabold truncate">
+                              {activeStoreSeller.name}
+                            </h2>
+                            {activeStoreSeller.isLive && (
+                              <span className="px-1.5 py-0.2 rounded bg-[#2DD4BF] text-[#132A2E] text-[8px] font-extrabold uppercase shrink-0">
+                                LIVE
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                            {activeStoreSeller.city} · {activeStoreSeller.rating} ★ Rating
+                          </div>
+                          <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F4FAF8] border border-[#CBE7E0] text-[11px] font-extrabold text-[#132A2E]">
+                            <User className="w-3 h-3 text-[#0D9488]" />
+                            <span id="seller-profile-follower-count">
+                              {(activeStoreSeller.followers || 0).toLocaleString()} Followers
+                            </span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => toggleFollowStore(activeStoreSeller.id)}
-                          className={`px-3.5 py-1.5 rounded-xl ${
-                            activeStoreSeller.followed
-                              ? 'bg-white/15 text-white'
-                              : 'bg-[#10B981] text-white'
-                          } text-xs font-extrabold shrink-0 cursor-pointer`}
-                        >
-                          {activeStoreSeller.followed ? 'Following' : 'Follow'}
-                        </button>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {activeStoreSeller.bio}
-                      </p>
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => openLiveRoomForSeller(activeStoreSeller.id)}
-                          className="flex-1 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold cursor-pointer"
-                        >
-                          Watch Live Room
-                        </button>
-                        <button
-                          onClick={() => openDirectChatWithSeller(activeStoreSeller.id)}
-                          className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold cursor-pointer"
-                        >
-                          Chat Seller
-                        </button>
+                      <button
+                        onClick={() => toggleFollowStore(activeStoreSeller.id)}
+                        className={`px-3.5 py-1.5 rounded-xl ${
+                          activeStoreSeller.followed
+                            ? 'bg-[#F4FAF8] text-[#132A2E] border border-[#CBE7E0]'
+                            : 'bg-[#0D9488] text-white'
+                        } text-xs font-extrabold shrink-0 cursor-pointer`}
+                      >
+                        {activeStoreSeller.followed ? '✓ Following' : '+ Follow'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {activeStoreSeller.bio}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 py-2 px-3 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-center">
+                      <div>
+                        <div className="text-xs font-display font-extrabold text-[#132A2E]">
+                          {(activeStoreSeller.followers || 0).toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Followers</div>
                       </div>
+                      <div className="border-x border-[#E2F2EE]">
+                        <div className="text-xs font-display font-extrabold text-[#132A2E]">
+                          {(activeStoreSeller.products || []).length}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Products</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-display font-extrabold text-[#132A2E]">
+                          {activeStoreSeller.rating} ★
+                        </div>
+                        <div className="text-[10px] text-slate-500">Shop Rating</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => openLiveRoomForSeller(activeStoreSeller.id)}
+                        className="flex-1 py-2 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer"
+                      >
+                        Watch Live Room
+                      </button>
+                      <button
+                        onClick={() => openDirectChatWithSeller(activeStoreSeller.id)}
+                        className="flex-1 py-2 rounded-xl bg-[#F4FAF8] hover:bg-slate-200/70 text-[#132A2E] text-xs font-extrabold cursor-pointer"
+                      >
+                        Chat Seller
+                      </button>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {activeStoreSeller.products.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">
-                      No items listed in this Tindahan rack yet.
+              {/* Unified Tindahan Marketplace Products Grid (Filtered by Category, Shop, and Search) */}
+              {(() => {
+                const matchCategory = (itemCategory: string, itemTitle: string) => {
+                  if (state.activeFeedCategory === 'ALL') return true;
+                  const target = state.activeFeedCategory.toLowerCase();
+                  const cat = (itemCategory || '').toLowerCase();
+                  const title = (itemTitle || '').toLowerCase();
+                  if (cat === target) return true;
+                  const keywords = target
+                    .split(/[\s&/,-]+/)
+                    .filter((w) => w.length > 2);
+                  return keywords.some(
+                    (kw) => cat.includes(kw) || title.includes(kw)
+                  );
+                };
+
+                const matchSearch = (title: string, shopName: string, cat: string) => {
+                  if (!state.searchQuery) return true;
+                  const q = state.searchQuery.toLowerCase();
+                  return (
+                    title.toLowerCase().includes(q) ||
+                    shopName.toLowerCase().includes(q) ||
+                    (cat || '').toLowerCase().includes(q)
+                  );
+                };
+
+                const storeProductCards: {
+                  key: string;
+                  kind: 'store' | 'feed';
+                  sellerId: string;
+                  sellerName: string;
+                  productId: string;
+                  title: string;
+                  price: number;
+                  category: string;
+                  size: string;
+                  status: string;
+                  image: string;
+                }[] = [];
+
+                const sellersToScan = activeStoreSeller
+                  ? [activeStoreSeller]
+                  : state.sellers;
+
+                sellersToScan.forEach((seller) => {
+                  (seller.products || []).forEach((prod) => {
+                    const cat = prod.category || seller.liveCategory || 'Ukay Selection';
+                    if (
+                      matchCategory(cat, prod.title) &&
+                      matchSearch(prod.title, seller.name, cat)
+                    ) {
+                      storeProductCards.push({
+                        key: `store_${seller.id}_${prod.id}`,
+                        kind: 'store',
+                        sellerId: seller.id,
+                        sellerName: seller.name,
+                        productId: prod.id,
+                        title: prod.title,
+                        price: prod.price,
+                        category: cat,
+                        size: prod.size || 'Free Size',
+                        status: prod.status || 'Available',
+                        image: prod.image,
+                      });
+                    }
+                  });
+                });
+
+                // Include feed marketplace listings that match the selected category when browsing all shops
+                state.feedPosts.forEach((post) => {
+                  if (hiddenPostSet.has(post.id)) return;
+                  if (
+                    activeStoreSeller &&
+                    post.sellerId !== activeStoreSeller.id &&
+                    post.authorName !== activeStoreSeller.name
+                  ) {
+                    return;
+                  }
+                  const cat = post.category || 'Ukay Selection';
+                  if (
+                    matchCategory(cat, post.itemTitle) &&
+                    matchSearch(post.itemTitle, post.authorName, cat)
+                  ) {
+                    storeProductCards.push({
+                      key: `feed_${post.id}`,
+                      kind: 'feed',
+                      sellerId: post.sellerId,
+                      sellerName: post.authorName,
+                      productId: post.id,
+                      title: post.itemTitle,
+                      price: post.price,
+                      category: cat,
+                      size: post.condition || 'Preloved',
+                      status: post.minedBy ? `Mined by ${post.minedBy}` : 'Available',
+                      image: post.image,
+                    });
+                  }
+                });
+
+                if (storeProductCards.length === 0) {
+                  return (
+                    <div className="bg-white rounded-2xl border border-[#E2F2EE] p-8 text-center space-y-2.5">
+                      <Store className="w-8 h-8 text-[#0D9488] mx-auto" />
+                      <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
+                        No items found in{' '}
+                        {state.activeFeedCategory === 'ALL'
+                          ? 'this Tindahan view'
+                          : state.activeFeedCategory}
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Try switching to &ldquo;All Items&rdquo; or another category above to explore more ukay products.
+                      </p>
+                      {state.activeFeedCategory !== 'ALL' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              activeFeedCategory: 'ALL',
+                            }))
+                          }
+                          className="px-4 py-2 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
+                        >
+                          Show All Tindahan Items
+                        </button>
+                      )}
                     </div>
-                  ) : (
-                    <div id="storefront-products-grid" className="grid grid-cols-2 gap-2.5">
-                      {activeStoreSeller.products.map((prod) => (
+                  );
+                }
+
+                return (
+                  <div
+                    id="storefront-products-grid"
+                    className="grid grid-cols-2 gap-2.5"
+                  >
+                    {storeProductCards.map((card) => {
+                      const isAvailable = card.status === 'Available';
+                      const ownItem = isOwnSellerProduct(
+                        card.sellerId,
+                        card.sellerName
+                      );
+                      const handleMineClick = () => {
+                        if (card.kind === 'store') {
+                          claimStoreProduct(card.sellerId, card.productId);
+                        } else {
+                          claimFeedPost(card.productId);
+                        }
+                      };
+                      return (
                         <div
-                          key={prod.id}
-                          className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs flex flex-col"
+                          key={card.key}
+                          className="bg-white rounded-2xl border border-[#E2F2EE] overflow-hidden shadow-2xs flex flex-col"
                         >
                           <button
-                            onClick={() => claimStoreProduct(activeStoreSeller.id, prod.id)}
-                            className="relative aspect-square bg-[#F4F6F9] overflow-hidden cursor-pointer text-left"
+                            type="button"
+                            onClick={handleMineClick}
+                            className="relative aspect-square bg-[#F4FAF8] overflow-hidden cursor-pointer text-left"
                           >
                             <img
-                              src={prod.image}
-                              alt={prod.title}
+                              src={card.image}
+                              alt={card.title}
                               className="w-full h-full object-cover"
                             />
                             <span
-                              className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-                                prod.status === 'Available'
-                                  ? 'bg-[#10B981] text-white'
-                                  : 'bg-[#F59E0B] text-[#070D17]'
+                              className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[9px] font-extrabold ${
+                                isAvailable
+                                  ? 'bg-[#2DD4BF] text-[#132A2E]'
+                                  : 'bg-[#0D9488] text-white'
                               }`}
                             >
-                              {prod.status}
+                              {card.status}
+                            </span>
+                            <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/55 backdrop-blur-xs text-white text-[9px] font-semibold truncate max-w-[85%]">
+                              {card.category}
                             </span>
                           </button>
-                          <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
+
+                          <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                             <div>
-                              <div className="text-xs font-bold text-[#070D17] line-clamp-2">
-                                {prod.title}
+                              <div className="text-xs font-bold text-[#132A2E] line-clamp-2">
+                                {card.title}
                               </div>
-                              <div className="text-[10px] text-slate-400 mt-0.5">
-                                {prod.size}
+                              <div className="flex items-center justify-between gap-1 mt-1">
+                                <span className="text-[10px] text-slate-500 truncate">
+                                  {card.sellerName}
+                                </span>
+                                <span className="text-[10px] text-slate-400 shrink-0">
+                                  {card.size}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between gap-1 pt-1">
-                              <span className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                                ₱{prod.price}
+
+                            <div className="flex items-center justify-between gap-1 pt-1 border-t border-[#E2F2EE]">
+                              <span className="text-sm font-display font-extrabold text-[#0D9488] tabular-price">
+                                ₱{card.price.toLocaleString()}
                               </span>
-                              <button
-                                onClick={() => claimStoreProduct(activeStoreSeller.id, prod.id)}
-                                className="px-2.5 py-1 rounded-lg bg-[#070D17] hover:bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition"
-                              >
-                                MINE NA!
-                              </button>
+                              {ownItem ? (
+                                <span className="px-2 py-1 rounded-lg bg-[#F4FAF8] text-[#132A2E] text-[9px] font-extrabold">
+                                  Your Item
+                                </span>
+                              ) : !isAvailable ? (
+                                <span className="px-2 py-1 rounded-lg bg-[#F4FAF8] text-slate-400 text-[9px] font-bold">
+                                  Locked
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleMineClick}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#0D9488] hover:bg-[#2DD4BF] hover:text-[#132A2E] text-white text-[10px] font-extrabold cursor-pointer transition"
+                                >
+                                  MINE NA!
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
           )}
 
-          {/* TAB 5: "MY BAYONG" */}
+          {/* TAB 5: "MY BAYONG" (SHOPPING CART — MATCHING REFERENCE IMAGE 2 LIGHT CARD LAYOUT) */}
           {state.activeTab === 'bag' && (
-            <section id="tab-bag" className="px-3.5 pt-3 space-y-3 pb-24">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-display font-extrabold text-[#070D17]">
-                    My Bayong
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Review your mined pieces before checkout
-                  </p>
-                </div>
-                <span
-                  id="bayong-item-count"
-                  className="px-2.5 py-1 rounded-full bg-[#070D17] text-white text-[10px] font-extrabold"
+            <section id="tab-bag" className="space-y-2.5 pb-28">
+              {/* Top White Cart Bar (Matching Reference Image 2: Back Arrow | Shopping Cart (count) | Edit & Chat Icon) */}
+              <div className="bg-white border-b border-[#E2F2EE] px-4 py-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => switchTab('home')}
+                  className="text-[#132A2E] cursor-pointer"
                 >
-                  {bayongTotalQty} {bayongTotalQty === 1 ? 'item' : 'items'}
-                </span>
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <h2 className="text-sm font-display font-extrabold text-[#132A2E]">
+                  My Bayong{' '}
+                  <span id="bayong-item-count" className="font-normal text-slate-500">
+                    ({bayongTotalQty})
+                  </span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => switchTab('chat')}
+                  className="text-xs font-semibold text-slate-600 cursor-pointer"
+                >
+                  Chat
+                </button>
               </div>
 
-              <div id="bayong-items-list" className="space-y-2.5">
+              <div id="bayong-items-list" className="px-3 space-y-2.5">
                 {bayongItems.length === 0 ? (
-                  <div className="bg-white rounded-3xl border border-[#E2E8F0] p-8 text-center space-y-2.5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#F4F6F9] text-[#070D17] flex items-center justify-center mx-auto">
-                      <ShoppingBag className="w-6 h-6" />
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] p-8 text-center space-y-2.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F4FAF8] text-[#132A2E] flex items-center justify-center mx-auto">
+                      <ShoppingBag className="w-6 h-6 text-[#0D9488]" />
                     </div>
-                    <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                       Your Bayong is empty
                     </h3>
                     <p className="text-xs text-slate-500">
@@ -3881,7 +4888,7 @@ export default function App() {
                     </p>
                     <button
                       onClick={() => switchTab('feed')}
-                      className="px-4 py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
                     >
                       Browse Ukay Feed
                     </button>
@@ -3893,85 +4900,119 @@ export default function App() {
                     return (
                       <div
                         key={item.id}
-                        className="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs flex items-center gap-3"
+                        className="bg-white rounded-2xl border border-[#E2F2EE] overflow-hidden shadow-2xs"
                       >
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-16 h-16 rounded-xl object-cover bg-[#F4F6F9] shrink-0"
-                        />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="text-xs font-extrabold text-[#070D17] line-clamp-2">
+                        {/* Store Header Row Inside Cart Card (Matching Reference Image 2) */}
+                        <div className="px-3.5 py-2.5 border-b border-[#E2F2EE] flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => openSellerStore(item.sellerId)}
+                            className="flex items-center gap-2 text-xs font-bold text-[#132A2E] cursor-pointer"
+                          >
+                            <Store className="w-3.5 h-3.5 text-[#0D9488]" />
+                            <span className="truncate">{item.sellerName}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeBayongItem(item.id)}
+                            className="text-[11px] font-medium text-slate-400 hover:text-[#132A2E] cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        {/* Item Body Row */}
+                        <div className="p-3.5 flex items-center gap-3">
+                          <div className="w-4 h-4 rounded border border-[#2DD4BF] bg-[#2DD4BF] text-[#132A2E] flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="w-20 h-20 rounded-xl object-cover bg-[#F4FAF8] shrink-0"
+                          />
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="text-xs font-semibold text-[#132A2E] line-clamp-2">
                               {item.title}
                             </div>
-                            <button
-                              onClick={() => removeBayongItem(item.id)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition shrink-0 cursor-pointer"
-                              title="Remove from Bayong"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            Seller:{' '}
-                            <span className="font-bold text-[#070D17]">
-                              {item.sellerName}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between pt-1">
-                            <span className="text-sm font-display font-extrabold text-[#10B981] tabular-price">
-                              ₱{lineTotal.toLocaleString()}
-                            </span>
-                            <div className="inline-flex items-center gap-2 bg-[#F4F6F9] border border-[#E2E8F0] rounded-xl px-1.5 py-0.5">
-                              <button
-                                onClick={() => updateBayongQuantity(item.id, -1)}
-                                className="w-6 h-6 rounded-lg bg-white text-[#070D17] font-extrabold text-xs flex items-center justify-center shadow-2xs cursor-pointer"
-                                title="Decrease Quantity"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="text-xs font-extrabold text-[#070D17] min-w-[16px] text-center">
-                                {qty}
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F4FAF8] text-[10px] font-medium text-slate-600">
+                              <span>Code: {item.itemCode}</span>
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-sm font-display font-extrabold text-[#0D9488] tabular-price">
+                                ₱{lineTotal.toLocaleString()}
                               </span>
-                              <button
-                                onClick={() => updateBayongQuantity(item.id, 1)}
-                                className="w-6 h-6 rounded-lg bg-[#070D17] text-white font-extrabold text-xs flex items-center justify-center cursor-pointer"
-                                title="Increase Quantity"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
+                              <div className="inline-flex items-center border border-[#CBE7E0] rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => updateBayongQuantity(item.id, -1)}
+                                  className="w-7 h-6 bg-white hover:bg-[#F4FAF8] text-[#132A2E] flex items-center justify-center cursor-pointer"
+                                  title="Decrease Quantity"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="px-2.5 text-xs font-bold text-[#132A2E] tabular-nums border-x border-[#CBE7E0]">
+                                  {qty}
+                                </span>
+                                <button
+                                  onClick={() => updateBayongQuantity(item.id, 1)}
+                                  className="w-7 h-6 bg-white hover:bg-[#F4FAF8] text-[#132A2E] flex items-center justify-center cursor-pointer"
+                                  title="Increase Quantity"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* Shop Voucher Sub-Row (Matching Reference Image 2) */}
+                        <button
+                          type="button"
+                          onClick={() => openPerksModal('vouchers')}
+                          className="w-full px-3.5 py-2 border-t border-[#E2F2EE] flex items-center justify-between text-[11px] text-slate-500 hover:bg-[#F4FAF8] cursor-pointer"
+                        >
+                          <span className="inline-flex items-center gap-1.5">
+                            <Ticket className="w-3.5 h-3.5 text-[#0D9488]" />
+                            <span>Ukayo Vouchers &amp; Bale Discount applied at checkout</span>
+                          </span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
                       </div>
                     );
                   })
                 )}
               </div>
 
+              {/* Sticky Bottom Cart Checkout Bar (Matching Reference Image 2) */}
               {bayongItems.length > 0 && (
                 <div
                   id="bayong-checkout-bar"
-                  className="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-md flex items-center justify-between gap-3"
+                  className="bg-white border-t border-[#CBE7E0] mx-3 rounded-2xl p-3 shadow-sm flex items-center justify-between gap-3"
                 >
-                  <div>
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      Bayong Total
-                    </div>
-                    <div
-                      id="bayong-grand-total"
-                      className="text-lg font-display font-extrabold text-[#070D17] tabular-price"
-                    >
-                      ₱{bayongGrandTotal.toLocaleString()}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded bg-[#2DD4BF] text-[#132A2E] flex items-center justify-center">
+                      <CheckCircle2 className="w-3 h-3" />
+                    </span>
+                    <span className="text-xs font-semibold text-slate-600">All</span>
                   </div>
-                  <button
-                    onClick={openCheckoutModal}
-                    className="px-5 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm cursor-pointer"
-                  >
-                    Proceed to Checkout
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-[10px] text-slate-400">Total</div>
+                      <div
+                        id="bayong-grand-total"
+                        className="text-sm font-display font-extrabold text-[#0D9488] tabular-price"
+                      >
+                        ₱{bayongGrandTotal.toLocaleString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={openCheckoutModal}
+                      className="px-5 py-2.5 rounded-xl bg-[#0D9488] hover:bg-[#2DD4BF] hover:text-[#132A2E] text-white text-xs font-extrabold cursor-pointer transition"
+                    >
+                      Check Out ({bayongTotalQty})
+                    </button>
+                  </div>
                 </div>
               )}
             </section>
@@ -3979,33 +5020,29 @@ export default function App() {
 
           {/* TAB 6: "CHAT" */}
           {state.activeTab === 'chat' && (
-            <section id="tab-chat" className="px-3.5 pt-3 space-y-3 pb-4">
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-display font-extrabold text-[#070D17]">
-                    Messages &amp; Customer Service
-                  </h2>
-                </div>
+            <section id="tab-chat" className="px-3 pt-3 space-y-2.5 pb-4">
+              <div className="bg-white rounded-xl border border-[#E2F2EE] px-3.5 py-2.5 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-display font-extrabold text-[#132A2E]">
+                  Messages &amp; Customer Service
+                </h2>
                 <button
                   onClick={openCustomerServiceChat}
-                  className="px-2.5 py-1.5 rounded-xl bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#2DD4BF] text-[#132A2E] text-[10px] font-extrabold inline-flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Headset className="w-3.5 h-3.5" />
                   <span>Admin Help</span>
                 </button>
               </div>
 
-              {/* TWO-COLUMN SPLIT INBOX: VERTICAL PREVIOUS CHATS ON LEFT, THREAD ON RIGHT */}
-              <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs grid grid-cols-12 h-[65dvh]">
-                {/* Left Column: Vertical List of Previous Conversations */}
-                <div className="col-span-5 border-r border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
-                  <div className="px-2.5 py-2 bg-[#070D17] text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between">
-                    <span>Previous Chats</span>
-                    <span className="px-1.5 py-0.2 rounded bg-white/15 text-[9px]">
-                      {chatContacts.length}
-                    </span>
+              {/* TWO-COLUMN SPLIT INBOX */}
+              <div className="bg-white rounded-2xl border border-[#E2F2EE] overflow-hidden shadow-2xs grid grid-cols-12 h-[65dvh]">
+                {/* Left Column: Conversations */}
+                <div className="col-span-5 border-r border-[#E2F2EE] bg-[#F4FAF8] flex flex-col overflow-hidden">
+                  <div className="px-3 py-2 bg-white border-b border-[#E2F2EE] text-[#132A2E] text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between">
+                    <span>Chats</span>
+                    <span className="text-slate-400">{chatContacts.length}</span>
                   </div>
-                  <div className="flex-1 overflow-y-auto divide-y divide-[#E2E8F0]">
+                  <div className="flex-1 overflow-y-auto divide-y divide-[#E2F2EE]">
                     {chatContacts.map((c) => {
                       const isSelected = c.id === activeChatContact.id;
                       const lastMsg = c.messages[c.messages.length - 1];
@@ -4015,28 +5052,18 @@ export default function App() {
                           type="button"
                           onClick={() => openDirectChatWithSeller(c.id)}
                           className={`w-full p-2.5 text-left transition cursor-pointer block ${
-                            isSelected
-                              ? 'bg-white border-l-4 border-[#10B981]'
-                              : 'hover:bg-white/70'
+                            isSelected ? 'bg-white' : 'hover:bg-white/70'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1">
-                            <span className="text-[11px] font-extrabold text-[#070D17] truncate">
+                            <span className="text-[11px] font-extrabold text-[#132A2E] truncate">
                               {c.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span
-                              className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${
-                                c.isSupport
-                                  ? 'bg-[#F59E0B] text-[#070D17]'
-                                  : 'bg-[#10B981]/15 text-[#065F46]'
-                              }`}
-                            >
-                              {c.badge}
-                            </span>
+                          <div className="text-[9px] font-bold text-[#0D9488] mt-0.5">
+                            {c.badge}
                           </div>
-                          <div className="text-[10px] text-slate-500 truncate mt-1">
+                          <div className="text-[10px] text-slate-500 truncate mt-0.5">
                             {lastMsg
                               ? lastMsg.text
                               : c.isSupport
@@ -4051,7 +5078,7 @@ export default function App() {
 
                 {/* Right Column: Active Conversation Messages */}
                 <div className="col-span-7 flex flex-col overflow-hidden">
-                  <div className="px-3 py-2 bg-[#070D17] text-white flex items-center justify-between border-l border-slate-800">
+                  <div className="px-3 py-2 bg-white border-b border-[#E2F2EE] text-[#132A2E] flex items-center justify-between">
                     <div className="min-w-0">
                       <div
                         id="chat-active-seller-name"
@@ -4059,36 +5086,36 @@ export default function App() {
                       >
                         {activeChatContact.name}
                       </div>
-                      <div className="text-[9px] text-slate-300 truncate">
+                      <div className="text-[9px] text-slate-400 truncate">
                         {activeChatContact.city}
                       </div>
                     </div>
-                    <span className="text-[9px] text-[#10B981] font-bold shrink-0">
-                      ● Online
+                    <span className="text-[9px] text-[#0D9488] font-bold shrink-0">
+                      Online
                     </span>
                   </div>
 
                   <div
                     ref={directChatBoxRef}
                     id="chat-messages-box"
-                    className="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4F6F9]"
+                    className="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4FAF8]"
                   >
                     {activeChatContact.messages.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-center p-3 text-slate-400 space-y-1">
                         {activeChatContact.isSupport ? (
                           <>
-                            <Headset className="w-6 h-6 text-[#F59E0B]" />
-                            <div className="text-xs font-bold text-[#070D17]">
+                            <Headset className="w-6 h-6 text-[#0D9488]" />
+                            <div className="text-xs font-bold text-[#132A2E]">
                               UKAYO Admin Customer Service
                             </div>
                             <p className="text-[10px] text-slate-500">
-                              Send a message below if you need help as a Buyer or Seller. Admin Ops will reply here!
+                              Send a message below if you need help as a Buyer or Seller.
                             </p>
                           </>
                         ) : (
                           <>
                             <MessageCircle className="w-6 h-6 text-slate-400" />
-                            <div className="text-xs font-bold text-[#070D17]">
+                            <div className="text-xs font-bold text-[#132A2E]">
                               Start chatting with {activeChatContact.name}
                             </div>
                           </>
@@ -4123,12 +5150,12 @@ export default function App() {
                               isSellerMode));
 
                         const roleBadgeText = isCustomerServiceReply
-                          ? '🎧 UKAYO CUSTOMER SERVICE (ADMIN)'
+                          ? 'UKAYO CUSTOMER SERVICE (ADMIN)'
                           : isSellerReply
-                          ? `🏪 SELLER • ${m.senderName || activeChatContact.name}`
+                          ? `SELLER · ${m.senderName || activeChatContact.name}`
                           : isSellerMode && activeChatContact.isSupport
-                          ? `YOU (SELLER • ${state.user.shopName || state.user.name})`
-                          : `YOU (BUYER • ${state.user.name || 'Miner'})`;
+                          ? `YOU (SELLER · ${state.user.shopName || state.user.name})`
+                          : `YOU (BUYER · ${state.user.name || 'Miner'})`;
 
                         return (
                           <div
@@ -4138,25 +5165,25 @@ export default function App() {
                             <div
                               className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs shadow-2xs ${
                                 isMine
-                                  ? 'bg-[#070D17] text-white rounded-br-xs'
+                                  ? 'bg-[#0D9488] text-white rounded-br-xs'
                                   : isCustomerServiceReply
-                                  ? 'bg-[#ECFDF5] border-2 border-[#10B981] text-[#070D17] rounded-bl-xs'
-                                  : 'bg-[#FFFBEB] border-2 border-[#F59E0B] text-[#070D17] rounded-bl-xs'
+                                  ? 'bg-white border border-[#2DD4BF] text-[#132A2E] rounded-bl-xs'
+                                  : 'bg-white border border-[#CBE7E0] text-[#132A2E] rounded-bl-xs'
                               }`}
                             >
                               <div
                                 className={`text-[9px] font-extrabold uppercase tracking-wider mb-0.5 ${
                                   isMine
-                                    ? 'text-[#10B981]'
+                                    ? 'text-[#0D9488]'
                                     : isCustomerServiceReply
-                                    ? 'text-[#065F46]'
-                                    : 'text-[#B45309]'
+                                    ? 'text-[#0D9488]'
+                                    : 'text-slate-500'
                                 }`}
                               >
                                 {roleBadgeText}
                               </div>
                               <p className="leading-snug break-words">{m.text}</p>
-                              <div className="text-[9px] opacity-65 mt-1 text-right">
+                              <div className="text-[9px] opacity-60 mt-1 text-right">
                                 {m.time}
                               </div>
                             </div>
@@ -4168,7 +5195,7 @@ export default function App() {
 
                   <form
                     onSubmit={sendDirectChatMessage}
-                    className="p-2 bg-white border-t border-[#E2E8F0] flex items-center gap-1.5"
+                    className="p-2 bg-white border-t border-[#E2F2EE] flex items-center gap-1.5"
                   >
                     <input
                       type="text"
@@ -4177,14 +5204,14 @@ export default function App() {
                       onChange={(e) => setDirectChatInput(e.target.value)}
                       placeholder={
                         activeChatContact.isSupport
-                          ? 'Ask Admin Customer Service for help...'
+                          ? 'Ask Admin Customer Service...'
                           : 'Message seller...'
                       }
-                      className="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none"
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4FAF8] border border-[#CBE7E0] text-xs focus:outline-none"
                     />
                     <button
                       type="submit"
-                      className="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-xs font-extrabold shrink-0 cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full bg-[#0D9488] text-white text-xs font-extrabold shrink-0 cursor-pointer"
                     >
                       Send
                     </button>
@@ -4194,20 +5221,20 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 7: "MY ACCOUNT" */}
+          {/* TAB 7: "MY ACCOUNT" (LIGHT, ORGANIZED PROFILE, MY PURCHASES & ACCOUNT SETTINGS — MATCHING IMAGES 3, 4 & 5) */}
           {state.activeTab === 'account' && (
-            <section id="tab-account" className="px-3.5 pt-3 space-y-3.5 pb-6">
-              {/* Profile Header Card with Picture Upload */}
-              <div className="bg-white rounded-3xl border border-[#E2E8F0] p-4 shadow-2xs">
-                <div className="flex items-center gap-3.5">
-                  <div className="relative shrink-0">
+            <section id="tab-account" className="space-y-2.5 pb-6">
+              {/* Top Profile Header Banner in UKAYO Two-Color Palette (Matching Reference Image 3 Top Section) */}
+              <div className="bg-[#0D9488] text-white px-4 pt-3 pb-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <label
-                      className="block w-16 h-16 rounded-full bg-gradient-to-tr from-[#F59E0B] to-[#10B981] p-[2.5px] cursor-pointer group"
-                      title="Tap to upload buyer profile picture"
+                      className="relative block w-14 h-14 rounded-full bg-white/10 border-2 border-[#2DD4BF] cursor-pointer group shrink-0"
+                      title="Tap to upload profile photo"
                     >
                       <div
                         id="account-avatar-initials"
-                        className="w-full h-full rounded-full bg-[#070D17] text-white font-display font-extrabold text-lg flex items-center justify-center overflow-hidden relative"
+                        className="w-full h-full rounded-full bg-[#0D9488] text-white font-display font-extrabold text-base flex items-center justify-center overflow-hidden relative"
                       >
                         {state.user.avatar ? (
                           <img
@@ -4229,637 +5256,529 @@ export default function App() {
                         className="hidden"
                       />
                     </label>
-                    <span
-                      id="account-role-pill"
-                      className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full ${
-                        isSellerMode
-                          ? 'bg-[#10B981] text-white'
-                          : 'bg-[#F59E0B] text-[#070D17]'
-                      } text-[8px] font-extrabold uppercase tracking-wider shadow-2xs`}
-                    >
-                      {isSellerAccount ? 'SELLER' : 'MINER'}
-                    </span>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative inline-flex items-center">
+                          <h3
+                            id="account-display-name"
+                            className="text-base font-display font-extrabold text-white truncate pr-4"
+                          >
+                            {!state.isAuthenticated ? 'Guest Miner' : state.user.name}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={openIdVerifyModal}
+                            id="account-verified-top-right-icon"
+                            title={
+                              actualVerificationStatus === 'verified'
+                                ? 'Verified Account'
+                                : actualVerificationStatus === 'pending'
+                                ? 'Verification Pending'
+                                : 'Tap to Verify ID'
+                            }
+                            className={`-mt-2 -ml-3.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 cursor-pointer shadow-2xs ${
+                              actualVerificationStatus === 'verified'
+                                ? 'bg-emerald-500 text-white'
+                                : actualVerificationStatus === 'pending'
+                                ? 'bg-amber-400 text-[#132A2E]'
+                                : 'bg-white/25 text-white/80 hover:bg-white/40'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span
+                          id="account-role-pill"
+                          className="px-2 py-0.5 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold uppercase shrink-0"
+                        >
+                          {isSellerAccount ? 'Seller >' : 'Miner >'}
+                        </span>
+                      </div>
+                      <div
+                        id="account-email-line"
+                        className="text-[11px] text-white/80 flex items-center gap-3 mt-0.5 truncate"
+                      >
+                        <span>
+                          <strong>{state.sellers.filter((s) => s.followed).length}</strong>{' '}
+                          Following
+                        </span>
+                        <span>
+                          <strong>
+                            {state.sellers.find((s) => s.id === state.user.ownSellerId)
+                              ?.followers || 0}
+                          </strong>{' '}
+                          Followers
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3
-                        id="account-display-name"
-                        className="text-base font-display font-extrabold text-[#070D17] truncate"
+                  {/* Top-Right Settings Gear Icon (Matching Reference Image 3) */}
+                  {state.isAuthenticated ? (
+                    <button
+                      onClick={openEditProfileModal}
+                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer shrink-0"
+                      title="Edit Profile Settings"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => openAuthModal('register')}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#2DD4BF] text-[#132A2E] text-[10px] font-extrabold cursor-pointer"
                       >
-                        {!state.isAuthenticated
-                          ? 'Guest Miner'
-                          : `Hello, ${state.user.name.split(' ')[0]}!`}
-                      </h3>
-                      {state.isAuthenticated && (
-                        <button
-                          onClick={openEditProfileModal}
-                          className="p-1.5 rounded-xl bg-[#F4F6F9] hover:bg-slate-200 text-[#070D17] text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                          title="Edit Profile & Photo"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
-                      )}
+                        Register
+                      </button>
+                      <button
+                        onClick={() => openAuthModal('login')}
+                        className="px-2.5 py-1.5 rounded-lg bg-white text-[#132A2E] text-[10px] font-bold cursor-pointer"
+                      >
+                        Log In
+                      </button>
                     </div>
-                    <p id="account-email-line" className="text-xs text-slate-500 truncate">
-                      {!state.isAuthenticated
-                        ? 'Not logged in • Register or sign in below'
-                        : `${state.user.email} • ${state.user.city}`}
-                    </p>
+                  )}
+                </div>
 
-                    {!state.isAuthenticated ? (
-                      <div className="flex items-center gap-2 mt-2">
+                {/* VIP / Verified Status Banner Strip Inside Header (Matching Reference Image 3 VIP Bar) */}
+                <div className="bg-white/10 border border-white/15 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="px-2 py-0.5 rounded bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold uppercase shrink-0">
+                      UKAYO
+                    </span>
+                    <span className="text-[11px] text-white truncate">
+                      {actualVerificationStatus === 'verified'
+                        ? 'Verified PH Primary ID · Priority Miner & Seller Protection'
+                        : 'Verify your PH Primary ID for Priority Miner & Seller Protection'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openIdVerifyModal}
+                    id="account-verified-badge"
+                    className="text-[11px] font-extrabold text-[#0D9488] shrink-0 inline-flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>
+                      {actualVerificationStatus === 'verified'
+                        ? 'Verified'
+                        : actualVerificationStatus === 'pending'
+                        ? 'Pending'
+                        : 'Verify'}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-3 space-y-2.5">
+
+                {/* MY PURCHASES CARD (Matching Reference Images 3 & 5) */}
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] p-4 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
+                      My Purchases
+                    </h3>
+                    <button
+                      onClick={() =>
+                        setState((prev) => ({
+                          ...prev,
+                          activePurchaseFilter: 'ALL',
+                        }))
+                      }
+                      className="text-xs text-slate-500 hover:text-[#132A2E] inline-flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>View Purchase History</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* 4 Clean Spaced Outline Icons with Top-Right Badges (Matching Reference Image 3) */}
+                  <div className="grid grid-cols-4 gap-2 text-center pt-0.5">
+                    {(
+                      [
+                        {
+                          key: 'TO_PAY',
+                          label: 'To Pay',
+                          icon: Wallet,
+                        },
+                        {
+                          key: 'TO_SHIP',
+                          label: 'To Ship',
+                          icon: Package,
+                        },
+                        {
+                          key: 'TO_RECEIVE',
+                          label: 'To Receive',
+                          icon: Truck,
+                        },
+                        {
+                          key: 'TO_RATE',
+                          label: 'To Rate',
+                          icon: Star,
+                        },
+                      ] as const
+                    ).map((st) => {
+                      const count = state.minedOrders.filter(
+                        (o) => o.stage === st.key
+                      ).length;
+                      const active = state.activePurchaseFilter === st.key;
+                      const IconComp = st.icon;
+                      return (
                         <button
-                          onClick={() => openAuthModal('register')}
-                          className="px-3 py-1.5 rounded-xl bg-[#10B981] text-[#070D17] text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                          key={st.key}
+                          onClick={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              activePurchaseFilter: st.key,
+                            }))
+                          }
+                          className={`relative py-2 px-1 rounded-xl flex flex-col items-center gap-1.5 cursor-pointer transition ${
+                            active
+                              ? 'bg-[#F4FAF8] text-[#0D9488]'
+                              : 'text-[#132A2E] hover:bg-[#F4FAF8]'
+                          }`}
                         >
-                          <UserPlus className="w-3.5 h-3.5" />
-                          <span>Register Buyer</span>
+                          <div className="relative">
+                            <IconComp className="w-6 h-6 stroke-[1.75]" />
+                            {count > 0 && (
+                              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold flex items-center justify-center">
+                                {count}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-medium">{st.label}</span>
                         </button>
-                        <button
-                          onClick={() => openAuthModal('login')}
-                          className="px-3 py-1.5 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <LogIn className="w-3.5 h-3.5" />
-                          <span>Log In</span>
-                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Clean Order Cards Matching Reference Image 5 ("My Purchases") */}
+                  <div id="account-orders-list" className="space-y-2.5 pt-1 border-t border-[#E2F2EE]">
+                    {visibleAccountOrders.length === 0 ? (
+                      <div className="py-4 text-center text-xs text-slate-400">
+                        No orders in this tab yet.
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <label className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#070D17] text-white text-[10px] font-bold cursor-pointer">
-                          <Camera className="w-3 h-3 text-[#F59E0B]" />
-                          <span>Upload Photo</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleProfileAvatarUpload(e, 'direct')}
-                            className="hidden"
-                          />
-                        </label>
-                        <button
-                          onClick={openIdVerifyModal}
-                          id="account-verified-badge"
-                          className={
-                            actualVerificationStatus === 'verified' ||
-                            actualVerificationStatus === 'pending'
-                              ? 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 text-[10px] font-bold cursor-pointer'
-                              : 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/25 text-[10px] font-bold cursor-pointer'
-                          }
+                      visibleAccountOrders.map((o) => (
+                        <div
+                          key={o.id}
+                          className="bg-[#F4FAF8] rounded-xl p-3 space-y-2.5"
                         >
-                          {actualVerificationStatus === 'verified' ||
-                          actualVerificationStatus === 'pending' ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>
-                                {actualVerificationStatus === 'verified'
-                                  ? 'Verified ID'
-                                  : 'ID Pending'}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="w-3 h-3" />
-                              <span>Verify ID</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-[#132A2E] inline-flex items-center gap-1.5 truncate">
+                              <Store className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                              <span className="truncate">{o.sellerName}</span>
+                            </span>
+                            <span className="text-[11px] font-bold text-[#0D9488] shrink-0">
+                              {o.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={o.image}
+                              alt={o.title}
+                              className="w-14 h-14 rounded-lg object-cover bg-white shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-[#132A2E] truncate">
+                                {o.title}
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
+                                <span>{o.courier} · {o.paymentMethod}</span>
+                                <span>x{o.quantity || 1}</span>
+                              </div>
+                              <div className="text-right text-xs font-bold text-[#132A2E] tabular-price mt-1">
+                                Total: <span className="text-[#0D9488]">₱{(o.price * (o.quantity || 1)).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expected Delivery / Tracking Banner (Matching Reference Image 5 Green Banner) */}
+                          <div className="px-3 py-2 rounded-lg bg-[#2DD4BF]/10 flex items-center justify-between text-[11px]">
+                            <span className="text-[#132A2E] font-medium truncate">
+                              {o.trackingEvents?.[0]?.title || 'Protected by UKAYO Escrow'} ·{' '}
+                              {o.trackingEvents?.[0]?.desc || o.courier}
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#0D9488] shrink-0" />
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
 
-                {/* REAL-TIME FIRESTORE STATUS INDICATOR (verificationStatus & sellerStatus) */}
-                {state.isAuthenticated && (
-                  <div
-                    id="firestore-realtime-status-indicator"
-                    className="mt-3.5 pt-3 border-t border-[#E2E8F0] space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            firestoreLiveStatus.loading
-                              ? 'bg-[#F59E0B] animate-pulse'
-                              : firestoreLiveStatus.connected
-                              ? 'bg-[#10B981]'
-                              : 'bg-[#EF4444]'
-                          }`}
-                        />
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#070D17]">
-                          Live Firestore Account Status
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded bg-[#070D17] text-[#10B981] text-[8px] font-mono font-bold">
-                          {firestoreLiveStatus.fromServer ? 'SERVER' : 'SYNCED'}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={refreshFirestoreStatusNow}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 hover:text-[#070D17] cursor-pointer"
-                        title="Fetch latest status directly from Firestore server"
-                      >
-                        <RefreshCw
-                          className={`w-3 h-3 ${
-                            firestoreLiveStatus.loading ? 'animate-spin' : ''
-                          }`}
-                        />
-                        <span>{firestoreLiveStatus.lastSyncedAt}</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
-                        <div className="text-[9px] font-bold uppercase text-slate-500">
-                          Firestore verificationStatus
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-display font-extrabold text-[#070D17] capitalize">
-                            {actualVerificationStatus}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                              actualVerificationStatus === 'verified'
-                                ? 'bg-[#10B981] text-[#070D17]'
-                                : actualVerificationStatus === 'pending'
-                                ? 'bg-[#F59E0B] text-[#070D17]'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {actualVerificationStatus === 'verified'
-                              ? '✓ Verified'
-                              : actualVerificationStatus === 'pending'
-                              ? 'Pending'
-                              : 'Unverified'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
-                        <div className="text-[9px] font-bold uppercase text-slate-500">
-                          Firestore sellerStatus
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-display font-extrabold text-[#070D17] capitalize">
-                            {actualSellerStatus}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                              actualSellerStatus === 'approved'
-                                ? 'bg-[#10B981] text-[#070D17]'
-                                : actualSellerStatus === 'pending'
-                                ? 'bg-[#F59E0B] text-[#070D17]'
-                                : actualSellerStatus === 'rejected'
-                                ? 'bg-[#EF4444] text-white'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {actualSellerStatus === 'approved'
-                              ? '✓ Approved'
-                              : actualSellerStatus === 'pending'
-                              ? 'Pending KYC'
-                              : actualSellerStatus === 'rejected'
-                              ? 'Re-upload'
-                              : 'Buyer Only'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Become a Ukayo Seller Card (Directs to Seller Registration Page when Apply Now is clicked) */}
-              <div className="rounded-2xl border border-[#F59E0B]/40 bg-[#F59E0B]/10 p-4 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3
-                        id="account-seller-banner-title"
-                        className="text-sm font-display font-extrabold text-[#070D17] truncate"
-                      >
-                        {isSellerAccount
-                          ? state.user.shopName || 'Seller Mode Active'
-                          : 'Become an Ukayo Seller'}
-                      </h3>
-                      {isSellerAccount && (
-                        <span
-                          id="account-seller-status-badge"
-                          className="px-2 py-0.5 rounded-full bg-[#10B981] text-white text-[9px] font-extrabold uppercase tracking-wider shrink-0"
-                        >
-                          Registered Seller
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      id="account-seller-banner-desc"
-                      className="text-[11px] text-[#1E293B] leading-snug"
+                {/* MY WALLET & SELLER TOOLS CARD (Matching Reference Image 3 "My Wallet" 4-Icon Section) */}
+                <div className="bg-white rounded-2xl border border-[#E2F2EE] p-4 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
+                      My Wallet &amp; Seller Hub
+                    </h3>
+                    <span
+                      id="account-seller-banner-title"
+                      className="text-[11px] font-bold text-[#0D9488]"
                     >
                       {isSellerAccount
-                        ? 'Switch between shopping as a Miner or Live-Selling & Posting as a Seller.'
-                        : 'Register your shop on the UKAYO Seller Registration Page to unlock Seller Center & Go Live!'}
-                    </p>
+                        ? state.user.shopName || 'Registered Seller'
+                        : 'Buyer & Miner'}
+                    </span>
                   </div>
-                  <div className="w-11 h-11 rounded-2xl bg-white border border-[#E2E8F0] flex items-center justify-center text-[#070D17] shrink-0">
-                    <Store className="w-5 h-5 text-[#F59E0B]" />
-                  </div>
-                </div>
 
-                {!isSellerAccount ? (
-                  <div id="account-buyer-apply-actions" className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={launchSellerLiveInApp}
-                        className="py-2 px-3 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <Radio className="w-3.5 h-3.5" />
-                        <span>Go LIVE Now (Buyer)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={launchSellerPostInApp}
-                        className="py-2 px-3 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-[#070D17] text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Post on Ukay Feed</span>
-                      </button>
-                    </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
                     <button
-                      onClick={goToSellerRegistrationPage}
-                      id="account-seller-banner-btn"
-                      className="w-full py-2 px-4 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold shadow-2xs cursor-pointer inline-flex items-center justify-center gap-1.5"
+                      type="button"
+                      onClick={() => switchTab('bag')}
+                      className="flex flex-col items-center gap-1.5 py-1.5 cursor-pointer"
                     >
-                      <span>Apply Now (Official Seller Center Registration)</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-[#F59E0B]" />
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    id="account-seller-active-controls"
-                    className="space-y-2.5 pt-2 border-t border-[#F59E0B]/30"
-                  >
-                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white border border-[#E2E8F0]">
-                      <button
-                        type="button"
-                        onClick={() => setMarketplaceMode('buyer')}
-                        id="mode-btn-buyer"
-                        className={
-                          !isSellerMode
-                            ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#070D17] text-white cursor-pointer transition'
-                            : 'py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#1E293B] hover:bg-[#F4F6F9] cursor-pointer transition'
-                        }
-                      >
-                        Miner Mode (Shop)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMarketplaceMode('seller')}
-                        id="mode-btn-seller"
-                        className={
-                          isSellerMode
-                            ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#10B981] text-white cursor-pointer transition'
-                            : 'py-1.5 px-2 rounded-lg text-[11px] font-bold text-[#1E293B] hover:bg-[#F4F6F9] cursor-pointer transition'
-                        }
-                      >
-                        Seller Mode (Live/Post)
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={launchSellerLiveInApp}
-                        className="py-2 px-3 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <Radio className="w-3.5 h-3.5" />
-                        <span>Go LIVE Now</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={launchSellerPostInApp}
-                        className="py-2 px-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5 text-[#10B981]" />
-                        <span>Post on Feed</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* My Purchases Summary */}
-              <div className="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-display font-extrabold text-[#070D17]">
-                    My Purchases
-                  </h3>
-                  <button
-                    onClick={() =>
-                      setState((prev) => ({
-                        ...prev,
-                        activePurchaseFilter: 'ALL',
-                      }))
-                    }
-                    className="text-[10px] font-bold text-[#10B981] cursor-pointer"
-                  >
-                    View All
-                  </button>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5 text-center">
-                  {(
-                    [
-                      {
-                        key: 'TO_PAY',
-                        label: 'To Pay',
-                        icon: Wallet,
-                        badgeClass: 'bg-[#EF4444] text-white',
-                      },
-                      {
-                        key: 'TO_SHIP',
-                        label: 'To Ship',
-                        icon: Package,
-                        badgeClass: 'bg-[#EF4444] text-white',
-                      },
-                      {
-                        key: 'TO_RECEIVE',
-                        label: 'To Receive',
-                        icon: Truck,
-                        badgeClass: 'bg-[#10B981] text-white',
-                      },
-                      {
-                        key: 'TO_RATE',
-                        label: 'To Rate',
-                        icon: Star,
-                        badgeClass: 'bg-[#F59E0B] text-[#070D17]',
-                      },
-                    ] as const
-                  ).map((st) => {
-                    const count = state.minedOrders.filter(
-                      (o) => o.stage === st.key
-                    ).length;
-                    const active = state.activePurchaseFilter === st.key;
-                    const IconComp = st.icon;
-                    return (
-                      <button
-                        key={st.key}
-                        onClick={() =>
-                          setState((prev) => ({
-                            ...prev,
-                            activePurchaseFilter: st.key,
-                          }))
-                        }
-                        className={`relative p-2 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition ${
-                          active
-                            ? 'bg-[#070D17] text-white'
-                            : 'bg-[#F4F6F9] text-[#1E293B]'
-                        }`}
-                      >
-                        {count > 0 && (
-                          <span
-                            className={`absolute top-1 right-1 min-w-[15px] h-3.5 px-1 rounded-full ${st.badgeClass} text-[9px] font-bold flex items-center justify-center`}
-                          >
-                            {count}
-                          </span>
-                        )}
-                        <IconComp className="w-4 h-4" />
-                        <span className="text-[10px] font-bold">{st.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div id="account-orders-list" className="space-y-2.5 pt-1">
-                  {visibleAccountOrders.length === 0 ? (
-                    <div className="bg-[#F4F6F9] rounded-2xl border border-[#E2E8F0] p-4 text-center text-xs text-slate-500">
-                      No orders in this status yet.
-                    </div>
-                  ) : (
-                    visibleAccountOrders.map((o) => (
-                      <div
-                        key={o.id}
-                        className="bg-[#F4F6F9] rounded-2xl border border-[#E2E8F0] p-3 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-extrabold text-[#070D17]">
-                            {o.sellerName}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-extrabold ${
-                              o.stage === 'TO_PAY'
-                                ? 'bg-[#F59E0B]/20 text-[#070D17]'
-                                : o.stage === 'TO_SHIP'
-                                ? 'bg-[#070D17] text-white'
-                                : o.stage === 'TO_RECEIVE'
-                                ? 'bg-[#10B981]/15 text-[#10B981]'
-                                : 'bg-white text-slate-700'
-                            }`}
-                          >
-                            {o.status}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={o.image}
-                            alt={o.title}
-                            className="w-14 h-14 rounded-xl object-cover bg-white shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold text-[#070D17] truncate">
-                              {o.title}
-                            </div>
-                            <div className="text-[10px] text-slate-500">
-                              Qty: {o.quantity || 1} • {o.courier} • {o.paymentMethod}
-                            </div>
-                            <div className="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">
-                              ₱{(o.price * (o.quantity || 1)).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
+                      <div className="w-10 h-10 rounded-full border border-[#CBE7E0] flex items-center justify-center text-[#132A2E]">
+                        <Wallet className="w-5 h-5" />
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Account Settings List (Seller Center Link STRICTLY Hidden Unless User is Registered as Seller) */}
-              <div className="space-y-2">
-                <h3 className="text-xs font-display font-extrabold text-[#070D17] px-0.5">
-                  Account Settings
-                </h3>
-
-                {/* ONLY REGISTERED SELLERS CAN SEE & ACCESS SELLER STOREFRONT & SELLER CENTER PORTAL */}
-                {isSellerAccount && (
-                  <>
-                    <button
-                      onClick={() => openSellerStore(state.user.ownSellerId)}
-                      className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
-                          <Store className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-[#070D17]">
-                            My Nasa Tindahan Shop
-                          </div>
-                          <div className="text-[10px] text-slate-500 truncate">
-                            Manage your ukay listings &amp; live storefront
-                          </div>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="text-[11px] font-medium text-[#132A2E]">
+                        Bayong
+                      </span>
+                      <span className="text-[10px] font-bold text-[#0D9488] tabular-price">
+                        ₱{bayongGrandTotal.toLocaleString()}
+                      </span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={openSellerCenterPortal}
-                      className="w-full bg-[#070D17] text-white rounded-2xl border border-[#070D17] p-3 flex items-center justify-between gap-3 shadow-2xs hover:bg-[#111827] transition cursor-pointer text-left"
+                      onClick={() => openPerksModal('referral')}
+                      className="flex flex-col items-center gap-1.5 py-1.5 cursor-pointer"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-[#F59E0B] text-[#070D17] flex items-center justify-center shrink-0">
-                          <LayoutDashboard className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-extrabold text-white">
-                            UKAYO Seller Center (Web Portal)
-                          </div>
-                          <div className="text-[10px] text-slate-300 truncate">
-                            Manage BIR docs, bulk rack, orders &amp; A6 waybills
-                          </div>
-                        </div>
+                      <div className="w-10 h-10 rounded-full border border-[#CBE7E0] flex items-center justify-center text-[#132A2E]">
+                        <Award className="w-5 h-5" />
                       </div>
-                      <ExternalLink className="w-4 h-4 text-[#F59E0B] shrink-0" />
+                      <span className="text-[11px] font-medium text-[#132A2E]">
+                        Points
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Check in
+                      </span>
                     </button>
-                  </>
-                )}
 
-                <button
-                  onClick={openEditProfileModal}
-                  className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#070D17]/10 text-[#070D17] flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#070D17]">
-                        Personal Information &amp; Profile Photo
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        Upload profile picture, edit city, address &amp; contact
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-
-                <button
-                  onClick={openIdVerifyModal}
-                  className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] flex items-center justify-center shrink-0">
-                      <ShieldCheck className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#070D17]">
-                        Identity Verification (Philippine Primary ID)
-                      </div>
-                      <div
-                        id="settings-verify-subtext"
-                        className="text-[10px] text-slate-500 truncate"
-                      >
-                        {state.user.idType
-                          ? `${state.user.idType} (${state.user.idNumber})`
-                          : 'Upload valid PH Government ID & selfie'}
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-
-                <button
-                  onClick={openCustomerServiceChat}
-                  className="w-full bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-[#070D17] transition cursor-pointer text-left"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center shrink-0">
-                      <Headset className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#070D17]">
-                        Customer Service (Connect with Admin)
-                      </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        Get live help from UKAYO Admin Ops for Buyer or Seller issues
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-
-                {/* Log Out / Log In Button */}
-                <button
-                  onClick={handleAccountLogout}
-                  id="account-logout-btn"
-                  className={`w-full bg-white rounded-2xl border ${
-                    state.isAuthenticated
-                      ? 'border-[#EF4444]/30 hover:bg-[#EF4444]/5'
-                      : 'border-[#10B981]/40 hover:bg-[#10B981]/5'
-                  } p-3 flex items-center justify-between gap-3 shadow-2xs transition cursor-pointer text-left`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                        state.isAuthenticated
-                          ? 'bg-[#EF4444]/10 text-[#EF4444]'
-                          : 'bg-[#10B981]/15 text-[#10B981]'
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => openPerksModal('vouchers')}
+                      className="flex flex-col items-center gap-1.5 py-1.5 cursor-pointer"
                     >
-                      {state.isAuthenticated ? (
-                        <LogOut className="w-4 h-4" />
-                      ) : (
-                        <LogIn className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div
-                        id="account-logout-label"
-                        className={`text-xs font-bold ${
-                          state.isAuthenticated ? 'text-[#EF4444]' : 'text-[#10B981]'
-                        }`}
-                      >
-                        {state.isAuthenticated ? 'Log Out' : 'Log In / Register Account'}
+                      <div className="w-10 h-10 rounded-full border border-[#CBE7E0] flex items-center justify-center text-[#132A2E]">
+                        <Ticket className="w-5 h-5" />
                       </div>
-                      <div className="text-[10px] text-slate-500 truncate">
-                        {state.isAuthenticated
-                          ? 'Sign out of your UKAYO account on this device'
-                          : 'Sign in with your Buyer or Seller account'}
+                      <span className="text-[11px] font-medium text-[#132A2E]">
+                        Vouchers
+                      </span>
+                      <span className="text-[10px] text-[#0D9488] font-semibold">
+                        Free Ship
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBecomeSellerAction}
+                      id="account-seller-banner-btn"
+                      className="flex flex-col items-center gap-1.5 py-1.5 cursor-pointer"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#0D9488] flex items-center justify-center text-[#0D9488]">
+                        <Store className="w-5 h-5" />
                       </div>
-                    </div>
+                      <span className="text-[11px] font-bold text-[#132A2E]">
+                        {isSellerAccount ? 'Seller Hub' : 'Sell Now'}
+                      </span>
+                      <span className="text-[10px] text-[#0D9488] font-semibold">
+                        {isSellerAccount ? 'Go Live' : 'Apply'}
+                      </span>
+                    </button>
                   </div>
-                  <ChevronRight
-                    className={`w-4 h-4 shrink-0 ${
-                      state.isAuthenticated ? 'text-[#EF4444]' : 'text-[#10B981]'
-                    }`}
-                  />
-                </button>
+
+                  {/* Seller Mode Switcher & Live/Feed Actions (Only for Registered Sellers) */}
+                  {isSellerAccount && (
+                    <div
+                      id="account-seller-active-controls"
+                      className="pt-2.5 border-t border-[#E2F2EE] space-y-2"
+                    >
+                      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4FAF8]">
+                        <button
+                          type="button"
+                          onClick={() => setMarketplaceMode('buyer')}
+                          id="mode-btn-buyer"
+                          className={
+                            !isSellerMode
+                              ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#0D9488] text-white cursor-pointer transition'
+                              : 'py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-600 cursor-pointer transition'
+                          }
+                        >
+                          Miner Mode (Shop)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMarketplaceMode('seller')}
+                          id="mode-btn-seller"
+                          className={
+                            isSellerMode
+                              ? 'py-1.5 px-2 rounded-lg text-[11px] font-extrabold bg-[#2DD4BF] text-[#132A2E] cursor-pointer transition'
+                              : 'py-1.5 px-2 rounded-lg text-[11px] font-semibold text-slate-600 cursor-pointer transition'
+                          }
+                        >
+                          Seller Mode (Live)
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={launchSellerLiveInApp}
+                          className="py-2 px-3 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Radio className="w-3.5 h-3.5 text-[#0D9488]" />
+                          <span>Go LIVE Now</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openSellerCenterPortal}
+                          className="py-2 px-3 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <LayoutDashboard className="w-3.5 h-3.5" />
+                          <span>Seller Center</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ACCOUNT SETTINGS LIST — CLEAN LIGHT GROUPED ROWS MATCHING REFERENCE IMAGE 4 */}
+                <div className="space-y-2">
+                  <div className="px-1 text-[11px] font-semibold text-slate-400">
+                    My Account
+                  </div>
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] divide-y divide-[#E2F2EE] overflow-hidden shadow-2xs">
+                    {isSellerAccount && (
+                      <>
+                        <button
+                          onClick={() => openSellerStore(state.user.ownSellerId)}
+                          className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                        >
+                          <span>My Nasa Tindahan Shop</span>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openSellerCenterPortal}
+                          className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-bold text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                        >
+                          <span>UKAYO Seller Center Portal</span>
+                          <ExternalLink className="w-4 h-4 text-[#0D9488]" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={openEditProfileModal}
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                    >
+                      <span>Account &amp; Profile Information</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                    <button
+                      onClick={openIdVerifyModal}
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                    >
+                      <span>Identity Verification (PH Primary ID)</span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          id="settings-verify-subtext"
+                          className="text-[11px] text-slate-400"
+                        >
+                          {state.user.idType || 'Verify'}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </div>
+                    </button>
+                    {!isSellerAccount && (
+                      <button
+                        onClick={goToSellerRegistrationPage}
+                        className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                      >
+                        <span>Register as a UKAYO Seller</span>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="px-1 pt-1 text-[11px] font-semibold text-slate-400">
+                    Support &amp; Policies
+                  </div>
+                  <div className="bg-white rounded-2xl border border-[#E2F2EE] divide-y divide-[#E2F2EE] overflow-hidden shadow-2xs">
+                    <button
+                      onClick={openCustomerServiceChat}
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                    >
+                      <span>Help Centre &amp; Customer Service</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrivacyTermsTab('privacy');
+                        setPrivacyTermsModalOpen(true);
+                      }}
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                    >
+                      <span>UKAYO Policies, Privacy &amp; Community Rules</span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                    {((state.blockedUserIds && state.blockedUserIds.length > 0) ||
+                      (state.hiddenPostIds && state.hiddenPostIds.length > 0)) && (
+                      <button
+                        type="button"
+                        onClick={handleUnblockAllUsers}
+                        className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                      >
+                        <span>Blocked Users ({(state.blockedUserIds || []).length})</span>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </button>
+                    )}
+                    <button
+                      onClick={handleAccountLogout}
+                      id="account-logout-btn"
+                      className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-bold text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                    >
+                      <span id="account-logout-label">
+                        {state.isAuthenticated ? 'Log Out' : 'Log In / Register Account'}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                    {state.isAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteConfirmText('');
+                          setDeleteAccountModalOpen(true);
+                        }}
+                        id="account-delete-btn"
+                        className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-slate-500 hover:bg-[#F4FAF8] cursor-pointer text-left"
+                      >
+                        <span>Request Account Deletion</span>
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
           )}
         </main>
 
-        {/* DOCKED 5-TAB BOTTOM NAVIGATION BAR */}
-        <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] px-2 pt-1.5 pb-safe">
-          <div className="grid grid-cols-5 items-center text-center">
+        {/* DOCKED BOTTOM NAVIGATION BAR — UNIFORM ACROSS ALL TABS INCLUDING LIVE */}
+        <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto border-t px-1.5 pt-1.5 pb-safe bg-white border-[#CBE7E0] text-[#132A2E] transition-colors">
+          <div className="grid grid-cols-6 items-center text-center">
             <button
               onClick={() => switchTab('home')}
               data-nav="home"
-              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              className={`nav-tab-btn flex flex-col items-center gap-1 py-1 cursor-pointer ${
                 state.activeTab === 'home'
-                  ? 'text-[#070D17] font-extrabold'
-                  : 'text-slate-400 font-semibold'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
               }`}
             >
               <Home className="w-5 h-5" />
@@ -4867,66 +5786,84 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => {
+                setState((prev) => ({
+                  ...prev,
+                  activeStoreId: '',
+                  activeTab: 'store',
+                }));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              data-nav="store"
+              className={`nav-tab-btn flex flex-col items-center gap-1 py-1 cursor-pointer ${
+                state.activeTab === 'store'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
+              }`}
+            >
+              <Store className="w-5 h-5" />
+              <span className="text-[10px]">Tindahan</span>
+            </button>
+
+            {/* Center Live Tab */}
+            <button
+              onClick={() => switchTab('mine')}
+              data-nav="mine"
+              className={`nav-tab-btn flex flex-col items-center gap-1 py-1 cursor-pointer ${
+                state.activeTab === 'mine'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
+              }`}
+            >
+              <Radio className="w-5 h-5" />
+              <span className="text-[10px]">Live</span>
+            </button>
+
+            <button
               onClick={() => switchTab('feed')}
               data-nav="feed"
-              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              className={`nav-tab-btn flex flex-col items-center gap-1 py-1 cursor-pointer ${
                 state.activeTab === 'feed'
-                  ? 'text-[#070D17] font-extrabold'
-                  : 'text-slate-400 font-semibold'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
               }`}
             >
               <LayoutGrid className="w-5 h-5" />
               <span className="text-[10px]">Ukay Feed</span>
             </button>
 
-            {/* Center Elevated "Mine Na!" Live Tab */}
-            <button
-              onClick={() => switchTab('mine')}
-              data-nav="mine"
-              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-0.5 cursor-pointer ${
-                state.activeTab === 'mine'
-                  ? 'text-[#070D17] font-extrabold'
-                  : 'text-slate-400 font-semibold'
-              }`}
-            >
-              <div className="w-10 h-10 -mt-4 rounded-2xl bg-[#070D17] text-white flex items-center justify-center shadow-md border-2 border-white">
-                <Radio className="w-5 h-5 text-[#10B981]" />
-              </div>
-              <span className="text-[10px]">Mine Na!</span>
-            </button>
-
             <button
               onClick={() => switchTab('bag')}
               data-nav="bag"
-              className={`nav-tab-btn relative flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              className={`nav-tab-btn relative flex flex-col items-center gap-1 py-1 cursor-pointer ${
                 state.activeTab === 'bag'
-                  ? 'text-[#070D17] font-extrabold'
-                  : 'text-slate-400 font-semibold'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
               }`}
             >
               {bayongTotalQty > 0 && (
                 <span
                   id="nav-bag-badge"
-                  className="absolute top-0.5 right-4 min-w-[15px] h-3.5 px-1 rounded-full bg-[#10B981] text-white text-[9px] font-bold flex items-center justify-center"
+                  className="absolute top-0 right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold flex items-center justify-center"
                 >
                   {bayongTotalQty}
                 </span>
               )}
               <ShoppingBag className="w-5 h-5" />
-              <span className="text-[10px]">My Bayong</span>
+              <span className="text-[10px]">Bayong</span>
             </button>
 
             <button
               onClick={() => switchTab('account')}
               data-nav="account"
-              className={`nav-tab-btn flex flex-col items-center gap-0.5 py-1 cursor-pointer ${
+              className={`nav-tab-btn flex flex-col items-center gap-1 py-1 cursor-pointer ${
                 state.activeTab === 'account'
-                  ? 'text-[#070D17] font-extrabold'
-                  : 'text-slate-400 font-semibold'
+                  ? 'text-[#0D9488] font-extrabold'
+                  : 'text-slate-500 font-medium'
               }`}
             >
               <User className="w-5 h-5" />
-              <span className="text-[10px]">My Account</span>
+              <span className="text-[10px]">Me</span>
             </button>
           </div>
         </nav>
@@ -4939,9 +5876,9 @@ export default function App() {
         {authModalOpen && (
           <div className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
             <div className="bg-white w-full rounded-3xl p-4 space-y-3.5 shadow-2xl max-h-[92dvh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
                 <div>
-                  <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                  <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                     UKAYO Account Access
                   </h3>
                   <p className="text-[10px] text-slate-500">
@@ -4951,19 +5888,19 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setAuthModalOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE]">
                 <button
                   type="button"
                   onClick={() => setAuthTab('login')}
                   className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer transition ${
                     authTab === 'login'
-                      ? 'bg-[#070D17] text-white'
+                      ? 'bg-[#0D9488] text-white'
                       : 'text-slate-600'
                   }`}
                 >
@@ -4974,7 +5911,7 @@ export default function App() {
                   onClick={() => setAuthTab('register')}
                   className={`py-2 rounded-lg text-xs font-extrabold cursor-pointer transition ${
                     authTab === 'register'
-                      ? 'bg-[#10B981] text-[#070D17]'
+                      ? 'bg-[#2DD4BF] text-[#132A2E]'
                       : 'text-slate-600'
                   }`}
                 >
@@ -4994,7 +5931,7 @@ export default function App() {
                       onChange={(e) => setLoginEmail(e.target.value)}
                       placeholder="you@example.com"
                       required
-                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                     />
                   </div>
                   <div>
@@ -5007,28 +5944,28 @@ export default function App() {
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                      className="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
                   >
                     Log In to UKAYO
                   </button>
 
-                  <div className="pt-1 border-t border-[#E2E8F0] space-y-2">
+                  <div className="pt-1 border-t border-[#E2F2EE] space-y-2">
                     <button
                       type="button"
                       onClick={handleSendPasswordResetEmail}
-                      className="w-full py-1.5 text-[11px] font-extrabold text-[#10B981] hover:underline cursor-pointer"
+                      className="w-full py-1.5 text-[11px] font-extrabold text-[#0D9488] hover:underline cursor-pointer"
                     >
                       Forgot Password? Send Gmail Reset / Set New Password
                     </button>
 
                     {resetEmailNotice && (
-                      <div className="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#CBD5E1] space-y-2 text-[11px]">
-                        <p className="text-[#070D17] font-semibold leading-snug">
+                      <div className="p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#CBD5E1] space-y-2 text-[11px]">
+                        <p className="text-[#132A2E] font-semibold leading-snug">
                           {resetEmailNotice.message}
                         </p>
                         {resetEmailNotice.consoleUrl && (
@@ -5036,7 +5973,7 @@ export default function App() {
                             href={resetEmailNotice.consoleUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-block text-[10px] font-extrabold text-[#10B981] underline"
+                            className="inline-block text-[10px] font-extrabold text-[#0D9488] underline"
                           >
                             Open Firebase Console → Authentication → Sign-in method →
                           </a>
@@ -5053,7 +5990,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={handleConfirmDirectPasswordReset}
-                              className="px-3 py-1.5 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0"
+                              className="px-3 py-1.5 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer shrink-0"
                             >
                               Update Password
                             </button>
@@ -5065,8 +6002,8 @@ export default function App() {
                 </form>
               ) : (
                 <form onSubmit={handleBuyerRegister} className="space-y-2.5">
-                  <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
-                    <div className="w-12 h-12 rounded-full bg-[#070D17] text-white flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#E2F2EE]">
+                    <div className="w-12 h-12 rounded-full bg-[#0D9488] text-white flex items-center justify-center overflow-hidden shrink-0">
                       {regAvatar ? (
                         <img
                           src={regAvatar}
@@ -5074,18 +6011,18 @@ export default function App() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Camera className="w-5 h-5 text-[#10B981]" />
+                        <Camera className="w-5 h-5 text-[#0D9488]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-extrabold text-[#070D17]">
+                      <div className="text-xs font-extrabold text-[#132A2E]">
                         Buyer Profile Picture
                       </div>
                       <div className="text-[10px] text-slate-500">
                         Upload a photo from your device
                       </div>
                     </div>
-                    <label className="px-2.5 py-1.5 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+                    <label className="px-2.5 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
                       Upload
                       <input
                         type="file"
@@ -5107,7 +6044,7 @@ export default function App() {
                         onChange={(e) => setRegName(e.target.value)}
                         placeholder="e.g. Juan Dela Cruz"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                     <div>
@@ -5120,7 +6057,7 @@ export default function App() {
                         onChange={(e) => setRegPhone(e.target.value)}
                         placeholder="0917-XXX-XXXX"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                   </div>
@@ -5136,7 +6073,7 @@ export default function App() {
                         onChange={(e) => setRegEmail(e.target.value)}
                         placeholder="you@email.com"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                     <div>
@@ -5149,7 +6086,7 @@ export default function App() {
                         onChange={(e) => setRegPassword(e.target.value)}
                         placeholder="Create password"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                   </div>
@@ -5165,7 +6102,7 @@ export default function App() {
                         onChange={(e) => setRegCity(e.target.value)}
                         placeholder="e.g. Cebu City"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                     <div>
@@ -5178,14 +6115,38 @@ export default function App() {
                         onChange={(e) => setRegAddress(e.target.value)}
                         placeholder="Street / Barangay"
                         required
-                        className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                        className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                       />
                     </div>
                   </div>
 
+                  {/* EULA, Privacy Policy & Zero-Tolerance UGC Community Guidelines Checkbox */}
+                  <label className="flex items-start gap-2 p-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-[10px] text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={regAgreedTerms}
+                      onChange={(e) => setRegAgreedTerms(e.target.checked)}
+                      className="mt-0.5 rounded border-slate-300 text-[#0D9488]"
+                    />
+                    <span className="leading-snug">
+                      I agree to the{' '}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrivacyTermsTab('ugc');
+                          setPrivacyTermsModalOpen(true);
+                        }}
+                        className="font-extrabold text-[#132A2E] underline cursor-pointer"
+                      >
+                        UKAYO Terms, Privacy Policy &amp; Zero-Tolerance UGC EULA
+                      </button>{' '}
+                      (no counterfeit items, abusive live streams, or joy-reserving).
+                    </span>
+                  </label>
+
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-[#070D17] text-xs font-extrabold cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E] text-xs font-extrabold cursor-pointer"
                   >
                     Create Buyer Account
                   </button>
@@ -5202,21 +6163,21 @@ export default function App() {
               onSubmit={saveBuyerProfile}
               className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-                <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                   Edit Buyer Profile &amp; Picture
                 </h3>
                 <button
                   type="button"
                   onClick={() => setEditProfileOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
-                <div className="w-14 h-14 rounded-full bg-[#070D17] text-white flex items-center justify-center overflow-hidden shrink-0">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F4FAF8] border border-[#E2F2EE]">
+                <div className="w-14 h-14 rounded-full bg-[#0D9488] text-white flex items-center justify-center overflow-hidden shrink-0">
                   {editAvatar ? (
                     <img
                       src={editAvatar}
@@ -5228,14 +6189,14 @@ export default function App() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-extrabold text-[#070D17]">
+                  <div className="text-xs font-extrabold text-[#132A2E]">
                     Profile Photo
                   </div>
                   <div className="text-[10px] text-slate-500">
                     Upload a new picture for your buyer account
                   </div>
                 </div>
-                <label className="px-3 py-1.5 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+                <label className="px-3 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
                   Choose Photo
                   <input
                     type="file"
@@ -5256,7 +6217,7 @@ export default function App() {
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
                 <div>
@@ -5268,7 +6229,7 @@ export default function App() {
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -5283,7 +6244,7 @@ export default function App() {
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
                 <div>
@@ -5295,7 +6256,7 @@ export default function App() {
                     value={editCity}
                     onChange={(e) => setEditCity(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -5309,13 +6270,13 @@ export default function App() {
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#2DD4BF] text-white text-xs font-extrabold cursor-pointer"
               >
                 Save Buyer Profile
               </button>
@@ -5333,14 +6294,14 @@ export default function App() {
               onSubmit={submitNewFeedPost}
               className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-                <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                   Post to Ukay Feed
                 </h3>
                 <button
                   type="button"
                   onClick={() => setFeedComposerOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5350,11 +6311,11 @@ export default function App() {
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                   Upload Item Photo
                 </label>
-                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] cursor-pointer">
-                  <span className="text-xs font-bold text-[#070D17]">
+                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4FAF8] cursor-pointer">
+                  <span className="text-xs font-bold text-[#132A2E]">
                     {postImage ? '✓ Photo Attached' : 'Tap to upload ukay photo'}
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">
+                  <span className="px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold">
                     Choose Photo
                   </span>
                   <input
@@ -5368,7 +6329,7 @@ export default function App() {
                   <img
                     src={postImage}
                     alt="Feed Preview"
-                    className="w-full h-32 object-cover rounded-xl mt-2 border border-[#E2E8F0]"
+                    className="w-full h-32 object-cover rounded-xl mt-2 border border-[#E2F2EE]"
                   />
                 )}
               </div>
@@ -5385,7 +6346,7 @@ export default function App() {
                     onChange={(e) => setPostTitle(e.target.value)}
                     placeholder="e.g. Vintage 90s Tee"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
                 <div>
@@ -5399,7 +6360,7 @@ export default function App() {
                     onChange={(e) => setPostPrice(e.target.value)}
                     min="1"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -5413,7 +6374,7 @@ export default function App() {
                     id="post-item-category"
                     value={postCategory}
                     onChange={(e) => setPostCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   >
                     {state.ukayPaborito.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -5432,7 +6393,7 @@ export default function App() {
                     onChange={(e) => setPostCondition(e.target.value)}
                     placeholder="10/10 Like New"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -5448,12 +6409,12 @@ export default function App() {
                   onChange={(e) => setPostCaption(e.target.value)}
                   placeholder="Chest/Length dimensions, condition, and shipping note..."
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs"
                 />
               </div>
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
               >
                 Publish Post to Ukay Feed
               </button>
@@ -5468,14 +6429,14 @@ export default function App() {
               onSubmit={submitLiveDropItem}
               className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-                <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                   Pin New Item to Live Stream
                 </h3>
                 <button
                   type="button"
                   onClick={() => setLiveDropModalOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5485,11 +6446,11 @@ export default function App() {
                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
                   Item Photo
                 </label>
-                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] cursor-pointer">
-                  <span className="text-xs font-bold text-[#070D17]">
+                <label className="flex items-center justify-between p-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4FAF8] cursor-pointer">
+                  <span className="text-xs font-bold text-[#132A2E]">
                     {dropImage ? '✓ Photo Attached' : 'Upload item photo'}
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">
+                  <span className="px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold">
                     Choose File
                   </span>
                   <input
@@ -5503,7 +6464,7 @@ export default function App() {
                   <img
                     src={dropImage}
                     alt="Drop Preview"
-                    className="w-full h-28 object-cover rounded-xl mt-2 border border-[#E2E8F0]"
+                    className="w-full h-28 object-cover rounded-xl mt-2 border border-[#E2F2EE]"
                   />
                 )}
               </div>
@@ -5518,7 +6479,7 @@ export default function App() {
                     value={dropCode}
                     onChange={(e) => setDropCode(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold uppercase"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold uppercase"
                   />
                 </div>
                 <div className="col-span-2">
@@ -5531,7 +6492,7 @@ export default function App() {
                     onChange={(e) => setDropTitle(e.target.value)}
                     placeholder="e.g. Korean Fleece Hoodie"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
@@ -5547,7 +6508,7 @@ export default function App() {
                     onChange={(e) => setDropPrice(e.target.value)}
                     min="1"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold"
                   />
                 </div>
                 <div>
@@ -5559,7 +6520,7 @@ export default function App() {
                     value={dropSize}
                     onChange={(e) => setDropSize(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
                 <div>
@@ -5571,14 +6532,14 @@ export default function App() {
                     value={dropCondition}
                     onChange={(e) => setDropCondition(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#2DD4BF] text-white text-xs font-extrabold cursor-pointer"
               >
                 Pin Item to Live Stream
               </button>
@@ -5596,9 +6557,9 @@ export default function App() {
               onSubmit={submitBayongCheckout}
               className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[92dvh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
                 <div>
-                  <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                  <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                     Bayong Checkout
                   </h3>
                   <p className="text-[10px] text-slate-500">
@@ -5608,7 +6569,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setCheckoutOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5624,7 +6585,7 @@ export default function App() {
                   value={checkoutAddress}
                   onChange={(e) => setCheckoutAddress(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                 />
               </div>
 
@@ -5636,7 +6597,7 @@ export default function App() {
                   id="checkout-courier"
                   value={checkoutCourier}
                   onChange={(e) => setCheckoutCourier(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold"
                 >
                   <option value="J&T Express">J&amp;T Express (Nationwide)</option>
                   <option value="LBC Express">LBC Express</option>
@@ -5650,34 +6611,34 @@ export default function App() {
                   Payment Method
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F4F6F9] flex items-center gap-2 cursor-pointer">
+                  <label className="p-2.5 rounded-xl border border-[#E2F2EE] bg-[#F4FAF8] flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="checkout-pay-method"
                       value="COD"
                       checked={checkoutPayMethod === 'COD'}
                       onChange={() => setCheckoutPayMethod('COD')}
-                      className="accent-[#070D17]"
+                      className="accent-[#0F766E]"
                     />
                     <div>
-                      <div className="text-xs font-extrabold text-[#070D17]">COD</div>
+                      <div className="text-xs font-extrabold text-[#132A2E]">COD</div>
                       <div className="text-[9px] text-slate-500">Cash on Delivery</div>
                     </div>
                   </label>
-                  <label className="p-2.5 rounded-xl border border-[#10B981]/40 bg-[#10B981]/10 flex items-center gap-2 cursor-pointer">
+                  <label className="p-2.5 rounded-xl border border-[#2DD4BF]/40 bg-[#2DD4BF]/10 flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="checkout-pay-method"
                       value="BAYAD_AGAD"
                       checked={checkoutPayMethod === 'BAYAD_AGAD'}
                       onChange={() => setCheckoutPayMethod('BAYAD_AGAD')}
-                      className="accent-[#10B981]"
+                      className="accent-[#2DD4BF]"
                     />
                     <div>
-                      <div className="text-xs font-extrabold text-[#070D17]">
+                      <div className="text-xs font-extrabold text-[#132A2E]">
                         Bayad Agad
                       </div>
-                      <div className="text-[9px] text-[#10B981] font-bold">
+                      <div className="text-[9px] text-[#0D9488] font-bold">
                         E-Wallet Express
                       </div>
                     </div>
@@ -5687,13 +6648,13 @@ export default function App() {
                 {checkoutPayMethod === 'BAYAD_AGAD' && (
                   <div
                     id="bayad-agad-ewallet-box"
-                    className="p-3 rounded-2xl bg-[#F4F6F9] border border-[#10B981]/40 space-y-2.5"
+                    className="p-3 rounded-2xl bg-[#F4FAF8] border border-[#2DD4BF]/40 space-y-2.5"
                   >
                     <div className="grid grid-cols-2 gap-1.5" id="ewallet-options-grid">
                       {[
-                        { name: 'GCash', label: 'GCash', badge: 'G', badgeCls: 'bg-[#070D17] text-white' },
-                        { name: 'Maya', label: 'Maya', badge: 'M', badgeCls: 'bg-[#10B981] text-white' },
-                        { name: 'GoTyme Bank', label: 'GoTyme', badge: 'GT', badgeCls: 'bg-[#F59E0B] text-[#070D17]' },
+                        { name: 'GCash', label: 'GCash', badge: 'G', badgeCls: 'bg-[#0D9488] text-white' },
+                        { name: 'Maya', label: 'Maya', badge: 'M', badgeCls: 'bg-[#2DD4BF] text-white' },
+                        { name: 'GoTyme Bank', label: 'GoTyme', badge: 'GT', badgeCls: 'bg-[#F59E0B] text-[#132A2E]' },
                         { name: 'ShopeePay', label: 'ShopeePay', badge: 'SP', badgeCls: 'bg-[#EF4444] text-white' },
                       ].map((w) => {
                         const isSelected = selectedEWallet === w.name;
@@ -5703,7 +6664,7 @@ export default function App() {
                             type="button"
                             onClick={() => setSelectedEWallet(w.name)}
                             className={`p-2 rounded-xl ${
-                              isSelected ? 'border-2 border-[#070D17]' : 'border border-[#E2E8F0]'
+                              isSelected ? 'border-2 border-[#0D9488]' : 'border border-[#E2F2EE]'
                             } bg-white text-left flex items-center gap-2 cursor-pointer`}
                           >
                             <span
@@ -5711,7 +6672,7 @@ export default function App() {
                             >
                               {w.badge}
                             </span>
-                            <div className="text-xs font-extrabold text-[#070D17]">
+                            <div className="text-xs font-extrabold text-[#132A2E]">
                               {w.label}
                             </div>
                           </button>
@@ -5729,25 +6690,25 @@ export default function App() {
                         value={ewalletSenderRef}
                         onChange={(e) => setEwalletSenderRef(e.target.value)}
                         placeholder="09XX-XXX-XXXX or Ref #"
-                        className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E2E8F0] text-xs font-semibold text-[#070D17]"
+                        className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E2F2EE] text-xs font-semibold text-[#132A2E]"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="p-3 rounded-2xl bg-[#070D17] text-white flex items-center justify-between">
+              <div className="p-3 rounded-2xl bg-[#0D9488] text-white flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-400">
                     Total Amount ({bayongTotalQty} items)
                   </div>
-                  <div className="text-base font-display font-extrabold text-[#10B981] tabular-price">
+                  <div className="text-base font-display font-extrabold text-[#0D9488] tabular-price">
                     ₱{bayongGrandTotal.toLocaleString()}
                   </div>
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
                 >
                   {checkoutPayMethod === 'BAYAD_AGAD'
                     ? `Pay with ${selectedEWallet}`
@@ -5766,7 +6727,7 @@ export default function App() {
           >
             <form
               onSubmit={confirmStartLiveSession}
-              className="bg-[#070D17] text-white w-full rounded-3xl p-4 space-y-3.5 border border-slate-800 shadow-2xl max-h-[92dvh] overflow-y-auto"
+              className="bg-[#0D9488] text-white w-full rounded-3xl p-4 space-y-3.5 border border-slate-800 shadow-2xl max-h-[92dvh] overflow-y-auto"
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2">
@@ -5812,7 +6773,7 @@ export default function App() {
                   />
                 </label>
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <label className="block text-[9px] font-extrabold uppercase tracking-wider text-[#10B981]">
+                  <label className="block text-[9px] font-extrabold uppercase tracking-wider text-[#0D9488]">
                     Live Stream Title
                   </label>
                   <input
@@ -5822,7 +6783,7 @@ export default function App() {
                     onChange={(e) => setLiveSetupTitle(e.target.value)}
                     placeholder="Add an engaging title..."
                     required
-                    className="w-full px-2.5 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-bold text-white placeholder-slate-400 focus:outline-none focus:border-[#10B981]"
+                    className="w-full px-2.5 py-2 rounded-xl bg-black/40 border border-white/15 text-xs font-bold text-white placeholder-slate-400 focus:outline-none focus:border-[#2DD4BF]"
                   />
                 </div>
               </div>
@@ -5839,7 +6800,7 @@ export default function App() {
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
                     {state.ukayPaborito.map((c) => (
-                      <option key={c.id} value={c.label} className="text-[#070D17]">
+                      <option key={c.id} value={c.label} className="text-[#132A2E]">
                         {c.label}
                       </option>
                     ))}
@@ -5857,10 +6818,10 @@ export default function App() {
                     }
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
-                    <option value="environment" className="text-[#070D17]">
+                    <option value="environment" className="text-[#132A2E]">
                       Rear Camera (Rack View)
                     </option>
-                    <option value="user" className="text-[#070D17]">
+                    <option value="user" className="text-[#132A2E]">
                       Front Camera (Selfie Host)
                     </option>
                   </select>
@@ -5879,7 +6840,7 @@ export default function App() {
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
                     {state.liveItems.length === 0 ? (
-                      <option value="" className="text-[#070D17]">
+                      <option value="" className="text-[#132A2E]">
                         Add items in Live Room (+)
                       </option>
                     ) : (
@@ -5887,7 +6848,7 @@ export default function App() {
                         <option
                           key={item.id}
                           value={item.id}
-                          className="text-[#070D17]"
+                          className="text-[#132A2E]"
                         >
                           {item.code} • {item.title} (₱{item.price})
                         </option>
@@ -5905,13 +6866,13 @@ export default function App() {
                     onChange={(e) => setLiveSetupTimer(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-xs font-bold text-white"
                   >
-                    <option value="First Tap Locks (Instant)" className="text-[#070D17]">
+                    <option value="First Tap Locks (Instant)" className="text-[#132A2E]">
                       First Tap Locks (Instant)
                     </option>
-                    <option value="15s Steal Window" className="text-[#070D17]">
+                    <option value="15s Steal Window" className="text-[#132A2E]">
                       15s Steal Window
                     </option>
-                    <option value="30s Steal Window" className="text-[#070D17]">
+                    <option value="30s Steal Window" className="text-[#132A2E]">
                       30s Steal Window
                     </option>
                   </select>
@@ -5952,13 +6913,13 @@ export default function App() {
               onSubmit={submitIdVerification}
               className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#070D17] text-[#10B981] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-[#0D9488] flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-display font-extrabold text-[#070D17]">
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
                       Identity Verification
                     </h3>
                     <p className="text-[10px] text-slate-500">
@@ -5969,7 +6930,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIdVerifyOpen(false)}
-                  className="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5984,7 +6945,7 @@ export default function App() {
                   value={verifyIdType}
                   onChange={(e) => setVerifyIdType(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]"
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#1E293B]"
                 >
                   <option value="Philippine National ID (PhilSys / ePhilID)">
                     Philippine National ID (PhilSys / ePhilID)
@@ -6014,7 +6975,7 @@ export default function App() {
                     value={verifyFullName}
                     onChange={(e) => setVerifyFullName(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#1E293B]"
                   />
                 </div>
                 <div>
@@ -6028,7 +6989,7 @@ export default function App() {
                     onChange={(e) => setVerifyIdNumber(e.target.value)}
                     placeholder="e.g. 1234-5678-9012"
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#1E293B]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#1E293B]"
                   />
                 </div>
               </div>
@@ -6037,9 +6998,9 @@ export default function App() {
                 <label className="block text-[10px] font-bold uppercase text-slate-500">
                   Upload Front of Primary ID
                 </label>
-                <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
-                  <UploadCloud className="w-5 h-5 text-[#070D17] mb-1" />
-                  <span className="text-[11px] font-bold text-[#070D17]">
+                <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2F2EE] hover:border-[#0D9488] bg-[#F4FAF8] cursor-pointer transition text-center">
+                  <UploadCloud className="w-5 h-5 text-[#132A2E] mb-1" />
+                  <span className="text-[11px] font-bold text-[#132A2E]">
                     {verifyIdFileLabel}
                   </span>
                   <input
@@ -6053,7 +7014,7 @@ export default function App() {
                   <img
                     src={verifyIdPreview}
                     alt="Primary ID Preview"
-                    className="w-full h-28 object-cover rounded-xl border border-[#E2E8F0]"
+                    className="w-full h-28 object-cover rounded-xl border border-[#E2F2EE]"
                   />
                 )}
               </div>
@@ -6062,9 +7023,9 @@ export default function App() {
                 <label className="block text-[10px] font-bold uppercase text-slate-500">
                   Upload Selfie Holding Your ID
                 </label>
-                <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2E8F0] hover:border-[#070D17] bg-[#F4F6F9] cursor-pointer transition text-center">
-                  <Camera className="w-5 h-5 text-[#10B981] mb-1" />
-                  <span className="text-[11px] font-bold text-[#070D17]">
+                <label className="flex flex-col items-center justify-center p-3 rounded-2xl border-2 border-dashed border-[#E2F2EE] hover:border-[#0D9488] bg-[#F4FAF8] cursor-pointer transition text-center">
+                  <Camera className="w-5 h-5 text-[#0D9488] mb-1" />
+                  <span className="text-[11px] font-bold text-[#132A2E]">
                     {verifySelfieFileLabel}
                   </span>
                   <input
@@ -6078,18 +7039,349 @@ export default function App() {
                   <img
                     src={verifySelfiePreview}
                     alt="Selfie Preview"
-                    className="w-full h-28 object-cover rounded-xl border border-[#E2E8F0]"
+                    className="w-full h-28 object-cover rounded-xl border border-[#E2F2EE]"
                   />
                 )}
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
               >
                 Submit Primary ID for Verification
               </button>
             </form>
+          </div>
+        )}
+
+        {/* 8. UGC REPORT & BLOCK USER / CONTENT MODAL (Apple Guideline 1.2) */}
+        {reportModalOpen && reportTarget && (
+          <div
+            id="ugc-report-modal"
+            className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3"
+          >
+            <form
+              onSubmit={submitUgcReport}
+              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center shrink-0">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
+                      Report or Block Content / User
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      UKAYO 24/7 Trust &amp; Safety Moderation
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReportModalOpen(false)}
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs space-y-0.5">
+                <div className="text-[10px] font-bold uppercase text-slate-400">
+                  Reporting {reportTarget.kind === 'live' ? 'Live Stream Host' : 'Ukay Feed Post'}
+                </div>
+                <div className="font-extrabold text-[#132A2E]">
+                  {reportTarget.authorName} — {reportTarget.title}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Reason for Report
+                </label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#1E293B]"
+                >
+                  <option value="Counterfeit / Misleading Ukay Item">
+                    Counterfeit / Misleading Ukay Item
+                  </option>
+                  <option value="Inappropriate / Offensive Live Stream or Photo">
+                    Inappropriate / Offensive Live Stream or Photo
+                  </option>
+                  <option value="Harassment, Bullying or Abusive Behavior">
+                    Harassment, Bullying or Abusive Behavior
+                  </option>
+                  <option value="Scam / Off-Platform Payment Request">
+                    Scam / Off-Platform Payment Request
+                  </option>
+                  <option value="Spam or Prohibited Merchandise">
+                    Spam or Prohibited Merchandise
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Additional Details (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={reportNotes}
+                  onChange={(e) => setReportNotes(e.target.value)}
+                  placeholder="Describe the issue for UKAYO Admin Ops (reviewed within 24 hours)..."
+                  className="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs text-[#1E293B]"
+                />
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
+                >
+                  Submit Report &amp; Hide Content
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBlockUserFromModal}
+                  className="w-full py-2.5 rounded-xl bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] text-xs font-extrabold cursor-pointer"
+                >
+                  Block {reportTarget.authorName} Immediately
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 9. PERMANENT IN-APP ACCOUNT DELETION MODAL (Apple Guideline 5.1.1(v)) */}
+        {deleteAccountModalOpen && (
+          <div
+            id="delete-account-modal"
+            className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3"
+          >
+            <form
+              onSubmit={handlePermanentDeleteAccount}
+              className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shrink-0">
+                    <Trash2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-display font-extrabold text-[#EF4444]">
+                      Delete Account &amp; Data
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Permanent In-App Account Deletion
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteAccountModalOpen(false)}
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5">
+                <div className="font-extrabold">
+                  Warning: This action is permanent and cannot be undone.
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Deleting your account (<strong>{state.user.name}</strong> •{' '}
+                  {state.user.email}) will permanently erase your buyer profile,
+                  KYC verification records, seller storefront (if registered),
+                  and active sessions from UKAYO and Firebase Firestore.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                  Type <span className="text-[#EF4444] font-extrabold">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE in capital letters"
+                  required
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold text-[#132A2E]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeleteAccountModalOpen(false)}
+                  className="py-2.5 rounded-xl bg-[#F4FAF8] text-slate-700 text-xs font-extrabold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="py-2.5 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold cursor-pointer"
+                >
+                  Delete Permanently
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* 10. PRIVACY POLICY, TERMS OF SERVICE & UGC EULA MODAL (Apple Guideline 5.1.1(i) & 1.2) */}
+        {privacyTermsModalOpen && (
+          <div
+            id="privacy-terms-modal"
+            className="fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-3"
+          >
+            <div className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-[#0D9488] flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-display font-extrabold text-[#132A2E]">
+                      UKAYO Legal &amp; Privacy Center
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      PH Data Privacy Act (RA 10173) &amp; App Store EULA
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyTermsModalOpen(false)}
+                  className="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-[11px] font-extrabold">
+                <button
+                  type="button"
+                  onClick={() => setPrivacyTermsTab('privacy')}
+                  className={`py-1.5 rounded-lg cursor-pointer ${
+                    privacyTermsTab === 'privacy'
+                      ? 'bg-[#0D9488] text-white'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  Privacy Policy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyTermsTab('terms')}
+                  className={`py-1.5 rounded-lg cursor-pointer ${
+                    privacyTermsTab === 'terms'
+                      ? 'bg-[#0D9488] text-white'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  Terms &amp; Escrow
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyTermsTab('ugc')}
+                  className={`py-1.5 rounded-lg cursor-pointer ${
+                    privacyTermsTab === 'ugc'
+                      ? 'bg-[#0D9488] text-white'
+                      : 'text-slate-600'
+                  }`}
+                >
+                  UGC &amp; Live EULA
+                </button>
+              </div>
+
+              {privacyTermsTab === 'privacy' && (
+                <div className="space-y-2 text-xs text-slate-600 leading-relaxed bg-[#F4FAF8] p-3 rounded-2xl border border-[#E2F2EE]">
+                  <div className="font-extrabold text-[#132A2E]">
+                    1. Philippine Data Privacy Act of 2012 (RA 10173) Compliance
+                  </div>
+                  <p>
+                    UKAYO collects only the minimum personal information required to
+                    process your preloved/ukay orders, delivery waybills, and optional
+                    Philippine Primary ID / BIR RR 16-2023 seller verification.
+                  </p>
+                  <div className="font-extrabold text-[#132A2E] pt-1">
+                    2. Camera, Microphone &amp; Photo Library Permissions
+                  </div>
+                  <p>
+                    Camera and Microphone access are used exclusively when you initiate a
+                    Live Ukay Selling broadcast via Agora WebRTC or upload item/profile
+                    photos. UKAYO never records or accesses your camera in the background.
+                  </p>
+                  <div className="font-extrabold text-[#132A2E] pt-1">
+                    3. Right to Erasure &amp; In-App Account Deletion
+                  </div>
+                  <p>
+                    You may permanently delete your account and all associated personal
+                    data at any time via <strong>My Account → Delete My Account &amp; Personal Data</strong>.
+                  </p>
+                </div>
+              )}
+
+              {privacyTermsTab === 'terms' && (
+                <div className="space-y-2 text-xs text-slate-600 leading-relaxed bg-[#F4FAF8] p-3 rounded-2xl border border-[#E2F2EE]">
+                  <div className="font-extrabold text-[#132A2E]">
+                    1. &ldquo;MINE NA!&rdquo; Live &amp; Feed Order Locking
+                  </div>
+                  <p>
+                    Tapping <strong>MINE NA!</strong> locks the preloved piece in your
+                    Bayong. Buyers must complete checkout via COD or Bayad Agad (GCash /
+                    Maya Escrow) within the seller&apos;s stated window to avoid
+                    joy-reserver penalties.
+                  </p>
+                  <div className="font-extrabold text-[#132A2E] pt-1">
+                    2. Buyer Protection &amp; BIR RR 16-2023 Seller Compliance
+                  </div>
+                  <p>
+                    Payments made via Bayad Agad are held in escrow until parcel
+                    delivery is confirmed. Verified sellers comply with BIR RR 16-2023
+                    e-marketplace regulations (Starter Micro-Seller exemption ≤ ₱500,000
+                    annual gross remittances or 1% creditable withholding tax on half of
+                    gross remittances).
+                  </p>
+                </div>
+              )}
+
+              {privacyTermsTab === 'ugc' && (
+                <div className="space-y-2 text-xs text-slate-600 leading-relaxed bg-[#F4FAF8] p-3 rounded-2xl border border-[#E2F2EE]">
+                  <div className="font-extrabold text-[#132A2E]">
+                    1. Zero-Tolerance Policy for Objectionable Content
+                  </div>
+                  <p>
+                    UKAYO enforces a strict zero-tolerance policy against counterfeit
+                    goods, explicit or abusive live streams, hate speech, harassment, and
+                    fraudulent off-platform payment solicitation.
+                  </p>
+                  <div className="font-extrabold text-[#132A2E] pt-1">
+                    2. Reporting &amp; Blocking Mechanism (24-Hour SLA)
+                  </div>
+                  <p>
+                    Users can tap the <strong>Flag (Report / Block)</strong> icon on any
+                    Ukay Feed post or Live Selling room to immediately hide offending
+                    content, block the user, and alert UKAYO Trust &amp; Safety Admin Ops,
+                    who review and remove violating content or terminate offending accounts
+                    within 24 hours.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setPrivacyTermsModalOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer"
+              >
+                Close Legal &amp; Privacy Center
+              </button>
+            </div>
           </div>
         )}
       </div>

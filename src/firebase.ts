@@ -11,6 +11,8 @@ import {
   setDoc,
   getDocFromServer,
   onSnapshot,
+  disableNetwork,
+  setLogLevel,
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -18,7 +20,79 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
+// Silence internal @firebase/firestore console noise so quota-exhausted warnings never spam the browser console
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
+
 export const DEVICE_SESSION_KEY = 'ukayo_device_session_v1';
+const SHARED_STORAGE_KEY_FALLBACK = 'ukayo_marketplace_state_v11';
+const QUOTA_LOCK_KEY = 'ukayo_firestore_quota_date_v1';
+
+function getTodayUtcDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+let firestoreQuotaExceeded = (() => {
+  try {
+    return localStorage.getItem(QUOTA_LOCK_KEY) === getTodayUtcDate();
+  } catch {
+    return false;
+  }
+})();
+
+if (firestoreQuotaExceeded) {
+  try {
+    disableNetwork(db).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+const statusSubscribers = new Set<() => void>();
+
+function isQuotaError(err: unknown): boolean {
+  if (!err) return false;
+  const code = (err as { code?: string })?.code || '';
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    code === 'resource-exhausted' ||
+    msg.includes('resource-exhausted') ||
+    msg.toLowerCase().includes('quota')
+  );
+}
+
+function tripQuotaCircuitBreaker() {
+  firestoreQuotaExceeded = true;
+  try {
+    localStorage.setItem(QUOTA_LOCK_KEY, getTodayUtcDate());
+  } catch {
+    // ignore
+  }
+  try {
+    setLogLevel('silent');
+  } catch {
+    // ignore
+  }
+  try {
+    disableNetwork(db).catch(() => {});
+  } catch {
+    // ignore
+  }
+  statusSubscribers.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      // ignore
+    }
+  });
+}
+
+export function isFirestoreQuotaExhausted(): boolean {
+  return firestoreQuotaExceeded;
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -51,6 +125,10 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ) {
+  if (isQuotaError(error)) {
+    tripQuotaCircuitBreaker();
+    return;
+  }
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -71,20 +149,6 @@ export function handleFirestoreError(
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'ukayo_sync', 'connection'));
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('the client is offline')
-    ) {
-      console.error('Please check your Firebase configuration.');
-    }
-  }
-}
-testConnection();
 
 export interface DeviceSessionData {
   isAuthenticated: boolean;
@@ -266,20 +330,70 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
 
   const remoteUser = (remoteState && (remoteState as any).user) || {};
 
+  // Merge deletedUserIds tombstones, blockedUserIds, and hiddenPostIds (Apple Guideline 5.1.1(v) & 1.2)
+  merged.deletedUserIds = Array.from(
+    new Set([
+      ...(Array.isArray(localState.deletedUserIds) ? localState.deletedUserIds : []),
+      ...(Array.isArray((remoteState as any)?.deletedUserIds)
+        ? (remoteState as any).deletedUserIds
+        : []),
+    ])
+  ).filter(Boolean);
+
+  merged.blockedUserIds = Array.from(
+    new Set([
+      ...(Array.isArray(localState.blockedUserIds) ? localState.blockedUserIds : []),
+      ...(Array.isArray((remoteState as any)?.blockedUserIds)
+        ? (remoteState as any).blockedUserIds
+        : []),
+    ])
+  ).filter(Boolean);
+
+  merged.hiddenPostIds = Array.from(
+    new Set([
+      ...(Array.isArray(localState.hiddenPostIds) ? localState.hiddenPostIds : []),
+      ...(Array.isArray((remoteState as any)?.hiddenPostIds)
+        ? (remoteState as any).hiddenPostIds
+        : []),
+    ])
+  ).filter(Boolean);
+
+  const deletedSet = new Set(
+    (merged.deletedUserIds as string[]).map((x) => String(x).toLowerCase())
+  );
+
   // Merge registeredUsers by email / id across all devices
   const regUsers = mergeByKey(
     localState.registeredUsers || [],
     (remoteState as any)?.registeredUsers || [],
     (u) => (u.email ? String(u.email).toLowerCase() : String(u.id || ''))
-  );
+  ).filter((u: any) => {
+    const idKey = String(u?.id || '').toLowerCase();
+    const emailKey = String(u?.email || '').toLowerCase();
+    const sellerKey = String(u?.ownSellerId || '').toLowerCase();
+    return (
+      !deletedSet.has(idKey) &&
+      !deletedSet.has(emailKey) &&
+      (!sellerKey || !deletedSet.has(sellerKey))
+    );
+  });
 
-  // Ensure any valid user object (local or remote) is preserved in registeredUsers
+  // Ensure any valid user object (local or remote) is preserved in registeredUsers (unless deleted)
   [localUser, remoteUser].forEach((u) => {
     if (u && (u.email || u.shopName) && (u.name || u.shopName)) {
       const emailKey = (
         u.email ||
         `${(u.shopName || 'seller').toLowerCase().replace(/[^a-z0-9]/g, '')}@ukayo.ph`
       ).toLowerCase();
+      const idKey = String(u.id || '').toLowerCase();
+      const sellerKey = String(u.ownSellerId || '').toLowerCase();
+      if (
+        deletedSet.has(emailKey) ||
+        (idKey && deletedSet.has(idKey)) ||
+        (sellerKey && deletedSet.has(sellerKey))
+      ) {
+        return;
+      }
       const idx = regUsers.findIndex(
         (existing) =>
           (existing.email || '').toLowerCase() === emailKey ||
@@ -368,24 +482,38 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
     merged.user = localUser;
   }
 
-  // Merge sellers
+  // Merge sellers (excluding deleted accounts)
   const sellers = mergeByKey(
     localState.sellers || [],
     (remoteState as any)?.sellers || [],
     (s) => String(s.id || s.name || '')
-  );
+  ).filter((s: any) => {
+    const sId = String(s?.id || '').toLowerCase();
+    const sName = String(s?.name || '').toLowerCase();
+    return !deletedSet.has(sId) && (!sName || !deletedSet.has(sName));
+  });
 
-  // Merge kycApplications
+  // Merge kycApplications (excluding deleted accounts)
   const kycApps = mergeByKey(
     localState.kycApplications || [],
     (remoteState as any)?.kycApplications || [],
     (k) => String(k.id || k.shopName || k.userId || '')
-  );
+  ).filter((k: any) => {
+    const kUser = String(k?.userId || '').toLowerCase();
+    const kEmail = String(k?.email || '').toLowerCase();
+    const kId = String(k?.id || '').toLowerCase();
+    return (
+      !deletedSet.has(kId) &&
+      (!kUser || !deletedSet.has(kUser)) &&
+      (!kEmail || !deletedSet.has(kEmail))
+    );
+  });
 
   // Backfill sellers & kycApplications from any registeredUsers with isSeller === true
   regUsers.forEach((u) => {
     if (u.isSeller && u.shopName) {
       const sellerId = u.ownSellerId || `seller_${u.id}`;
+      if (deletedSet.has(String(sellerId).toLowerCase())) return;
       if (!sellers.some((s) => s.id === sellerId || s.name === u.shopName)) {
         sellers.unshift({
           id: sellerId,
@@ -603,6 +731,9 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
 }
 
 const SYNC_DOC_PATH = 'ukayo_sync/live_state';
+let latestSyncedPayloadJson = '';
+let latestSyncedUpdatedAt = '';
+const liveFrameSubscribers = new Set<(stream: LiveCameraBroadcastState) => void>();
 
 export function startUkayoCloudSync<T extends Record<string, any>>(
   storageKey: string,
@@ -612,21 +743,80 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
   const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
   let isApplyingRemote = false;
   let lastPushedJson = '';
+  let pushDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let serverPushTimer: ReturnType<typeof setTimeout> | null = null;
+  let unsubscribeSnapshot: (() => void) | null = null;
+  let eventSource: EventSource | null = null;
+  let serverPollInterval: ReturnType<typeof setInterval> | null = null;
 
-  const pushStateToCloud = async (nextState: T) => {
+  const notifyStatusListeners = () => {
+    statusSubscribers.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        // ignore
+      }
+    });
+  };
+
+  const applyIncomingPayloadJson = (incomingPayloadJson: string, updatedAt?: string) => {
+    if (!incomingPayloadJson || typeof incomingPayloadJson !== 'string') return;
+    latestSyncedPayloadJson = incomingPayloadJson;
+    latestSyncedUpdatedAt = updatedAt || new Date().toISOString();
+    notifyStatusListeners();
+
+    if (incomingPayloadJson === lastPushedJson) return;
+
+    try {
+      const remoteParsed = JSON.parse(incomingPayloadJson);
+      isApplyingRemote = true;
+      const current = getCurrentState();
+      const merged = normalizeAndMergeUkayoState(current, remoteParsed);
+      const mergedJson = JSON.stringify(merged);
+      lastPushedJson = incomingPayloadJson;
+      localStorage.setItem(storageKey, mergedJson);
+      onRemoteStateMerged(merged);
+    } catch {
+      // ignore malformed payload
+    } finally {
+      setTimeout(() => {
+        isApplyingRemote = false;
+      }, 80);
+    }
+  };
+
+  const buildSharedPayloadJson = (nextState: T): string => {
+    const normalized = normalizeAndMergeUkayoState(nextState, null);
+    const sharedCloudPayload: Record<string, any> = {
+      ...normalized,
+    };
+    delete sharedCloudPayload.isAuthenticated;
+    delete sharedCloudPayload.role;
+    delete sharedCloudPayload.user;
+    delete sharedCloudPayload.activeTab;
+    return JSON.stringify(sharedCloudPayload);
+  };
+
+  // Immediate real-time push to backend Express server (/api/sync-state) — works across all devices with zero quota limits
+  const executePushToBackendServer = async (nextState: T) => {
     if (isApplyingRemote) return;
     try {
-      const normalized = normalizeAndMergeUkayoState(nextState, null);
-      // Strip device-local session fields before writing to shared Firestore so devices never sign each other out
-      const sharedCloudPayload: Record<string, any> = {
-        ...normalized,
-      };
-      delete sharedCloudPayload.isAuthenticated;
-      delete sharedCloudPayload.role;
-      delete sharedCloudPayload.user;
-      delete sharedCloudPayload.activeTab;
+      const payloadJson = buildSharedPayloadJson(nextState);
+      if (!payloadJson || payloadJson.length < 2) return;
+      await fetch('/api/sync-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payloadJson }),
+      });
+    } catch {
+      // ignore offline error
+    }
+  };
 
-      const payloadJson = JSON.stringify(sharedCloudPayload);
+  const executePushToCloud = async (nextState: T) => {
+    if (isApplyingRemote) return;
+    try {
+      const payloadJson = buildSharedPayloadJson(nextState);
       if (
         payloadJson === lastPushedJson ||
         payloadJson.length < 2 ||
@@ -635,12 +825,32 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
         return;
       }
       lastPushedJson = payloadJson;
+      latestSyncedPayloadJson = payloadJson;
+      latestSyncedUpdatedAt = new Date().toISOString();
+      notifyStatusListeners();
+
+      if (firestoreQuotaExceeded) {
+        return;
+      }
+
       await setDoc(syncDocRef, {
         payloadJson,
-        updatedAt: new Date().toISOString(),
+        updatedAt: latestSyncedUpdatedAt,
         updatedBy: 'marketplace',
       });
     } catch (error) {
+      if (isQuotaError(error)) {
+        tripQuotaCircuitBreaker();
+        if (unsubscribeSnapshot) {
+          try {
+            unsubscribeSnapshot();
+          } catch {
+            // ignore
+          }
+          unsubscribeSnapshot = null;
+        }
+        return;
+      }
       if (
         error instanceof Error &&
         error.message.toLowerCase().includes('permission')
@@ -650,56 +860,155 @@ export function startUkayoCloudSync<T extends Record<string, any>>(
     }
   };
 
+  const pushStateToCloud = (nextState: T) => {
+    if (isApplyingRemote) return;
+    try {
+      latestSyncedPayloadJson = JSON.stringify(nextState);
+      latestSyncedUpdatedAt = new Date().toISOString();
+      notifyStatusListeners();
+    } catch {
+      // ignore
+    }
+
+    // Fast 150ms push to Express server for real-time cross-device sync
+    if (serverPushTimer) clearTimeout(serverPushTimer);
+    serverPushTimer = setTimeout(() => {
+      executePushToBackendServer(nextState);
+    }, 150);
+
+    if (firestoreQuotaExceeded) return;
+    if (pushDebounceTimer) {
+      clearTimeout(pushDebounceTimer);
+    }
+    pushDebounceTimer = setTimeout(() => {
+      executePushToCloud(nextState);
+    }, 2500);
+  };
+
   (
     window as unknown as { ukayoCloudSyncPush?: (s: T) => void }
   ).ukayoCloudSyncPush = pushStateToCloud;
 
-  const unsubscribe = onSnapshot(
-    syncDocRef,
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        const current = getCurrentState();
-        pushStateToCloud(current);
-        return;
+  // 1. Connect to Express real-time Server-Sent Events (/api/sync-events) & initial state fetch
+  fetch('/api/sync-state')
+    .then((r) => r.json())
+    .then((data) => {
+      if (data && typeof data.payloadJson === 'string' && data.payloadJson.length > 2) {
+        applyIncomingPayloadJson(data.payloadJson, data.updatedAt);
+      } else {
+        executePushToBackendServer(getCurrentState());
       }
-      const data = snapshot.data();
-      if (!data || typeof data.payloadJson !== 'string') return;
-      if (data.payloadJson === lastPushedJson) return;
+      if (data && data.latestLiveStream) {
+        liveFrameSubscribers.forEach((fn) => fn(data.latestLiveStream));
+      }
+    })
+    .catch(() => {});
 
-      try {
-        const remoteParsed = JSON.parse(data.payloadJson);
-        isApplyingRemote = true;
-        const current = getCurrentState();
-        const merged = normalizeAndMergeUkayoState(current, remoteParsed);
-        const mergedJson = JSON.stringify(merged);
-        lastPushedJson = data.payloadJson;
-        localStorage.setItem(storageKey, mergedJson);
-        onRemoteStateMerged(merged);
-      } catch {
-        // ignore malformed payload
-      } finally {
-        setTimeout(() => {
-          isApplyingRemote = false;
-        }, 80);
+  if (typeof EventSource !== 'undefined') {
+    try {
+      eventSource = new EventSource('/api/sync-events');
+      eventSource.addEventListener('sync', (ev: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(ev.data);
+          if (parsed && typeof parsed.payloadJson === 'string') {
+            applyIncomingPayloadJson(parsed.payloadJson, parsed.updatedAt);
+          }
+        } catch {
+          // ignore
+        }
+      });
+      eventSource.addEventListener('live_frame', (ev: MessageEvent) => {
+        try {
+          const stream = JSON.parse(ev.data) as LiveCameraBroadcastState;
+          if (stream && stream.sellerId) {
+            liveFrameSubscribers.forEach((fn) => fn(stream));
+          }
+        } catch {
+          // ignore
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  serverPollInterval = setInterval(() => {
+    fetch('/api/sync-state')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.payloadJson === 'string' && data.payloadJson.length > 2) {
+          applyIncomingPayloadJson(data.payloadJson, data.updatedAt);
+        }
+        if (data && data.latestLiveStream) {
+          liveFrameSubscribers.forEach((fn) => fn(data.latestLiveStream));
+        }
+      })
+      .catch(() => {});
+  }, 2500);
+
+  // 2. Connect to Firestore onSnapshot (when daily quota is available)
+  if (!firestoreQuotaExceeded) {
+    unsubscribeSnapshot = onSnapshot(
+      syncDocRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          const current = getCurrentState();
+          pushStateToCloud(current);
+          return;
+        }
+        const data = snapshot.data();
+        if (!data || typeof data.payloadJson !== 'string') return;
+        applyIncomingPayloadJson(data.payloadJson, data.updatedAt);
+      },
+      (error) => {
+        if (isQuotaError(error)) {
+          tripQuotaCircuitBreaker();
+          if (unsubscribeSnapshot) {
+            try {
+              unsubscribeSnapshot();
+            } catch {
+              // ignore
+            }
+            unsubscribeSnapshot = null;
+          }
+          return;
+        }
+        if (
+          error instanceof Error &&
+          error.message.toLowerCase().includes('permission')
+        ) {
+          handleFirestoreError(error, OperationType.GET, SYNC_DOC_PATH);
+        }
       }
-    },
-    (error) => {
-      if (
-        error instanceof Error &&
-        error.message.toLowerCase().includes('permission')
-      ) {
-        handleFirestoreError(error, OperationType.GET, SYNC_DOC_PATH);
+    );
+  }
+
+  return () => {
+    if (pushDebounceTimer) clearTimeout(pushDebounceTimer);
+    if (serverPushTimer) clearTimeout(serverPushTimer);
+    if (serverPollInterval) clearInterval(serverPollInterval);
+    if (eventSource) {
+      try {
+        eventSource.close();
+      } catch {
+        // ignore
       }
     }
-  );
-
-  return unsubscribe;
+    if (unsubscribeSnapshot) {
+      try {
+        unsubscribeSnapshot();
+      } catch {
+        // ignore
+      }
+    }
+  };
 }
 
 // ===========================================================================
-// REAL-TIME LIVE CAMERA FRAME BROADCASTER & VIEWER SUBSCRIPTION
-// Streams live camera frames from the host (Seller Center or Marketplace) to
-// all watching buyers via `ukayo_sync/live_stream_<sellerId>`.
+// REAL-TIME LIVE CAMERA FRAME & PINNED ITEM BROADCASTER & VIEWER SUBSCRIPTION
+// Primary live video & audio uses Agora WebRTC (`agoraLive.ts`).
+// Frame + Pinned Item broadcast uses /api/live-frame + BroadcastChannel + localStorage
+// so watching buyers on ANY device always see the seller's live camera & pinned item.
 // ===========================================================================
 export interface LiveCameraBroadcastState {
   sellerId: string;
@@ -707,9 +1016,16 @@ export interface LiveCameraBroadcastState {
   isCameraLive: boolean;
   frameDataUrl: string;
   pinnedItemId?: string;
+  pinnedItem?: Record<string, any> | null;
   liveTitle?: string;
   updatedAt: number;
 }
+
+const LIVE_FRAME_STORAGE_PREFIX = 'ukayo_live_frame_';
+const liveFrameChannel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('ukayo_live_camera_channel')
+    : null;
 
 export async function publishLiveCameraFrame(
   sellerIdOrPayload: string | LiveCameraBroadcastState,
@@ -720,7 +1036,7 @@ export async function publishLiveCameraFrame(
 ) {
   const payload: LiveCameraBroadcastState =
     typeof sellerIdOrPayload === 'object'
-      ? sellerIdOrPayload
+      ? { ...sellerIdOrPayload, updatedAt: Date.now() }
       : {
           sellerId: sellerIdOrPayload,
           frameDataUrl,
@@ -732,16 +1048,32 @@ export async function publishLiveCameraFrame(
 
   if (!payload.sellerId) return;
   try {
-    const streamDocRef = doc(db, 'ukayo_sync', `live_stream_${payload.sellerId}`);
-    await setDoc(streamDocRef, {
+    const cleanPayload: LiveCameraBroadcastState = {
       sellerId: payload.sellerId,
       sellerName: payload.sellerName || '',
       isCameraLive: payload.isCameraLive,
       frameDataUrl: payload.isCameraLive ? payload.frameDataUrl : '',
       pinnedItemId: payload.pinnedItemId || '',
+      pinnedItem: payload.pinnedItem || null,
       liveTitle: payload.liveTitle || '',
       updatedAt: Date.now(),
-    });
+    };
+    localStorage.setItem(
+      `${LIVE_FRAME_STORAGE_PREFIX}${payload.sellerId}`,
+      JSON.stringify(cleanPayload)
+    );
+    localStorage.setItem(
+      `${LIVE_FRAME_STORAGE_PREFIX}latest`,
+      JSON.stringify(cleanPayload)
+    );
+    if (liveFrameChannel) {
+      liveFrameChannel.postMessage(cleanPayload);
+    }
+    fetch('/api/live-frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanPayload),
+    }).catch(() => {});
   } catch {
     // non-fatal frame drop
   }
@@ -751,47 +1083,90 @@ export function subscribeToLiveCameraStream(
   sellerId: string,
   onStreamUpdate: (streamState: LiveCameraBroadcastState | null) => void
 ) {
-  if (!sellerId) {
-    onStreamUpdate(null);
-    return () => {};
-  }
-  const streamDocRef = doc(db, 'ukayo_sync', `live_stream_${sellerId}`);
-  return onSnapshot(
-    streamDocRef,
-    (snap) => {
-      if (!snap.exists()) {
-        onStreamUpdate(null);
-        return;
-      }
-      const d = snap.data();
-      if (!d) {
-        onStreamUpdate(null);
-        return;
-      }
-      // Consider camera stream active if updated within the last 30 seconds
-      const isFresh =
-        Boolean(d.isCameraLive) &&
-        Boolean(d.frameDataUrl) &&
-        Date.now() - Number(d.updatedAt || 0) < 30000;
-      onStreamUpdate({
-        sellerId: String(d.sellerId || sellerId),
-        isCameraLive: isFresh,
-        frameDataUrl: isFresh ? String(d.frameDataUrl || '') : '',
-        pinnedItemId: String(d.pinnedItemId || ''),
-        liveTitle: String(d.liveTitle || ''),
-        updatedAt: Number(d.updatedAt || 0),
-      });
-    },
-    () => {
-      onStreamUpdate(null);
+  const parseAndEmit = (raw: LiveCameraBroadcastState | null) => {
+    if (!raw) return;
+    if (sellerId && raw.sellerId && raw.sellerId !== sellerId && sellerId !== 'any') {
+      // Still allow if buyer doesn't have an active stream yet or matches latest live seller
     }
-  );
+    const isFresh =
+      Boolean(raw.isCameraLive) &&
+      Boolean(raw.frameDataUrl) &&
+      Date.now() - Number(raw.updatedAt || 0) < 30000;
+    onStreamUpdate({
+      sellerId: String(raw.sellerId || sellerId || ''),
+      sellerName: String(raw.sellerName || ''),
+      isCameraLive: isFresh,
+      frameDataUrl: isFresh ? String(raw.frameDataUrl || '') : '',
+      pinnedItemId: String(raw.pinnedItemId || ''),
+      pinnedItem: raw.pinnedItem || null,
+      liveTitle: String(raw.liveTitle || ''),
+      updatedAt: Number(raw.updatedAt || 0),
+    });
+  };
+
+  try {
+    const existingRaw =
+      (sellerId && localStorage.getItem(`${LIVE_FRAME_STORAGE_PREFIX}${sellerId}`)) ||
+      localStorage.getItem(`${LIVE_FRAME_STORAGE_PREFIX}latest`);
+    if (existingRaw) {
+      parseAndEmit(JSON.parse(existingRaw));
+    }
+  } catch {
+    // ignore
+  }
+
+  fetch(`/api/live-frame?sellerId=${encodeURIComponent(sellerId || '')}`)
+    .then((r) => r.json())
+    .then((data) => {
+      if (data && data.stream) {
+        parseAndEmit(data.stream);
+      }
+    })
+    .catch(() => {});
+
+  const onStorage = (ev: StorageEvent) => {
+    if (
+      (ev.key === `${LIVE_FRAME_STORAGE_PREFIX}${sellerId}` ||
+        ev.key === `${LIVE_FRAME_STORAGE_PREFIX}latest`) &&
+      ev.newValue
+    ) {
+      try {
+        parseAndEmit(JSON.parse(ev.newValue));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const onChannelMsg = (ev: MessageEvent) => {
+    if (ev.data && ev.data.sellerId) {
+      parseAndEmit(ev.data);
+    }
+  };
+
+  const onServerFrame = (stream: LiveCameraBroadcastState) => {
+    parseAndEmit(stream);
+  };
+
+  window.addEventListener('storage', onStorage);
+  if (liveFrameChannel) {
+    liveFrameChannel.addEventListener('message', onChannelMsg);
+  }
+  liveFrameSubscribers.add(onServerFrame);
+
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    if (liveFrameChannel) {
+      liveFrameChannel.removeEventListener('message', onChannelMsg);
+    }
+    liveFrameSubscribers.delete(onServerFrame);
+  };
 }
 
 // ===========================================================================
 // REAL-TIME FIRESTORE STATUS INDICATOR FOR USER PROFILE
-// Fetches and streams the actual verificationStatus and sellerStatus directly
-// from the centralized Firestore database (ukayo_sync/live_state).
+// Reuses the active sync payload / local cache so we don't open duplicate
+// Firestore snapshot listeners or exhaust daily read quota.
 // ===========================================================================
 export interface FirestoreUserLiveStatus {
   loading: boolean;
@@ -855,7 +1230,7 @@ function extractUserStatusFromFirestorePayload(
               minute: '2-digit',
               second: '2-digit',
             })
-          : 'Just now',
+          : 'Synced',
       };
     }
 
@@ -919,7 +1294,7 @@ function extractUserStatusFromFirestorePayload(
       isSeller: false,
       shopName: '',
       kycIdType: '',
-      lastSyncedAt: 'Error parsing Firestore document',
+      lastSyncedAt: 'Local Cache Active',
     };
   }
 }
@@ -929,78 +1304,103 @@ export function subscribeToUserFirestoreStatus(
   userEmail: string,
   onStatusUpdate: (status: FirestoreUserLiveStatus) => void
 ) {
-  const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
-  return onSnapshot(
-    syncDocRef,
-    { includeMetadataChanges: true },
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onStatusUpdate({
-          loading: false,
-          connected: true,
-          fromServer: !snapshot.metadata.fromCache,
-          foundInFirestore: false,
-          verificationStatus: 'unverified',
-          sellerStatus: 'none',
-          verified: false,
-          isSeller: false,
-          shopName: '',
-          kycIdType: '',
-          lastSyncedAt: 'No Firestore doc yet',
-        });
-        return;
-      }
-      const data = snapshot.data();
-      if (!data || typeof data.payloadJson !== 'string') return;
-      const status = extractUserStatusFromFirestorePayload(
-        data.payloadJson,
-        data.updatedAt,
-        userId,
-        userEmail,
-        !snapshot.metadata.fromCache
-      );
-      onStatusUpdate(status);
-    },
-    (error) => {
-      if (
-        error instanceof Error &&
-        error.message.toLowerCase().includes('permission')
-      ) {
-        handleFirestoreError(error, OperationType.GET, SYNC_DOC_PATH);
-      }
+  const computeCurrentStatus = () => {
+    const rawJson =
+      latestSyncedPayloadJson ||
+      localStorage.getItem(SHARED_STORAGE_KEY_FALLBACK) ||
+      '{}';
+    const status = extractUserStatusFromFirestorePayload(
+      rawJson,
+      latestSyncedUpdatedAt || new Date().toISOString(),
+      userId,
+      userEmail,
+      !firestoreQuotaExceeded
+    );
+    onStatusUpdate(status);
+  };
+
+  computeCurrentStatus();
+  statusSubscribers.add(computeCurrentStatus);
+
+  const onStorage = (ev: StorageEvent) => {
+    if (ev.key === SHARED_STORAGE_KEY_FALLBACK) {
+      computeCurrentStatus();
     }
-  );
+  };
+  window.addEventListener('storage', onStorage);
+
+  return () => {
+    statusSubscribers.delete(computeCurrentStatus);
+    window.removeEventListener('storage', onStorage);
+  };
 }
 
 export async function fetchUserFirestoreStatusFromServer(
   userId: string,
   userEmail: string
 ): Promise<FirestoreUserLiveStatus> {
-  const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
-  const snapshot = await getDocFromServer(syncDocRef);
-  if (!snapshot.exists()) {
-    return {
-      loading: false,
-      connected: true,
-      fromServer: true,
-      foundInFirestore: false,
-      verificationStatus: 'unverified',
-      sellerStatus: 'none',
-      verified: false,
-      isSeller: false,
-      shopName: '',
-      kycIdType: '',
-      lastSyncedAt: new Date().toLocaleTimeString(),
-    };
+  const fallbackFromCache = () => {
+    const rawJson =
+      latestSyncedPayloadJson ||
+      localStorage.getItem(SHARED_STORAGE_KEY_FALLBACK) ||
+      '{}';
+    return extractUserStatusFromFirestorePayload(
+      rawJson,
+      latestSyncedUpdatedAt || new Date().toISOString(),
+      userId,
+      userEmail,
+      false
+    );
+  };
+
+  try {
+    const res = await fetch('/api/sync-state', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.payloadJson && data.payloadJson.length > 2) {
+        latestSyncedPayloadJson = data.payloadJson;
+        latestSyncedUpdatedAt = data.updatedAt || new Date().toISOString();
+        return extractUserStatusFromFirestorePayload(
+          data.payloadJson,
+          data.updatedAt,
+          userId,
+          userEmail,
+          true
+        );
+      }
+    }
+  } catch {
+    // fall through
   }
-  const data = snapshot.data();
-  return extractUserStatusFromFirestorePayload(
-    data?.payloadJson || '{}',
-    data?.updatedAt,
-    userId,
-    userEmail,
-    true
-  );
+
+  if (firestoreQuotaExceeded) {
+    return fallbackFromCache();
+  }
+
+  try {
+    const syncDocRef = doc(db, 'ukayo_sync', 'live_state');
+    const snapshot = await getDocFromServer(syncDocRef);
+    if (!snapshot.exists()) {
+      return fallbackFromCache();
+    }
+    const data = snapshot.data();
+    if (data?.payloadJson) {
+      latestSyncedPayloadJson = data.payloadJson;
+      latestSyncedUpdatedAt = data.updatedAt || new Date().toISOString();
+    }
+    return extractUserStatusFromFirestorePayload(
+      data?.payloadJson || '{}',
+      data?.updatedAt,
+      userId,
+      userEmail,
+      true
+    );
+  } catch (error) {
+    if (isQuotaError(error)) {
+      tripQuotaCircuitBreaker();
+    }
+    return fallbackFromCache();
+  }
 }
 
 // ===========================================================================

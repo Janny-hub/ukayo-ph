@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>UKAYO Seller Center — Live Selling &amp; Tindahan Hub</title>
-  <meta name="theme-color" content="#070D17" />
+  <meta name="theme-color" content="#0F766E" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -17,7 +17,7 @@
   <style>
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #F4F6F9;
+      background-color: #F4FAF8;
       color: #1E293B;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
@@ -52,7 +52,7 @@
     };
   </script>
 </head>
-<body class="bg-[#F4F6F9] text-[#1E293B] antialiased selection:bg-[#10B981]/20">
+<body class="bg-[#F4FAF8] text-[#1E293B] antialiased selection:bg-[#2DD4BF]/20">
 
   <!-- Toast Banner -->
   <div id="sc-toast-box" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm flex flex-col gap-1.5 pointer-events-none"></div>
@@ -60,7 +60,7 @@
   <!-- =================================================================== -->
   <!-- SELLER AUTHENTICATION GATE (LOG IN OR GO TO SELLER REGISTRATION)    -->
   <!-- =================================================================== -->
-  <div id="sc-auth-gate" class="hidden fixed inset-0 z-40 bg-[#070D17]/95 backdrop-blur-xs text-white flex items-center justify-center p-4 overflow-y-auto">
+  <div id="sc-auth-gate" class="hidden fixed inset-0 z-40 bg-[#0D9488]/95 backdrop-blur-xs text-white flex items-center justify-center p-4 overflow-y-auto">
     <div class="w-full max-w-md bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3.5">
         <div class="flex items-center gap-2.5">
@@ -82,7 +82,7 @@
             </g>
           </svg>
           <div>
-            <span class="px-2 py-0.5 rounded bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold uppercase tracking-wider">Registered Sellers Only</span>
+            <span class="px-2 py-0.5 rounded bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold uppercase tracking-wider">Registered Sellers Only</span>
             <h1 class="text-sm font-display font-extrabold text-white mt-0.5">UKAYO Seller Center Login</h1>
           </div>
         </div>
@@ -95,20 +95,20 @@
       <form onsubmit="handleSellerGateLogin(event)" class="space-y-3">
         <div>
           <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Seller Email or Shop Name</label>
-          <input type="text" id="sc-login-email" placeholder="you@example.com or Shop Name" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+          <input type="text" id="sc-login-email" placeholder="you@example.com or Shop Name" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#0D9488] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#2DD4BF]" />
         </div>
         <div>
           <label class="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1">Password</label>
-          <input type="password" id="sc-login-password" placeholder="••••••••" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#070D17] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#10B981]" />
+          <input type="password" id="sc-login-password" placeholder="••••••••" required class="w-full px-3.5 py-2.5 rounded-xl bg-[#0D9488] border border-slate-700 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-[#2DD4BF]" />
         </div>
         <div id="sc-login-error" class="hidden p-2.5 rounded-xl bg-[#EF4444]/15 border border-[#EF4444]/40 text-[11px] font-bold text-[#EF4444]"></div>
-        <button type="submit" class="w-full py-3 rounded-xl bg-[#10B981] hover:bg-emerald-500 text-[#070D17] text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg">
+        <button type="submit" class="w-full py-3 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E] text-xs font-extrabold uppercase tracking-wider cursor-pointer shadow-lg">
           Log In to Seller Center
         </button>
       </form>
 
       <div class="pt-3 border-t border-slate-800 space-y-2.5">
-        <button type="button" onclick="startSellerRegistrationFromGate()" class="w-full py-2.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-[#070D17] text-xs font-extrabold cursor-pointer">
+        <button type="button" onclick="startSellerRegistrationFromGate()" class="w-full py-2.5 rounded-xl bg-[#F59E0B] hover:bg-amber-400 text-[#132A2E] text-xs font-extrabold cursor-pointer">
           Apply Now — Register as an UKAYO Seller
         </button>
         <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
@@ -120,12 +120,12 @@
   </div>
 
   <!-- Standalone UKAYO Seller Center Responsive Shell (Mobile / Laptop Toggleable) -->
-  <div id="sc-app-shell" class="max-w-md mx-auto min-h-[100dvh] bg-[#F4F6F9] flex flex-col relative shadow-sm transition-all duration-300">
+  <div id="sc-app-shell" class="max-w-md mx-auto min-h-[100dvh] bg-[#F4FAF8] flex flex-col relative shadow-sm transition-all duration-300">
 
     <!-- =================================================================== -->
-    <!-- SELLER CENTER TOP HEADER (#070D17)                                  -->
+    <!-- SELLER CENTER TOP HEADER (#0F766E)                                  -->
     <!-- =================================================================== -->
-    <header class="sticky top-0 z-30 bg-[#070D17] text-white px-3.5 py-2.5 border-b border-slate-800">
+    <header class="sticky top-0 z-30 bg-[#0D9488] text-white px-3.5 py-2.5 border-b border-slate-800">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 min-w-0">
           <!-- UKAYO Hanger Mark -->
@@ -147,7 +147,7 @@
             </g>
           </svg>
           <div class="min-w-0">
-            <span class="px-2 py-0.5 rounded-md bg-[#F59E0B] text-[#070D17] text-[9px] font-extrabold uppercase tracking-wider">Seller Center</span>
+            <span class="px-2 py-0.5 rounded-md bg-[#F59E0B] text-[#132A2E] text-[9px] font-extrabold uppercase tracking-wider">Seller Center</span>
             <div id="sc-header-shop" class="text-[11px] font-bold text-slate-200 truncate mt-0.5">New Ukay Tindahan</div>
           </div>
         </div>
@@ -155,7 +155,7 @@
         <div class="flex items-center gap-1 shrink-0">
           <!-- Mobile / Laptop Screen View Toggle -->
           <div class="inline-flex items-center p-0.5 rounded-xl bg-white/10 border border-white/15" title="Switch Phone or Laptop Screen View">
-            <button type="button" id="sc-view-phone-btn" onclick="setScreenViewMode('phone')" class="px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition">
+            <button type="button" id="sc-view-phone-btn" onclick="setScreenViewMode('phone')" class="px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition">
               <i data-lucide="smartphone" class="w-3 h-3"></i>
             </button>
             <button type="button" id="sc-view-laptop-btn" onclick="setScreenViewMode('laptop')" class="px-1.5 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer transition">
@@ -164,14 +164,14 @@
           </div>
 
           <!-- Customer Service Button (Connect with Admin) -->
-          <button onclick="openSellerCustomerService()" class="relative p-2 rounded-xl bg-[#10B981]/20 border border-[#10B981]/40 text-[#10B981] hover:bg-[#10B981] hover:text-[#070D17] cursor-pointer transition" title="Customer Service — Connect with Admin">
+          <button onclick="openSellerCustomerService()" class="relative p-2 rounded-xl bg-[#2DD4BF]/20 border border-[#2DD4BF]/40 text-[#0D9488] hover:bg-[#2DD4BF] hover:text-[#132A2E] cursor-pointer transition" title="Customer Service — Connect with Admin">
             <i data-lucide="headphones" class="w-4 h-4"></i>
           </button>
 
           <!-- Buyer & Admin Messages -->
-          <button onclick="switchSellerTab('chat')" class="relative p-2 rounded-xl bg-white/10 text-white hover:text-[#10B981] cursor-pointer" title="Messages">
+          <button onclick="switchSellerTab('chat')" class="relative p-2 rounded-xl bg-white/10 text-white hover:text-[#0D9488] cursor-pointer" title="Messages">
             <i data-lucide="message-square" class="w-4 h-4"></i>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#10B981]"></span>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#2DD4BF]"></span>
           </button>
 
           <!-- Return to Buyer App -->
@@ -197,16 +197,16 @@
       <!-- ================================================================= -->
       <section id="sc-onboarding-wizard" class="px-3.5 pt-3.5 space-y-3">
         <!-- Onboarding Stepper Header -->
-        <div class="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+        <div class="bg-[#0D9488] text-white rounded-3xl p-4 space-y-3 shadow-sm">
           <div class="flex items-center justify-between">
-            <span class="px-2.5 py-0.5 rounded-full bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold uppercase tracking-wider">
+            <span class="px-2.5 py-0.5 rounded-full bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold uppercase tracking-wider">
               UKAYO Seller Registration
             </span>
-            <span id="ob-step-counter" class="text-xs font-bold text-[#10B981]">Shop Info</span>
+            <span id="ob-step-counter" class="text-xs font-bold text-[#0D9488]">Shop Info</span>
           </div>
 
           <div class="grid grid-cols-3 gap-1.5">
-            <div id="ob-pill-1" class="p-2.5 rounded-xl bg-[#10B981] text-[#070D17] text-center">
+            <div id="ob-pill-1" class="p-2.5 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-center">
               <div class="text-[11px] font-extrabold">Shop Info</div>
               <div class="text-[10px] font-semibold truncate">Tindahan &amp; Login</div>
             </div>
@@ -223,46 +223,46 @@
 
         <!-- STEP 1: SHOP INFORMATION, LOGO & PICKUP ADDRESS -->
         <form id="ob-step-1" onsubmit="nextOnboardingStep(event, 2)" class="bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
-          <div class="border-b border-[#E2E8F0] pb-2 flex items-center justify-between">
+          <div class="border-b border-[#E2F2EE] pb-2 flex items-center justify-between">
             <div>
-              <h2 class="text-sm font-display font-extrabold text-[#070D17]">Shop Information &amp; Pickup Address</h2>
+              <h2 class="text-sm font-display font-extrabold text-[#132A2E]">Shop Information &amp; Pickup Address</h2>
               <p class="text-xs text-[#334155]">Register your ukay shop to start live selling and posting on Ukay Feed.</p>
             </div>
-            <button type="button" onclick="openSellerLoginFromWizard()" class="text-[11px] font-extrabold text-[#10B981] underline shrink-0 cursor-pointer">
+            <button type="button" onclick="openSellerLoginFromWizard()" class="text-[11px] font-extrabold text-[#0D9488] underline shrink-0 cursor-pointer">
               Already Registered? Log In
             </button>
           </div>
 
           <!-- Shop Profile Picture Upload -->
-          <div class="flex items-center gap-3 p-2.5 rounded-2xl bg-[#F8FAFC] border border-[#CBD5E1]">
+          <div class="flex items-center gap-3 p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#CBD5E1]">
             <img id="ob-shop-avatar-preview" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Shop Avatar" class="w-12 h-12 rounded-2xl object-cover border border-[#CBD5E1] shrink-0" />
             <div class="flex-1 min-w-0">
-              <div class="text-xs font-extrabold text-[#070D17]">Tindahan Profile Picture</div>
+              <div class="text-xs font-extrabold text-[#132A2E]">Tindahan Profile Picture</div>
               <div class="text-[10px] text-slate-500">Shown on your Live Stream and Ukay Feed posts</div>
             </div>
-            <label class="px-2.5 py-1.5 rounded-xl bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
+            <label class="px-2.5 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer shrink-0">
               Upload Photo
               <input type="file" accept="image/*" onchange="handleShopAvatarUpload(event)" class="hidden" />
             </label>
           </div>
 
           <div>
-            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Tindahan / Shop Name</label>
-            <input type="text" id="ob-shop-name" placeholder="e.g. Jaz Vintage Closet" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Tindahan / Shop Name</label>
+            <input type="text" id="ob-shop-name" placeholder="e.g. Jaz Vintage Closet" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Seller Type</label>
-              <select id="ob-seller-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Seller Type</label>
+              <select id="ob-seller-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]">
                 <option value="Individual / Home Ukay Seller">Individual / Home Seller</option>
                 <option value="Sole Proprietorship (DTI)">Sole Proprietorship (DTI)</option>
                 <option value="Bale Supplier / Warehouse">Bale Supplier / Warehouse</option>
               </select>
             </div>
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Primary Ukay Niche</label>
-              <select id="ob-shop-niche" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Primary Ukay Niche</label>
+              <select id="ob-shop-niche" class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]">
                 <option value="Jackets">Jackets &amp; Hoodies</option>
                 <option value="Tops">Tops &amp; Tees</option>
                 <option value="Denim">Denim &amp; Pants</option>
@@ -273,41 +273,41 @@
           </div>
 
           <div>
-            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Pickup City / Address (J&amp;T / Lalamove)</label>
-            <input type="text" id="ob-pickup-address" placeholder="e.g. Lahug, Cebu City" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Pickup City / Address (J&amp;T / Lalamove)</label>
+            <input type="text" id="ob-pickup-address" placeholder="e.g. Lahug, Cebu City" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Contact Mobile</label>
-              <input type="text" id="ob-contact-phone" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Contact Mobile</label>
+              <input type="text" id="ob-contact-phone" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Seller Email Address</label>
-              <input type="email" id="ob-contact-email" placeholder="you@example.com" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Seller Email Address</label>
+              <input type="email" id="ob-contact-email" placeholder="you@example.com" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
           </div>
 
           <div>
-            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Account Password (For Seller &amp; Buyer Login)</label>
-            <input type="password" id="ob-seller-password" placeholder="Create or confirm password" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+            <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Account Password (For Seller &amp; Buyer Login)</label>
+            <input type="password" id="ob-seller-password" placeholder="Create or confirm password" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
           </div>
 
-          <button type="submit" class="w-full py-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
+          <button type="submit" class="w-full py-3 rounded-xl bg-[#0D9488] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
             Next Step: ID &amp; BIR Compliance →
           </button>
         </form>
 
         <!-- STEP 2: IDENTITY & SINGLE-REGISTRATION BIR / DTI COMPLIANCE -->
         <form id="ob-step-2" onsubmit="nextOnboardingStep(event, 3)" class="hidden bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
-          <div class="border-b border-[#E2E8F0] pb-2">
-            <h2 class="text-sm font-display font-extrabold text-[#070D17]">Identity &amp; BIR Compliance</h2>
+          <div class="border-b border-[#E2F2EE] pb-2">
+            <h2 class="text-sm font-display font-extrabold text-[#132A2E]">Identity &amp; BIR Compliance</h2>
             <p class="text-xs text-[#334155]">Already registered on Shopee or TikTok? Reuse your existing DTI &amp; BIR Form 2303—no double BIR registration required.</p>
           </div>
 
           <div>
-            <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Philippine Primary Government ID</label>
-            <select id="ob-primary-id-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+            <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Philippine Primary Government ID</label>
+            <select id="ob-primary-id-type" class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]">
               <option value="Philippine National ID (PhilSys / ePhilID)">Philippine National ID (PhilSys / ePhilID)</option>
               <option value="LTO Driver's License">LTO Driver's License</option>
               <option value="Philippine Passport (DFA)">Philippine Passport (DFA)</option>
@@ -319,56 +319,56 @@
 
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Registered Full Name</label>
-              <input type="text" id="ob-owner-name" placeholder="Full legal name" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Registered Full Name</label>
+              <input type="text" id="ob-owner-name" placeholder="Full legal name" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">ID Number</label>
-              <input type="text" id="ob-id-number" placeholder="e.g. 4829-1042-8812" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">ID Number</label>
+              <input type="text" id="ob-id-number" placeholder="e.g. 4829-1042-8812" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
           </div>
 
           <!-- Upload Primary ID Photo & Selfie Holding ID -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Upload Primary ID Photo</label>
-              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F8FAFC] hover:border-[#070D17] cursor-pointer">
-                <span id="ob-id-file-text" class="text-xs font-bold text-[#070D17] truncate">Attach Primary ID</span>
-                <span class="px-2 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold shrink-0">Choose</span>
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Upload Primary ID Photo</label>
+              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4FAF8] hover:border-[#0D9488] cursor-pointer">
+                <span id="ob-id-file-text" class="text-xs font-bold text-[#132A2E] truncate">Attach Primary ID</span>
+                <span class="px-2 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0">Choose</span>
                 <input type="file" accept="image/*" onchange="handleObIdPhotoUpload(event, 'id')" class="hidden" />
               </label>
             </div>
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Upload Selfie w/ ID</label>
-              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F8FAFC] hover:border-[#070D17] cursor-pointer">
-                <span id="ob-selfie-file-text" class="text-xs font-bold text-[#070D17] truncate">Attach Selfie w/ ID</span>
-                <span class="px-2 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold shrink-0">Choose</span>
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Upload Selfie w/ ID</label>
+              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4FAF8] hover:border-[#0D9488] cursor-pointer">
+                <span id="ob-selfie-file-text" class="text-xs font-bold text-[#132A2E] truncate">Attach Selfie w/ ID</span>
+                <span class="px-2 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0">Choose</span>
                 <input type="file" accept="image/*" onchange="handleObIdPhotoUpload(event, 'selfie')" class="hidden" />
               </label>
             </div>
           </div>
 
           <!-- Single-Registration BIR Tier + Up to 3 BIR Photos + BIR Number -->
-          <div class="p-3 rounded-2xl bg-[#F8FAFC] border border-[#CBD5E1] space-y-2.5">
+          <div class="p-3 rounded-2xl bg-[#F4FAF8] border border-[#CBD5E1] space-y-2.5">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-extrabold uppercase text-[#070D17]">BIR Tax &amp; DTI Documents</span>
-              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/20 text-[#065F46] text-[10px] font-extrabold">1 BIR COR for All Apps</span>
+              <span class="text-[11px] font-extrabold uppercase text-[#132A2E]">BIR Tax &amp; DTI Documents</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#2DD4BF]/20 text-[#065F46] text-[10px] font-extrabold">1 BIR COR for All Apps</span>
             </div>
-            <select id="ob-tax-tier" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+            <select id="ob-tax-tier" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]">
               <option value="Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)">Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)</option>
               <option value="Verified Merchant (Existing BIR Form 2303 COR)">Verified Merchant (Existing BIR Form 2303 COR)</option>
             </select>
 
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">BIR Number / TIN (Form 2303)</label>
-              <input type="text" id="ob-tin-number" placeholder="e.g. 123-456-789-000 (Optional for Starter)" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">BIR Number / TIN (Form 2303)</label>
+              <input type="text" id="ob-tin-number" placeholder="e.g. 123-456-789-000 (Optional for Starter)" class="w-full px-3 py-2.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
 
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Upload BIR Photos (Up to 3 Photos: COR / DTI / Sworn Dec.)</label>
-              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-white hover:border-[#070D17] cursor-pointer">
-                <span id="ob-bir-files-text" class="text-xs font-bold text-[#070D17] truncate">Tap to select up to 3 BIR photos</span>
-                <span class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold shrink-0">Add Photos</span>
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Upload BIR Photos (Up to 3 Photos: COR / DTI / Sworn Dec.)</label>
+              <label class="flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-[#94A3B8] bg-white hover:border-[#0D9488] cursor-pointer">
+                <span id="ob-bir-files-text" class="text-xs font-bold text-[#132A2E] truncate">Tap to select up to 3 BIR photos</span>
+                <span class="px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0">Add Photos</span>
                 <input type="file" id="ob-bir-files-input" accept="image/*" multiple onchange="handleBirPhotosUpload(event)" class="hidden" />
               </label>
               <div id="ob-bir-previews" class="hidden grid grid-cols-3 gap-2 pt-2"></div>
@@ -376,10 +376,10 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <button type="button" onclick="goToOnboardingStep(1)" class="px-4 py-3 rounded-xl bg-[#E2E8F0] text-[#070D17] text-xs font-extrabold cursor-pointer">
+            <button type="button" onclick="goToOnboardingStep(1)" class="px-4 py-3 rounded-xl bg-[#E2F2EE] text-[#132A2E] text-xs font-extrabold cursor-pointer">
               Back
             </button>
-            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
+            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#0D9488] hover:bg-[#111827] text-white text-xs font-extrabold cursor-pointer">
               Next Step: Payout Wallet →
             </button>
           </div>
@@ -387,15 +387,15 @@
 
         <!-- STEP 3: PAYOUT E-WALLET SETUP -->
         <form id="ob-step-3" onsubmit="completeSellerOnboarding(event)" class="hidden bg-white rounded-3xl border border-[#CBD5E1] p-4 space-y-3 shadow-2xs">
-          <div class="border-b border-[#E2E8F0] pb-2">
-            <h2 class="text-sm font-display font-extrabold text-[#070D17]">Payout Wallet Setup</h2>
+          <div class="border-b border-[#E2F2EE] pb-2">
+            <h2 class="text-sm font-display font-extrabold text-[#132A2E]">Payout Wallet Setup</h2>
             <p class="text-xs text-[#334155]">Connect your payout wallet for Bayad Agad &amp; COD remittances.</p>
           </div>
 
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Payout Channel</label>
-              <select id="ob-payout-channel" class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]">
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Payout Channel</label>
+              <select id="ob-payout-channel" class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]">
                 <option value="GCash">GCash Instant Payout</option>
                 <option value="Maya">Maya Wallet</option>
                 <option value="GoTyme Bank">GoTyme Bank</option>
@@ -403,21 +403,21 @@
               </select>
             </div>
             <div>
-              <label class="block text-[11px] font-extrabold uppercase text-[#070D17] mb-1">Account / Mobile No.</label>
-              <input type="text" id="ob-payout-account" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
+              <label class="block text-[11px] font-extrabold uppercase text-[#132A2E] mb-1">Account / Mobile No.</label>
+              <input type="text" id="ob-payout-account" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
             </div>
           </div>
 
           <label class="flex items-start gap-2 text-xs font-medium text-[#1E293B] cursor-pointer">
-            <input type="checkbox" required checked class="mt-0.5 accent-[#10B981]" />
+            <input type="checkbox" required checked class="mt-0.5 accent-[#2DD4BF]" />
             <span>I confirm all listed items are authentic secondhand/ukay pieces and agree to UKAYO Seller Terms.</span>
           </label>
 
           <div class="flex items-center gap-2">
-            <button type="button" onclick="goToOnboardingStep(2)" class="px-4 py-3 rounded-xl bg-[#E2E8F0] text-[#070D17] text-xs font-extrabold cursor-pointer">
+            <button type="button" onclick="goToOnboardingStep(2)" class="px-4 py-3 rounded-xl bg-[#E2F2EE] text-[#132A2E] text-xs font-extrabold cursor-pointer">
               Back
             </button>
-            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm cursor-pointer">
+            <button type="submit" class="flex-1 py-3 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold shadow-sm cursor-pointer">
               Complete Seller Registration &amp; Open Shop
             </button>
           </div>
@@ -429,11 +429,11 @@
       <!-- ================================================================= -->
       <section id="sc-tab-home" class="hidden space-y-3">
         <!-- Dark Navy Hero Metrics & To-Do Strip -->
-        <div class="bg-[#070D17] text-white px-3.5 pt-2 pb-5 rounded-b-3xl space-y-3">
+        <div class="bg-[#0D9488] text-white px-3.5 pt-2 pb-5 rounded-b-3xl space-y-3">
           <div class="flex items-center justify-between">
             <div>
               <div class="text-[10px] text-slate-400 font-semibold">Today's Live &amp; Shop GMV</div>
-              <div id="sc-kpi-gmv" class="text-2xl font-display font-extrabold text-[#10B981] tabular-price">₱0</div>
+              <div id="sc-kpi-gmv" class="text-2xl font-display font-extrabold text-[#0D9488] tabular-price">₱0</div>
             </div>
             <button onclick="switchSellerTab('live')" class="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-sm cursor-pointer">
               <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
@@ -452,31 +452,31 @@
             </div>
             <div class="p-2.5 rounded-2xl bg-white/10 border border-white/10">
               <div class="text-[9px] text-slate-300">KYC Status</div>
-              <div id="sc-kpi-kyc-status" class="text-xs font-display font-extrabold text-[#10B981] mt-0.5">Pending Review</div>
+              <div id="sc-kpi-kyc-status" class="text-xs font-display font-extrabold text-[#0D9488] mt-0.5">Pending Review</div>
             </div>
           </div>
 
           <!-- Shopee Seller Center To-Do Card -->
-          <div class="bg-white text-[#070D17] rounded-2xl p-3 shadow-xs space-y-2">
+          <div class="bg-white text-[#132A2E] rounded-2xl p-3 shadow-xs space-y-2">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#070D17]">To-Do List</span>
+              <span class="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#132A2E]">To-Do List</span>
               <span class="text-[10px] text-slate-400 font-semibold">Tap to fulfill</span>
             </div>
             <div class="grid grid-cols-4 gap-1 text-center">
-              <button onclick="openOrdersWithFilter('TO_PAY')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+              <button onclick="openOrdersWithFilter('TO_PAY')" class="p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
                 <div id="todo-unpaid" class="text-base font-display font-extrabold text-[#F59E0B] tabular-price">0</div>
                 <div class="text-[9px] font-bold text-slate-500">Unpaid Mine</div>
               </button>
-              <button onclick="openOrdersWithFilter('TO_SHIP')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+              <button onclick="openOrdersWithFilter('TO_SHIP')" class="p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
                 <div id="todo-toship" class="text-base font-display font-extrabold text-[#EF4444] tabular-price">0</div>
                 <div class="text-[9px] font-bold text-slate-500">To Ship</div>
               </button>
-              <button onclick="openOrdersWithFilter('TO_RECEIVE')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div id="todo-shipping" class="text-base font-display font-extrabold text-[#10B981] tabular-price">0</div>
+              <button onclick="openOrdersWithFilter('TO_RECEIVE')" class="p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div id="todo-shipping" class="text-base font-display font-extrabold text-[#0D9488] tabular-price">0</div>
                 <div class="text-[9px] font-bold text-slate-500">Shipping</div>
               </button>
-              <button onclick="switchSellerTab('products')" class="p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div id="todo-rack" class="text-base font-display font-extrabold text-[#070D17] tabular-price">0</div>
+              <button onclick="switchSellerTab('products')" class="p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div id="todo-rack" class="text-base font-display font-extrabold text-[#132A2E] tabular-price">0</div>
                 <div class="text-[9px] font-bold text-slate-500">Active Rack</div>
               </button>
             </div>
@@ -485,51 +485,51 @@
 
         <!-- Seller Center Core Tools Grid -->
         <div class="px-3.5 space-y-3">
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
-            <h2 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Seller Operations</h2>
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs space-y-2.5">
+            <h2 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">Seller Operations</h2>
             <div class="grid grid-cols-5 gap-1.5 text-center">
-              <button onclick="switchSellerTab('products')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div class="w-10 h-10 rounded-xl bg-[#070D17] text-[#10B981] flex items-center justify-center">
+              <button onclick="switchSellerTab('products')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#0D9488] text-[#0D9488] flex items-center justify-center">
                   <i data-lucide="shirt" class="w-5 h-5"></i>
                 </div>
-                <span class="text-[10px] font-bold text-[#070D17] leading-tight">My<br/>Products</span>
+                <span class="text-[10px] font-bold text-[#132A2E] leading-tight">My<br/>Products</span>
               </button>
 
-              <button onclick="switchSellerTab('orders')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div class="w-10 h-10 rounded-xl bg-[#10B981]/15 text-[#10B981] flex items-center justify-center">
+              <button onclick="switchSellerTab('orders')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#2DD4BF]/15 text-[#0D9488] flex items-center justify-center">
                   <i data-lucide="package-check" class="w-5 h-5"></i>
                 </div>
-                <span class="text-[10px] font-bold text-[#070D17] leading-tight">My<br/>Orders</span>
+                <span class="text-[10px] font-bold text-[#132A2E] leading-tight">My<br/>Orders</span>
               </button>
 
-              <button onclick="switchSellerTab('finance')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
+              <button onclick="switchSellerTab('finance')" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
                 <div class="w-10 h-10 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] flex items-center justify-center">
                   <i data-lucide="calculator" class="w-5 h-5"></i>
                 </div>
-                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Payout<br/>Calc</span>
+                <span class="text-[10px] font-bold text-[#132A2E] leading-tight">Payout<br/>Calc</span>
               </button>
 
-              <button onclick="openSellerCustomerService()" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div class="w-10 h-10 rounded-xl bg-[#10B981]/15 text-[#070D17] flex items-center justify-center">
+              <button onclick="openSellerCustomerService()" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#2DD4BF]/15 text-[#132A2E] flex items-center justify-center">
                   <i data-lucide="headphones" class="w-5 h-5"></i>
                 </div>
-                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Admin<br/>Help</span>
+                <span class="text-[10px] font-bold text-[#132A2E] leading-tight">Admin<br/>Help</span>
               </button>
 
-              <button onclick="openSellerPolicyModal()" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4F6F9] cursor-pointer">
-                <div class="w-10 h-10 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-[#070D17] flex items-center justify-center">
+              <button onclick="openSellerPolicyModal()" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl hover:bg-[#F4FAF8] cursor-pointer">
+                <div class="w-10 h-10 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-[#132A2E] flex items-center justify-center">
                   <i data-lucide="book-open" class="w-5 h-5"></i>
                 </div>
-                <span class="text-[10px] font-bold text-[#070D17] leading-tight">Seller<br/>Policy</span>
+                <span class="text-[10px] font-bold text-[#132A2E] leading-tight">Seller<br/>Policy</span>
               </button>
             </div>
           </div>
 
           <!-- Account Health & Zero Brand-Strike Protection -->
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2">
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-display font-extrabold text-[#070D17]">Account Health &amp; Ukay Protection</span>
-              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[10px] font-extrabold">200 / 200 Excellent</span>
+              <span class="text-xs font-display font-extrabold text-[#132A2E]">Account Health &amp; Ukay Protection</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#2DD4BF]/15 text-[#0D9488] text-[10px] font-extrabold">200 / 200 Excellent</span>
             </div>
             <p class="text-[11px] text-slate-500 leading-relaxed">
               Authentic secondhand &amp; bale items are protected from automated counterfeit bans. Keep ship-out rate above 95% to unlock Featured Live placement.
@@ -544,10 +544,10 @@
       <section id="sc-tab-products" class="hidden px-3.5 pt-3 space-y-3">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-base font-display font-extrabold text-[#070D17]">My Products &amp; Rack</h2>
+            <h2 class="text-base font-display font-extrabold text-[#132A2E]">My Products &amp; Rack</h2>
             <p class="text-[11px] text-slate-500">Add ukay pieces to sync to LIVE Studio, Storefront &amp; Ukay Feed</p>
           </div>
-          <button onclick="openAddProductModal()" class="px-3.5 py-2 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold shadow-2xs cursor-pointer">
+          <button onclick="openAddProductModal()" class="px-3.5 py-2 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold shadow-2xs cursor-pointer">
             + Add Item
           </button>
         </div>
@@ -560,57 +560,74 @@
       <!-- ================================================================= -->
       <section id="sc-tab-live" class="hidden px-3.5 pt-3 space-y-3">
         <!-- Live Stream Title & Broadcast Settings -->
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-display font-extrabold text-[#070D17]">Live Broadcast Settings</span>
+            <span class="text-xs font-display font-extrabold text-[#132A2E]">Live Broadcast Settings</span>
             <span id="sc-marketplace-live-badge" class="px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-extrabold">● Live on Marketplace</span>
           </div>
           <div class="flex gap-2">
-            <input type="text" id="sc-live-title-input" placeholder="Enter your Live Stream title (e.g. Fresh Korean Bale Drop!)" class="flex-1 px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17]" />
-            <button type="button" onclick="updateLiveBroadcastTitle()" class="px-3 py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold shrink-0 cursor-pointer">
+            <input type="text" id="sc-live-title-input" placeholder="Enter your Live Stream title (e.g. Fresh Korean Bale Drop!)" class="flex-1 px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E]" />
+            <button type="button" onclick="updateLiveBroadcastTitle()" class="px-3 py-2 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold shrink-0 cursor-pointer">
               Save Title
             </button>
           </div>
         </div>
 
         <!-- Live Camera Preview Stage -->
-        <div class="relative rounded-3xl overflow-hidden bg-[#070D17] text-white aspect-[4/3] border border-slate-800 shadow-md">
+        <div class="relative rounded-3xl overflow-hidden bg-[#0D9488] text-white aspect-[4/3] border border-slate-800 shadow-md">
           <img id="sc-live-preview-img" src="https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80" alt="Live Stream Stage" class="w-full h-full object-cover opacity-75" />
           <video id="sc-live-video" autoplay playsinline muted class="hidden w-full h-full object-cover"></video>
           <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/55"></div>
 
-          <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
-            <span id="sc-live-status-pill" class="px-2.5 py-1 rounded-full bg-[#EF4444] text-white text-[10px] font-extrabold uppercase tracking-wider">
+          <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+            <span id="sc-live-status-pill" class="px-2.5 py-1 rounded-full bg-[#2DD4BF] text-[#132A2E] text-[10px] font-extrabold uppercase tracking-wider">
               ● ON AIR — Marketplace Live
             </span>
-            <span class="px-2.5 py-1 rounded-full bg-black/60 text-[10px] font-bold">
-              Synced to Buyer App
-            </span>
+            <div class="flex items-center gap-1.5">
+              <div id="sc-live-duration-badge" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0D9488]/80 backdrop-blur-md border border-[#2DD4BF]/50 text-white text-[10px] font-extrabold tracking-wider">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#2DD4BF] animate-pulse"></span>
+                <i data-lucide="clock" class="w-3 h-3 text-[#0D9488]"></i>
+                <span id="sc-live-duration-text" class="tabular-nums">00:00</span>
+              </div>
+              <button type="button" onclick="endScHostLiveStream()" id="sc-top-end-live-btn" class="hidden items-center gap-1 px-2.5 py-1 rounded-full bg-[#0D9488]/85 text-white border border-white/25 text-[10px] font-extrabold cursor-pointer">
+                <i data-lucide="power" class="w-3 h-3 text-[#0D9488]"></i>
+                <span>End Live</span>
+              </button>
+              <span class="px-2.5 py-1 rounded-full bg-black/60 text-[10px] font-bold">
+                Synced to Buyer App
+              </span>
+            </div>
           </div>
 
           <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
             <div class="min-w-0">
-              <div class="text-[10px] text-[#10B981] font-extrabold uppercase">Currently Pinned Card</div>
+              <div class="text-[10px] text-[#0D9488] font-extrabold uppercase">Currently Pinned Card</div>
               <div id="sc-active-pinned-title" class="text-xs font-extrabold truncate">No item pinned yet — Add an item below</div>
             </div>
-            <button onclick="toggleHostCamera()" id="sc-toggle-cam-btn" class="px-3.5 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold shrink-0 cursor-pointer shadow-sm">
-              Start Camera
-            </button>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button onclick="toggleHostCamera()" id="sc-toggle-cam-btn" class="px-3.5 py-2 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold shrink-0 cursor-pointer shadow-sm">
+                Start Camera
+              </button>
+              <button onclick="endScHostLiveStream()" id="sc-bottom-end-live-btn" class="hidden items-center gap-1 px-3 py-2 rounded-xl bg-[#0D9488]/90 text-white border border-white/25 text-xs font-extrabold shrink-0 cursor-pointer shadow-sm" title="End Live Stream">
+                <i data-lucide="power" class="w-3.5 h-3.5 text-[#0D9488]"></i>
+                <span>End Live</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Real-Time Live Comments & Miner Locks Feed -->
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2.5">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Live Room Comments &amp; Miner Locks</h3>
+              <span class="w-2 h-2 rounded-full bg-[#2DD4BF] animate-pulse"></span>
+              <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Live Room Comments &amp; Miner Locks</h3>
             </div>
             <span class="text-[10px] font-bold text-slate-400">Real-Time Buyer Sync</span>
           </div>
-          <div id="sc-live-comments-box" class="max-h-40 overflow-y-auto space-y-1.5 p-2.5 rounded-xl bg-[#070D17] text-white"></div>
+          <div id="sc-live-comments-box" class="max-h-40 overflow-y-auto space-y-1.5 p-2.5 rounded-xl bg-[#0D9488] text-white"></div>
           <form onsubmit="sendSellerLiveStudioComment(event)" class="flex items-center gap-1.5">
-            <input type="text" id="sc-live-comment-input" placeholder="Send host announcement or reply to live miners..." class="flex-1 px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#CBD5E1] text-xs font-semibold text-[#070D17] focus:outline-none" />
+            <input type="text" id="sc-live-comment-input" placeholder="Send host announcement or reply to live miners..." class="flex-1 px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] text-xs font-semibold text-[#132A2E] focus:outline-none" />
             <button type="submit" class="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-extrabold shrink-0 cursor-pointer">
               Send Host Chat
             </button>
@@ -618,10 +635,10 @@
         </div>
 
         <!-- Quick Flash Drop Creator -->
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 shadow-2xs space-y-2.5">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2.5">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Live Rack Queue &amp; Flash Drops</h3>
-            <button onclick="openAddProductModal()" class="text-[11px] font-bold text-[#10B981] cursor-pointer">+ New Flash Drop</button>
+            <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Live Rack Queue &amp; Flash Drops</h3>
+            <button onclick="openAddProductModal()" class="text-[11px] font-bold text-[#0D9488] cursor-pointer">+ New Flash Drop</button>
           </div>
           <div id="sc-live-queue-list" class="space-y-2"></div>
         </div>
@@ -632,17 +649,17 @@
       <!-- ================================================================= -->
       <section id="sc-tab-orders" class="hidden px-3.5 pt-3 space-y-3">
         <div>
-          <h2 class="text-base font-display font-extrabold text-[#070D17]">Order Management</h2>
-          <p class="text-[11px] text-slate-500">Remind unpaid miners, print waybills &amp; update parcel tracking</p>
+          <h2 class="text-base font-display font-extrabold text-[#132A2E]">Order Management</h2>
+          <p class="text-[11px] text-slate-500">Arrange shipment for mined &amp; COD orders, print A6 waybills &amp; update tracking</p>
         </div>
 
         <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button onclick="setOrdersFilter('ALL')" data-ord-filter="ALL" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-extrabold bg-[#070D17] text-white shrink-0 cursor-pointer">All</button>
-          <button onclick="setOrdersFilter('TO_PAY')" data-ord-filter="TO_PAY" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Unpaid Mine</button>
-          <button onclick="setOrdersFilter('TO_SHIP')" data-ord-filter="TO_SHIP" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">To Ship</button>
-          <button onclick="setOrdersFilter('TO_RECEIVE')" data-ord-filter="TO_RECEIVE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Shipping</button>
-          <button onclick="setOrdersFilter('WAYBILLS')" data-ord-filter="WAYBILLS" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Waybills (A6)</button>
-          <button onclick="setOrdersFilter('TO_RATE')" data-ord-filter="TO_RATE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2E8F0] shrink-0 cursor-pointer">Completed</button>
+          <button onclick="setOrdersFilter('ALL')" data-ord-filter="ALL" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-extrabold bg-[#0D9488] text-white shrink-0 cursor-pointer">All</button>
+          <button onclick="setOrdersFilter('TO_PAY')" data-ord-filter="TO_PAY" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2F2EE] shrink-0 cursor-pointer">Mined (COD)</button>
+          <button onclick="setOrdersFilter('TO_SHIP')" data-ord-filter="TO_SHIP" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2F2EE] shrink-0 cursor-pointer">To Ship</button>
+          <button onclick="setOrdersFilter('TO_RECEIVE')" data-ord-filter="TO_RECEIVE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2F2EE] shrink-0 cursor-pointer">Shipping</button>
+          <button onclick="setOrdersFilter('WAYBILLS')" data-ord-filter="WAYBILLS" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2F2EE] shrink-0 cursor-pointer">Waybills (A6)</button>
+          <button onclick="setOrdersFilter('TO_RATE')" data-ord-filter="TO_RATE" class="ord-filter-btn px-3 py-1.5 rounded-full text-[11px] font-bold bg-white text-[#1E293B] border border-[#E2F2EE] shrink-0 cursor-pointer">Completed</button>
         </div>
 
         <div id="sc-orders-list" class="space-y-2.5"></div>
@@ -653,13 +670,13 @@
       <!-- ================================================================= -->
       <section id="sc-tab-finance" class="hidden px-3.5 pt-3 space-y-3">
         <!-- Hero Available Balance & Quick Release Trigger -->
-        <div class="bg-[#070D17] text-white rounded-3xl p-4 space-y-3 shadow-sm">
+        <div class="bg-[#0D9488] text-white rounded-3xl p-4 space-y-3 shadow-sm">
           <div class="flex items-center justify-between gap-2">
             <div>
               <div class="text-[10px] font-bold uppercase text-slate-400">Available Seller Net Balance</div>
-              <div id="sc-finance-balance" class="text-2xl font-display font-extrabold text-[#10B981] tabular-price mt-0.5">₱0.00</div>
+              <div id="sc-finance-balance" class="text-2xl font-display font-extrabold text-[#0D9488] tabular-price mt-0.5">₱0.00</div>
             </div>
-            <button onclick="switchFinanceSubTab('release')" class="px-4 py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+            <button onclick="switchFinanceSubTab('release')" class="px-4 py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer">
               Request Fund Release
             </button>
           </div>
@@ -670,8 +687,8 @@
         </div>
 
         <!-- Finance Sub-Navigation Tabs -->
-        <div class="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs">
-          <button type="button" id="fin-subbtn-summary" onclick="switchFinanceSubTab('summary')" class="py-2 px-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer transition">
+        <div class="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-white border border-[#E2F2EE] shadow-2xs">
+          <button type="button" id="fin-subbtn-summary" onclick="switchFinanceSubTab('summary')" class="py-2 px-2 rounded-xl bg-[#0D9488] text-white text-[11px] font-extrabold cursor-pointer transition">
             Money Summary
           </button>
           <button type="button" id="fin-subbtn-release" onclick="switchFinanceSubTab('release')" class="py-2 px-2 rounded-xl text-[#1E293B] text-[11px] font-bold cursor-pointer transition">
@@ -684,11 +701,11 @@
 
         <!-- SUB-VIEW 1: PLATFORM MONEY SUMMARY -->
         <div id="fin-subview-summary" class="space-y-3">
-          <div id="sc-finance-summary-cards" class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs"></div>
+          <div id="sc-finance-summary-cards" class="bg-white rounded-3xl border border-[#E2F2EE] p-3.5 space-y-3 shadow-2xs"></div>
 
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2.5 shadow-2xs">
             <div class="flex items-center justify-between">
-              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Order-by-Order Settlement Ledger</h3>
+              <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Order-by-Order Settlement Ledger</h3>
               <span class="text-[10px] font-bold text-slate-400">Net of Fees</span>
             </div>
             <div id="sc-finance-ledger" class="space-y-2"></div>
@@ -697,20 +714,20 @@
 
         <!-- SUB-VIEW 2: FUND RELEASE REQUEST TAB -->
         <div id="fin-subview-release" class="hidden space-y-3">
-          <form onsubmit="submitFundReleaseRequest(event)" class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs">
-            <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
-              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Fund Release Request</h3>
-              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">₱0 Fee ≥ ₱500</span>
+          <form onsubmit="submitFundReleaseRequest(event)" class="bg-white rounded-3xl border border-[#E2F2EE] p-3.5 space-y-3 shadow-2xs">
+            <div class="flex items-center justify-between border-b border-[#E2F2EE] pb-2">
+              <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Fund Release Request</h3>
+              <span class="px-2 py-0.5 rounded-full bg-[#2DD4BF]/15 text-[#0D9488] text-[9px] font-extrabold">₱0 Fee ≥ ₱500</span>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Release Amount (₱)</label>
-                <input type="number" id="rel-amount" value="500" min="100" step="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold text-[#070D17] tabular-price" />
+                <input type="number" id="rel-amount" value="500" min="100" step="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold text-[#132A2E] tabular-price" />
               </div>
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Payout Channel</label>
-                <select id="rel-channel" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]">
+                <select id="rel-channel" class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#132A2E]">
                   <option value="GCash">GCash</option>
                   <option value="Maya">Maya</option>
                   <option value="GoTyme Bank">GoTyme Bank</option>
@@ -722,80 +739,80 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Account Name</label>
-                <input type="text" id="rel-acc-name" placeholder="Full Name" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]" />
+                <input type="text" id="rel-acc-name" placeholder="Full Name" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#132A2E]" />
               </div>
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Account / Mobile No.</label>
-                <input type="text" id="rel-acc-num" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold text-[#070D17]" />
+                <input type="text" id="rel-acc-num" placeholder="0917-XXX-XXXX" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold text-[#132A2E]" />
               </div>
             </div>
 
-            <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer">
               Submit Fund Release Request
             </button>
           </form>
 
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2 shadow-2xs">
-            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Fund Release History</h3>
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2 shadow-2xs">
+            <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Fund Release History</h3>
             <div id="sc-release-history-list" class="space-y-2"></div>
           </div>
         </div>
 
         <!-- SUB-VIEW 3: SELLER PAYOUT & VOUCHER CALCULATOR -->
         <div id="fin-subview-calc" class="hidden space-y-3">
-          <div class="bg-white rounded-3xl border border-[#E2E8F0] p-3.5 space-y-3 shadow-2xs">
+          <div class="bg-white rounded-3xl border border-[#E2F2EE] p-3.5 space-y-3 shadow-2xs">
             <div class="flex items-center justify-between">
-              <h3 class="text-xs font-display font-extrabold text-[#070D17]">Payout &amp; Voucher Calculator</h3>
-              <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">6% + ₱5 Proc. Fee</span>
+              <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Payout &amp; Voucher Calculator</h3>
+              <span class="px-2 py-0.5 rounded-full bg-[#2DD4BF]/15 text-[#0D9488] text-[9px] font-extrabold">6% + ₱5 Proc. Fee</span>
             </div>
 
-            <div class="bg-[#F4F6F9] rounded-2xl p-3 border border-[#E2E8F0] space-y-2.5">
+            <div class="bg-[#F4FAF8] rounded-2xl p-3 border border-[#E2F2EE] space-y-2.5">
               <div class="space-y-1">
                 <div class="flex items-center justify-between">
-                  <label class="text-[11px] font-extrabold text-[#070D17]">Item Price (₱)</label>
-                  <input type="number" id="calc-price-num" value="299" min="1" max="50000" step="1" oninput="syncCalcInput('price', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#070D17] tabular-price" />
+                  <label class="text-[11px] font-extrabold text-[#132A2E]">Item Price (₱)</label>
+                  <input type="number" id="calc-price-num" value="299" min="1" max="50000" step="1" oninput="syncCalcInput('price', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2F2EE] text-right text-xs font-extrabold text-[#132A2E] tabular-price" />
                 </div>
-                <input type="range" id="calc-price-rng" value="299" min="50" max="5000" step="1" oninput="syncCalcInput('price', 'rng')" class="w-full accent-[#070D17] cursor-pointer" />
+                <input type="range" id="calc-price-rng" value="299" min="50" max="5000" step="1" oninput="syncCalcInput('price', 'rng')" class="w-full accent-[#0F766E] cursor-pointer" />
               </div>
 
               <div class="space-y-1">
                 <div class="flex items-center justify-between">
-                  <label class="text-[11px] font-extrabold text-[#070D17]">J&amp;T Shipping (₱)</label>
-                  <input type="number" id="calc-ship-num" value="85" min="0" max="2000" step="5" oninput="syncCalcInput('ship', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#070D17] tabular-price" />
+                  <label class="text-[11px] font-extrabold text-[#132A2E]">J&amp;T Shipping (₱)</label>
+                  <input type="number" id="calc-ship-num" value="85" min="0" max="2000" step="5" oninput="syncCalcInput('ship', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2F2EE] text-right text-xs font-extrabold text-[#132A2E] tabular-price" />
                 </div>
-                <input type="range" id="calc-ship-rng" value="85" min="35" max="600" step="5" oninput="syncCalcInput('ship', 'rng')" class="w-full accent-[#070D17] cursor-pointer" />
+                <input type="range" id="calc-ship-rng" value="85" min="35" max="600" step="5" oninput="syncCalcInput('ship', 'rng')" class="w-full accent-[#0F766E] cursor-pointer" />
               </div>
 
               <div class="space-y-1">
                 <div class="flex items-center justify-between">
-                  <label class="text-[11px] font-extrabold text-[#070D17]">Seller Voucher (₱)</label>
-                  <input type="number" id="calc-voucher-num" value="0" min="0" max="2000" step="5" oninput="syncCalcInput('voucher', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2E8F0] text-right text-xs font-extrabold text-[#10B981] tabular-price" />
+                  <label class="text-[11px] font-extrabold text-[#132A2E]">Seller Voucher (₱)</label>
+                  <input type="number" id="calc-voucher-num" value="0" min="0" max="2000" step="5" oninput="syncCalcInput('voucher', 'num')" class="w-20 px-2 py-1 rounded-lg bg-white border border-[#E2F2EE] text-right text-xs font-extrabold text-[#0D9488] tabular-price" />
                 </div>
-                <input type="range" id="calc-voucher-rng" value="0" min="0" max="500" step="5" oninput="syncCalcInput('voucher', 'rng')" class="w-full accent-[#10B981] cursor-pointer" />
+                <input type="range" id="calc-voucher-rng" value="0" min="0" max="500" step="5" oninput="syncCalcInput('voucher', 'rng')" class="w-full accent-[#2DD4BF] cursor-pointer" />
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
-              <button type="button" id="calc-pay-BAYAD_AGAD" onclick="setCalcPay('BAYAD_AGAD')" class="py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition">Bayad Agad (2.23%)</button>
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE]">
+              <button type="button" id="calc-pay-BAYAD_AGAD" onclick="setCalcPay('BAYAD_AGAD')" class="py-1.5 px-2 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer transition">Bayad Agad (2.23%)</button>
               <button type="button" id="calc-pay-COD" onclick="setCalcPay('COD')" class="py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition">COD (₱0 Fee)</button>
             </div>
 
-            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
-              <button type="button" id="calc-bir-EXEMPT" onclick="setCalcBir('EXEMPT')" class="py-1.5 px-2 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition">BIR Exempt (0%)</button>
+            <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE]">
+              <button type="button" id="calc-bir-EXEMPT" onclick="setCalcBir('EXEMPT')" class="py-1.5 px-2 rounded-lg bg-[#2DD4BF] text-white text-[10px] font-extrabold cursor-pointer transition">BIR Exempt (0%)</button>
               <button type="button" id="calc-bir-WITHHELD" onclick="setCalcBir('WITHHELD')" class="py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition">BIR WHT (0.5%)</button>
             </div>
 
-            <div class="rounded-2xl bg-[#070D17] text-white p-3.5 space-y-2.5">
+            <div class="rounded-2xl bg-[#0D9488] text-white p-3.5 space-y-2.5">
               <div class="flex items-center justify-between">
                 <div>
                   <div class="text-[10px] font-bold uppercase text-slate-400">Net Seller Payout</div>
-                  <div id="calc-out-net" class="text-xl font-display font-extrabold text-[#10B981] tabular-price">₱267.50</div>
+                  <div id="calc-out-net" class="text-xl font-display font-extrabold text-[#0D9488] tabular-price">₱267.50</div>
                 </div>
-                <span id="calc-out-pct" class="px-2.5 py-1 rounded-full bg-[#10B981]/20 text-[#10B981] text-[10px] font-extrabold tabular-price">89.5%</span>
+                <span id="calc-out-pct" class="px-2.5 py-1 rounded-full bg-[#2DD4BF]/20 text-[#0D9488] text-[10px] font-extrabold tabular-price">89.5%</span>
               </div>
 
               <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden flex">
-                <div id="calc-bar-net" class="bg-[#10B981] h-full transition-all" style="width:89.5%"></div>
+                <div id="calc-bar-net" class="bg-[#2DD4BF] h-full transition-all" style="width:89.5%"></div>
                 <div id="calc-bar-comm" class="bg-[#F59E0B] h-full transition-all" style="width:7.7%"></div>
                 <div id="calc-bar-voucher" class="bg-sky-400 h-full transition-all" style="width:0%"></div>
                 <div id="calc-bar-gw" class="bg-[#EF4444] h-full transition-all" style="width:2.8%"></div>
@@ -838,35 +855,35 @@
       <section id="sc-tab-chat" class="hidden px-3.5 pt-3 space-y-3">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <h2 class="text-base font-display font-extrabold text-[#070D17]">Messages &amp; Admin Help</h2>
+            <h2 class="text-base font-display font-extrabold text-[#132A2E]">Messages &amp; Admin Help</h2>
           </div>
-          <div class="inline-flex p-1 rounded-xl bg-white border border-[#E2E8F0]">
-            <button type="button" id="inbox-tab-chat" onclick="switchInboxView('chat')" class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">Chats</button>
+          <div class="inline-flex p-1 rounded-xl bg-white border border-[#E2F2EE]">
+            <button type="button" id="inbox-tab-chat" onclick="switchInboxView('chat')" class="px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer">Chats</button>
             <button type="button" id="inbox-tab-reviews" onclick="switchInboxView('reviews')" class="px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer">Reviews &amp; Comments</button>
           </div>
         </div>
 
         <!-- VIEW A: TWO-COLUMN INBOX (PREVIOUS MESSAGES ON LEFT VERTICAL, ACTIVE CONVERSATION ON RIGHT) -->
-        <div id="sc-inbox-chat-view" class="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-2xs grid grid-cols-12 h-[64dvh]">
+        <div id="sc-inbox-chat-view" class="bg-white rounded-2xl border border-[#E2F2EE] overflow-hidden shadow-2xs grid grid-cols-12 h-[64dvh]">
           <!-- Left Sidebar: Previous Messages / Miner Threads & Admin Support (Vertical List) -->
-          <div class="col-span-5 border-r border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
-            <div class="px-2.5 py-2 bg-[#070D17] text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between">
+          <div class="col-span-5 border-r border-[#E2F2EE] bg-[#F4FAF8] flex flex-col overflow-hidden">
+            <div class="px-2.5 py-2 bg-[#0D9488] text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-between">
               <span>Previous Messages</span>
-              <span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+              <span class="w-2 h-2 rounded-full bg-[#2DD4BF]"></span>
             </div>
-            <div id="sc-chat-threads-left" class="flex-1 overflow-y-auto divide-y divide-[#E2E8F0] flex flex-col"></div>
+            <div id="sc-chat-threads-left" class="flex-1 overflow-y-auto divide-y divide-[#E2F2EE] flex flex-col"></div>
           </div>
 
           <!-- Right Panel: Active Thread -->
           <div class="col-span-7 flex flex-col overflow-hidden">
-            <div class="px-3 py-2 bg-[#070D17] text-white flex items-center justify-between border-l border-slate-800">
+            <div class="px-3 py-2 bg-[#0D9488] text-white flex items-center justify-between border-l border-slate-800">
               <span id="sc-chat-active-name" class="text-xs font-extrabold truncate">UKAYO Customer Service</span>
-              <span class="text-[9px] text-[#10B981] font-bold shrink-0">● Online</span>
+              <span class="text-[9px] text-[#0D9488] font-bold shrink-0">● Online</span>
             </div>
-            <div id="sc-chat-messages" class="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4F6F9]"></div>
-            <form onsubmit="sendSellerChatReply(event)" class="p-2 bg-white border-t border-[#E2E8F0] flex items-center gap-1.5">
-              <input type="text" id="sc-chat-input" placeholder="Write a message..." class="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4F6F9] border border-[#E2E8F0] text-xs focus:outline-none" />
-              <button type="submit" class="px-3 py-1.5 rounded-full bg-[#070D17] text-white text-xs font-extrabold shrink-0 cursor-pointer">Send</button>
+            <div id="sc-chat-messages" class="flex-1 p-2.5 overflow-y-auto space-y-2 bg-[#F4FAF8]"></div>
+            <form onsubmit="sendSellerChatReply(event)" class="p-2 bg-white border-t border-[#E2F2EE] flex items-center gap-1.5">
+              <input type="text" id="sc-chat-input" placeholder="Write a message..." class="flex-1 min-w-0 px-3 py-1.5 rounded-full bg-[#F4FAF8] border border-[#E2F2EE] text-xs focus:outline-none" />
+              <button type="submit" class="px-3 py-1.5 rounded-full bg-[#0D9488] text-white text-xs font-extrabold shrink-0 cursor-pointer">Send</button>
             </form>
           </div>
         </div>
@@ -882,58 +899,58 @@
       <!-- ================================================================= -->
       <section id="sc-tab-shop" class="hidden px-3.5 pt-3 space-y-3">
         <!-- Shop Profile Card -->
-        <form onsubmit="saveShopProfile(event)" class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
-          <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Tindahan Profile</h3>
+        <form onsubmit="saveShopProfile(event)" class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2.5 shadow-2xs">
+          <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">Tindahan Profile</h3>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Shop Name</label>
-            <input type="text" id="sc-input-shopname" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            <input type="text" id="sc-input-shopname" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Pickup City</label>
-              <input type="text" id="sc-input-city" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+              <input type="text" id="sc-input-city" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
             </div>
             <div>
               <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">GCash / Maya</label>
-              <input type="text" id="sc-input-gcash" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+              <input type="text" id="sc-input-gcash" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
             </div>
           </div>
-          <button type="submit" class="w-full py-2 rounded-xl bg-[#070D17] text-white text-xs font-extrabold cursor-pointer">Save Shop Profile</button>
+          <button type="submit" class="w-full py-2 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer">Save Shop Profile</button>
         </form>
 
         <!-- Seller-Sponsored Vouchers -->
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2.5 shadow-2xs">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">Seller-Sponsored Vouchers</h3>
-            <button onclick="openCreateVoucherModal()" class="px-2.5 py-1 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer">+ Create Voucher</button>
+            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">Seller-Sponsored Vouchers</h3>
+            <button onclick="openCreateVoucherModal()" class="px-2.5 py-1 rounded-lg bg-[#2DD4BF] text-white text-[10px] font-extrabold cursor-pointer">+ Create Voucher</button>
           </div>
           <div id="sc-vouchers-list" class="space-y-2"></div>
         </div>
 
         <!-- Single-Registration BIR & DTI Compliance -->
-        <form onsubmit="saveTaxCompliance(event)" class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2.5 shadow-2xs">
+        <form onsubmit="saveTaxCompliance(event)" class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2.5 shadow-2xs">
           <div>
-            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#070D17]">BIR &amp; DTI Tax Info (Single Registration)</h3>
+            <h3 class="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">BIR &amp; DTI Tax Info (Single Registration)</h3>
             <p class="text-[10px] text-slate-500 mt-0.5">Already registered on Shopee or TikTok? Use your existing DTI &amp; BIR Form 2303—no duplicate BIR registration needed.</p>
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Seller Tax Tier</label>
-            <select id="sc-input-taxtier" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+            <select id="sc-input-taxtier" class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold">
               <option value="Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)">Starter Micro-Seller (≤ ₱500k Annual • Sworn Declaration)</option>
               <option value="Verified Merchant (Existing BIR Form 2303 COR)">Verified Merchant (Existing BIR Form 2303 COR)</option>
             </select>
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">BIR TIN (Optional for Starter Tier)</label>
-            <input type="text" id="sc-input-tin" placeholder="e.g. 123-456-789-000" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            <input type="text" id="sc-input-tin" placeholder="e.g. 123-456-789-000" class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
           </div>
-          <button type="submit" class="w-full py-2 rounded-xl bg-[#10B981] text-white text-xs font-extrabold cursor-pointer">Save Tax &amp; Compliance</button>
+          <button type="submit" class="w-full py-2 rounded-xl bg-[#2DD4BF] text-white text-xs font-extrabold cursor-pointer">Save Tax &amp; Compliance</button>
         </form>
 
         <!-- Log Out Card -->
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 flex items-center justify-between">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 flex items-center justify-between">
           <div>
-            <div class="text-xs font-extrabold text-[#070D17]">Seller Session</div>
+            <div class="text-xs font-extrabold text-[#132A2E]">Seller Session</div>
             <div class="text-[10px] text-slate-500">Sign out of your Seller Center session</div>
           </div>
           <button type="button" onclick="handleSellerLogout()" class="px-3.5 py-2 rounded-xl bg-[#EF4444] text-white text-xs font-extrabold cursor-pointer">
@@ -946,9 +963,9 @@
     <!-- =================================================================== -->
     <!-- DOCKED 6-TAB SELLER CENTER BOTTOM NAVIGATION BAR                    -->
     <!-- =================================================================== -->
-    <nav id="sc-bottom-nav" class="hidden fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2E8F0] px-1.5 pt-1.5 pb-safe transition-all duration-300">
+    <nav id="sc-bottom-nav" class="hidden fixed bottom-0 left-0 right-0 z-30 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-[#E2F2EE] px-1.5 pt-1.5 pb-safe transition-all duration-300">
       <div class="grid grid-cols-6 items-center text-center">
-        <button onclick="switchSellerTab('home')" data-sc-nav="home" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-[#070D17] font-extrabold cursor-pointer">
+        <button onclick="switchSellerTab('home')" data-sc-nav="home" class="sc-nav-btn flex flex-col items-center gap-0.5 py-1 text-[#132A2E] font-extrabold cursor-pointer">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span class="text-[10px]">Home</span>
         </button>
@@ -988,20 +1005,20 @@
     <!-- =================================================================== -->
     <div id="sc-add-product-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
       <form onsubmit="submitNewProduct(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto">
-        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Add Ukay Piece / Live &amp; Feed Drop</h3>
-          <button type="button" onclick="closeAddProductModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <div class="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+          <h3 class="text-sm font-display font-extrabold text-[#132A2E]">Add Ukay Piece / Live &amp; Feed Drop</h3>
+          <button type="button" onclick="closeAddProductModal()" class="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
 
         <!-- Product Photos Upload (Maximum of 5 Images) -->
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
             <label class="text-[10px] font-bold uppercase text-slate-500">Product Photos (Max 5 Images)</label>
-            <span id="new-prod-img-count" class="text-[10px] font-extrabold text-[#10B981]">0 / 5</span>
+            <span id="new-prod-img-count" class="text-[10px] font-extrabold text-[#0D9488]">0 / 5</span>
           </div>
-          <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4F6F9] hover:border-[#070D17] cursor-pointer">
-            <span class="text-xs font-bold text-[#070D17]">Upload Product Pictures</span>
-            <span class="px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold">Choose (Max 5)</span>
+          <label class="flex items-center justify-between px-3 py-2 rounded-xl border border-dashed border-[#94A3B8] bg-[#F4FAF8] hover:border-[#0D9488] cursor-pointer">
+            <span class="text-xs font-bold text-[#132A2E]">Upload Product Pictures</span>
+            <span class="px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold">Choose (Max 5)</span>
             <input type="file" id="new-prod-images-input" accept="image/*" multiple onchange="handleNewProductImagesUpload(event)" class="hidden" />
           </label>
           <div id="new-prod-images-preview" class="hidden grid grid-cols-5 gap-1.5 pt-1"></div>
@@ -1010,18 +1027,18 @@
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Item Title</label>
-            <input type="text" id="new-prod-title" placeholder="e.g. Vintage Fleece Jacket" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            <input type="text" id="new-prod-title" placeholder="e.g. Vintage Fleece Jacket" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Base Price (PHP)</label>
-            <input type="number" id="new-prod-price" value="250" min="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            <input type="number" id="new-prod-price" value="250" min="1" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Category</label>
-            <select id="new-prod-category" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+            <select id="new-prod-category" class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold">
               <option value="Jackets">Jackets &amp; Hoodies</option>
               <option value="Tops">Tops &amp; Tees</option>
               <option value="Denim">Denim &amp; Pants</option>
@@ -1033,20 +1050,20 @@
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Size / Dimensions</label>
-            <input type="text" id="new-prod-size" value='Large (23" x 27")' required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold" />
+            <input type="text" id="new-prod-size" value='Large (23" x 27")' required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold" />
           </div>
         </div>
 
         <!-- Multiple Pricing Per Item Depending on Variant -->
-        <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0] space-y-2">
+        <div class="p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#E2F2EE] space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-extrabold uppercase text-[#070D17]">Variant Pricing (Optional)</span>
-            <button type="button" onclick="addProductVariantRow()" class="px-2 py-0.5 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer">+ Add Variant</button>
+            <span class="text-[10px] font-extrabold uppercase text-[#132A2E]">Variant Pricing (Optional)</span>
+            <button type="button" onclick="addProductVariantRow()" class="px-2 py-0.5 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer">+ Add Variant</button>
           </div>
           <div id="new-prod-variants-list" class="space-y-1.5">
             <div class="grid grid-cols-12 gap-1.5 items-center variant-row">
-              <input type="text" placeholder="Variant (e.g. Class A / Large)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-semibold" />
-              <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-extrabold tabular-price" />
+              <input type="text" placeholder="Variant (e.g. Class A / Large)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2F2EE] text-xs font-semibold" />
+              <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2F2EE] text-xs font-extrabold tabular-price" />
               <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-slate-400 hover:text-[#EF4444] text-xs font-bold cursor-pointer">✕</button>
             </div>
           </div>
@@ -1054,15 +1071,15 @@
 
         <div>
           <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Item Description &amp; Condition</label>
-          <textarea id="new-prod-description" rows="2" placeholder="Describe fabric, flaws (if any), chest/length measurements, and bale grade..." required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-medium text-[#070D17]"></textarea>
+          <textarea id="new-prod-description" rows="2" placeholder="Describe fabric, flaws (if any), chest/length measurements, and bale grade..." required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-medium text-[#132A2E]"></textarea>
         </div>
 
-        <label class="flex items-center gap-2 text-xs font-bold text-[#070D17] cursor-pointer">
-          <input type="checkbox" id="new-prod-post-feed" checked class="accent-[#10B981]" />
+        <label class="flex items-center gap-2 text-xs font-bold text-[#132A2E] cursor-pointer">
+          <input type="checkbox" id="new-prod-post-feed" checked class="accent-[#2DD4BF]" />
           <span>Also publish this item to the Marketplace Ukay Feed &amp; Live Room</span>
         </label>
 
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer">
           Save &amp; Sync to Live + Ukay Feed
         </button>
       </form>
@@ -1071,18 +1088,18 @@
     <!-- Create Seller-Sponsored Voucher Modal -->
     <div id="sc-voucher-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/60 backdrop-blur-xs items-end sm:items-center justify-center p-3">
       <form onsubmit="submitNewShopVoucher(event)" class="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl">
-        <div class="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
-          <h3 class="text-sm font-display font-extrabold text-[#070D17]">Create Seller Voucher</h3>
-          <button type="button" onclick="closeCreateVoucherModal()" class="p-1 rounded-full bg-[#F4F6F9] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <div class="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
+          <h3 class="text-sm font-display font-extrabold text-[#132A2E]">Create Seller Voucher</h3>
+          <button type="button" onclick="closeCreateVoucherModal()" class="p-1 rounded-full bg-[#F4FAF8] text-slate-600 cursor-pointer"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Voucher Code</label>
-            <input type="text" id="vouch-code" value="UKAYSHIP40" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold uppercase" />
+            <input type="text" id="vouch-code" value="UKAYSHIP40" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold uppercase" />
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Promo Type</label>
-            <select id="vouch-type" class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-semibold">
+            <select id="vouch-type" class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-semibold">
               <option value="Shipping">Shipping Discount</option>
               <option value="Shop">Shop Item Discount</option>
             </select>
@@ -1091,18 +1108,18 @@
         <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Discount (₱)</label>
-            <input type="number" id="vouch-amount" value="40" min="5" max="1000" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+            <input type="number" id="vouch-amount" value="40" min="5" max="1000" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold" />
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Min Spend (₱)</label>
-            <input type="number" id="vouch-min" value="299" min="0" max="20000" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+            <input type="number" id="vouch-min" value="299" min="0" max="20000" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold" />
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1">Claim Limit</label>
-            <input type="number" id="vouch-limit" value="25" min="1" max="500" required class="w-full px-3 py-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] text-xs font-extrabold" />
+            <input type="number" id="vouch-limit" value="25" min="1" max="500" required class="w-full px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-xs font-extrabold" />
           </div>
         </div>
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-emerald-600 text-white text-xs font-extrabold cursor-pointer">
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-xs font-extrabold cursor-pointer">
           Publish Seller Voucher
         </button>
       </form>
@@ -1110,12 +1127,12 @@
 
     <!-- Complete UKAYO Seller Policy & Fee Handbook Modal -->
     <div id="sc-policy-modal" class="hidden fixed inset-0 z-50 max-w-md mx-auto bg-black/65 backdrop-blur-xs items-end sm:items-center justify-center p-2.5">
-      <div class="bg-white w-full rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden border border-[#E2E8F0]">
-        <div class="bg-[#070D17] text-white px-4 py-3.5 flex items-center justify-between gap-2 shrink-0">
+      <div class="bg-white w-full rounded-3xl shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden border border-[#E2F2EE]">
+        <div class="bg-[#0D9488] text-white px-4 py-3.5 flex items-center justify-between gap-2 shrink-0">
           <div>
             <div class="flex items-center gap-1.5">
               <h3 class="text-sm font-display font-extrabold">UKAYO Seller Policy &amp; Fee Handbook</h3>
-              <span class="px-1.5 py-0.5 rounded bg-[#10B981]/20 text-[#10B981] text-[9px] font-extrabold">v2026</span>
+              <span class="px-1.5 py-0.5 rounded bg-[#2DD4BF]/20 text-[#0D9488] text-[9px] font-extrabold">v2026</span>
             </div>
             <p class="text-[10px] text-slate-300">Operated by Jazz Digital Solutions • Complete Seller Terms</p>
           </div>
@@ -1125,20 +1142,20 @@
         <div class="p-4 overflow-y-auto space-y-3 text-xs text-[#1E293B] flex-1">
           <div class="p-3.5 rounded-2xl bg-[#F59E0B]/15 border-2 border-[#F59E0B] space-y-1.5">
             <div class="flex items-center justify-between gap-2">
-              <span class="font-display font-extrabold text-[#070D17] text-xs">Order Processing Fee (₱5.00 Flat)</span>
-              <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-[#F59E0B] text-[9px] font-extrabold uppercase">Effective Policy</span>
+              <span class="font-display font-extrabold text-[#132A2E] text-xs">Order Processing Fee (₱5.00 Flat)</span>
+              <span class="px-2 py-0.5 rounded-full bg-[#0D9488] text-[#F59E0B] text-[9px] font-extrabold uppercase">Effective Policy</span>
             </div>
             <p class="text-[11px] text-[#1E293B] leading-snug">
               <strong>UKAYO charges a flat ₱5.00 fee per successfully completed order</strong> (in addition to the 6.00% flat commission). Cancelled and fully returned/refunded orders are exempt from this ₱5.00 fee.
             </p>
           </div>
 
-          <div class="rounded-2xl bg-[#070D17] text-white p-3 space-y-2">
+          <div class="rounded-2xl bg-[#0D9488] text-white p-3 space-y-2">
             <div class="text-[10px] font-extrabold uppercase tracking-wider text-[#F59E0B]">Official UKAYO Fee Schedule</div>
             <div class="grid grid-cols-2 gap-1.5 text-[11px]">
               <div class="p-2 rounded-xl bg-white/10">
                 <div class="text-slate-300 text-[9px]">Marketplace Commission</div>
-                <div class="font-extrabold text-[#10B981]">6.00% Flat + ₱5 Proc. Fee</div>
+                <div class="font-extrabold text-[#0D9488]">6.00% Flat + ₱5 Proc. Fee</div>
               </div>
               <div class="p-2 rounded-xl bg-white/10">
                 <div class="text-slate-300 text-[9px]">Live Selling Surcharge</div>
@@ -1800,9 +1817,9 @@
           const active = s === step;
           const done = s < step;
           pill.className = active
-            ? 'p-2.5 rounded-xl bg-[#10B981] text-[#070D17] text-center'
+            ? 'p-2.5 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-center'
             : done
-            ? 'p-2.5 rounded-xl bg-white/25 text-[#10B981] text-center'
+            ? 'p-2.5 rounded-xl bg-white/25 text-[#0D9488] text-center'
             : 'p-2.5 rounded-xl bg-white/15 text-white text-center';
         }
       });
@@ -1851,7 +1868,7 @@
           card.className = 'relative rounded-xl overflow-hidden border border-[#CBD5E1] aspect-square bg-white';
           card.innerHTML = `
             <img src="${dataUrl}" alt="BIR Document ${idx + 1}" class="w-full h-full object-cover" />
-            <span class="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-[#070D17]/85 text-white text-[9px] font-bold">BIR #${idx + 1}</span>
+            <span class="absolute bottom-1 left-1 px-1.5 py-0.2 rounded bg-[#0D9488]/85 text-white text-[9px] font-bold">BIR #${idx + 1}</span>
           `;
           previewsEl.appendChild(card);
         }
@@ -1891,8 +1908,8 @@
       const box = document.getElementById('sc-toast-box');
       if (!box) return;
       const el = document.createElement('div');
-      el.className = 'px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 bg-[#070D17] text-white border border-slate-700 transition-all duration-300';
-      el.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#10B981] shrink-0"></span><span>${escapeHtml(msg)}</span>`;
+      el.className = 'px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 bg-[#0D9488] text-white border border-slate-700 transition-all duration-300';
+      el.innerHTML = `<span class="w-2 h-2 rounded-full bg-[#2DD4BF] shrink-0"></span><span>${escapeHtml(msg)}</span>`;
       box.appendChild(el);
       setTimeout(() => {
         el.style.opacity = '0';
@@ -1916,7 +1933,7 @@
 
       document.querySelectorAll('.sc-nav-btn').forEach(btn => {
         const active = btn.getAttribute('data-sc-nav') === tab;
-        btn.classList.toggle('text-[#070D17]', active);
+        btn.classList.toggle('text-[#132A2E]', active);
         btn.classList.toggle('font-extrabold', active);
         btn.classList.toggle('text-slate-400', !active);
         btn.classList.toggle('font-semibold', !active);
@@ -1935,13 +1952,13 @@
       scState.orderFilter = stage;
       document.querySelectorAll('.ord-filter-btn').forEach(btn => {
         const active = btn.getAttribute('data-ord-filter') === stage;
-        btn.classList.toggle('bg-[#070D17]', active);
+        btn.classList.toggle('bg-[#0D9488]', active);
         btn.classList.toggle('text-white', active);
         btn.classList.toggle('font-extrabold', active);
         btn.classList.toggle('bg-white', !active);
         btn.classList.toggle('text-[#1E293B]', !active);
         btn.classList.toggle('border', !active);
-        btn.classList.toggle('border-[#E2E8F0]', !active);
+        btn.classList.toggle('border-[#E2F2EE]', !active);
       });
       renderOrdersTab();
     }
@@ -1962,7 +1979,7 @@
       if (kycEl) {
         kycEl.textContent = scState.sellerStatus === 'approved' ? '✓ Verified' : 'Pending KYC';
         kycEl.className = scState.sellerStatus === 'approved'
-          ? 'text-xs font-display font-extrabold text-[#10B981] mt-0.5'
+          ? 'text-xs font-display font-extrabold text-[#0D9488] mt-0.5'
           : 'text-xs font-display font-extrabold text-[#F59E0B] mt-0.5';
       }
 
@@ -2006,10 +2023,10 @@
       }
       if (phoneBtn && laptopBtn) {
         phoneBtn.className = !isLaptop
-          ? 'px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition'
+          ? 'px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition'
           : 'px-1.5 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer transition';
         laptopBtn.className = isLaptop
-          ? 'px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition'
+          ? 'px-1.5 py-1 rounded-lg bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer transition'
           : 'px-1.5 py-1 rounded-lg text-slate-200 hover:text-white text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer transition';
       }
     }
@@ -2019,8 +2036,8 @@
       if (!list) return;
       if (!scState.products.length) {
         list.innerHTML = `
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center space-y-2">
-            <div class="text-xs font-extrabold text-[#070D17]">Your Ukay Rack is Empty</div>
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-6 text-center space-y-2">
+            <div class="text-xs font-extrabold text-[#132A2E]">Your Ukay Rack is Empty</div>
             <p class="text-[11px] text-slate-500">Tap <strong>+ Add Item</strong> above to upload your first ukay product to your Storefront, Live Room, and Ukay Feed.</p>
           </div>
         `;
@@ -2039,22 +2056,22 @@
           }
         }
         return `
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 flex items-start gap-3 shadow-2xs">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3 flex items-start gap-3 shadow-2xs">
           <div class="relative shrink-0">
-            <img src="${imgs[0]}" alt="${escapeHtml(p.title)}" class="w-16 h-16 rounded-xl object-cover bg-[#F4F6F9]" />
-            ${imgs.length > 1 ? `<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-[#070D17]/85 text-white text-[8px] font-extrabold">${imgs.length} imgs</span>` : ''}
+            <img src="${imgs[0]}" alt="${escapeHtml(p.title)}" class="w-16 h-16 rounded-xl object-cover bg-[#F4FAF8]" />
+            ${imgs.length > 1 ? `<span class="absolute bottom-1 right-1 px-1.5 py-0.2 rounded bg-[#0D9488]/85 text-white text-[8px] font-extrabold">${imgs.length} imgs</span>` : ''}
           </div>
           <div class="min-w-0 flex-1 space-y-1">
             <div class="flex items-center gap-1.5">
-              <span class="px-1.5 py-0.2 rounded bg-[#070D17] text-white text-[9px] font-extrabold">${escapeHtml(p.code)}</span>
-              <span class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(p.title)}</span>
+              <span class="px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[9px] font-extrabold">${escapeHtml(p.code)}</span>
+              <span class="text-xs font-extrabold text-[#132A2E] truncate">${escapeHtml(p.title)}</span>
             </div>
             <div class="text-[10px] text-slate-500">${escapeHtml(p.category)} • ${escapeHtml(p.size)}</div>
             ${p.description ? `<p class="text-[11px] text-[#334155] line-clamp-2 leading-snug">${escapeHtml(p.description)}</p>` : ''}
             <div class="flex items-center justify-between pt-0.5">
-              <span class="text-sm font-display font-extrabold text-[#10B981] tabular-price">${priceDisplay}</span>
+              <span class="text-sm font-display font-extrabold text-[#0D9488] tabular-price">${priceDisplay}</span>
               <button onclick="pinProductLive('${p.id}')" class="px-2.5 py-1 rounded-lg ${
-                p.pinned ? 'bg-[#F59E0B] text-[#070D17]' : 'bg-[#070D17] text-white'
+                p.pinned ? 'bg-[#F59E0B] text-[#132A2E]' : 'bg-[#0D9488] text-white'
               } text-[10px] font-extrabold cursor-pointer">
                 ${p.pinned ? 'Pinned Live' : 'Pin to LIVE'}
               </button>
@@ -2101,8 +2118,8 @@
             const badgeClass = m.badge === 'HOST'
               ? 'bg-[#EF4444] text-white'
               : m.badge === 'LOCKED'
-              ? 'bg-[#10B981] text-white'
-              : 'bg-[#F59E0B] text-[#070D17]';
+              ? 'bg-[#2DD4BF] text-white'
+              : 'bg-[#F59E0B] text-[#132A2E]';
             return `
               <div class="flex items-start gap-1.5 text-[11px] bg-white/10 rounded-xl px-2.5 py-1.5">
                 <span class="px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase shrink-0 mt-0.5 ${badgeClass}">${escapeHtml(m.badge || 'MINER')}</span>
@@ -2120,20 +2137,20 @@
       const queueEl = document.getElementById('sc-live-queue-list');
       if (!queueEl) return;
       if (!scState.products.length) {
-        queueEl.innerHTML = `<div class="p-4 rounded-xl bg-[#F4F6F9] text-center text-xs text-slate-500">No items in your Live Rack yet. Tap <strong>+ New Flash Drop</strong> above to add an item for live miners!</div>`;
+        queueEl.innerHTML = `<div class="p-4 rounded-xl bg-[#F4FAF8] text-center text-xs text-slate-500">No items in your Live Rack yet. Tap <strong>+ New Flash Drop</strong> above to add an item for live miners!</div>`;
         return;
       }
       queueEl.innerHTML = scState.products.map(p => `
-        <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
+        <div class="p-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] flex items-center justify-between gap-2">
           <div class="flex items-center gap-2.5 min-w-0">
             <img src="${p.image}" alt="${escapeHtml(p.title)}" class="w-10 h-10 rounded-lg object-cover shrink-0" />
             <div class="min-w-0">
-              <div class="text-xs font-extrabold text-[#070D17] truncate">[${escapeHtml(p.code)}] ${escapeHtml(p.title)}</div>
+              <div class="text-xs font-extrabold text-[#132A2E] truncate">[${escapeHtml(p.code)}] ${escapeHtml(p.title)}</div>
               <div class="text-[10px] text-slate-500">₱${p.price} • ${escapeHtml(p.size)}</div>
             </div>
           </div>
           <button onclick="pinProductLive('${p.id}')" class="px-2.5 py-1.5 rounded-lg ${
-            p.pinned ? 'bg-[#10B981] text-white' : 'bg-[#070D17] text-white'
+            p.pinned ? 'bg-[#2DD4BF] text-white' : 'bg-[#0D9488] text-white'
           } text-[10px] font-extrabold shrink-0 cursor-pointer">
             ${p.pinned ? 'Active Card' : 'Pin Card'}
           </button>
@@ -2172,54 +2189,54 @@
       if (scState.orderFilter === 'WAYBILLS') {
         const waybillOrders = scState.orders.filter(o => o.trackingNumber || o.stage === 'TO_RECEIVE' || o.stage === 'TO_RATE');
         list.innerHTML = `
-          <div class="bg-[#070D17] text-white rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+          <div class="bg-[#0D9488] text-white rounded-2xl p-3.5 space-y-2.5 shadow-xs">
             <div class="flex items-center justify-between gap-2">
               <div>
                 <div class="text-xs font-display font-extrabold">Batch A6 Waybill Printer (${waybillOrders.length})</div>
                 <div class="text-[10px] text-slate-300">Thermal Size: 105mm × 148mm • 1 Compiled PDF</div>
               </div>
             </div>
-            <button onclick="downloadAllWaybillsA6PDF()" ${waybillOrders.length === 0 ? 'disabled' : ''} class="w-full py-2.5 px-3 rounded-xl ${waybillOrders.length === 0 ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-[#10B981] hover:bg-emerald-600 text-white cursor-pointer'} text-xs font-extrabold flex items-center justify-center gap-1.5">
+            <button onclick="downloadAllWaybillsA6PDF()" ${waybillOrders.length === 0 ? 'disabled' : ''} class="w-full py-2.5 px-3 rounded-xl ${waybillOrders.length === 0 ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-[#2DD4BF] hover:bg-[#0D9488] text-white cursor-pointer'} text-xs font-extrabold flex items-center justify-center gap-1.5">
               <i data-lucide="file-down" class="w-4 h-4"></i>
               <span>Download Compiled A6 PDF (${waybillOrders.length} Waybill${waybillOrders.length === 1 ? '' : 's'})</span>
             </button>
           </div>
-          ${waybillOrders.length === 0 ? `<div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">No A6 waybills generated yet. Arrange shipment on a "To Ship" order first.</div>` : ''}
+          ${waybillOrders.length === 0 ? `<div class="bg-white rounded-2xl border border-[#E2F2EE] p-6 text-center text-xs text-slate-500">No A6 waybills generated yet. Arrange shipment on a "To Ship" order first.</div>` : ''}
           ${waybillOrders.map(o => {
             const trk = o.trackingNumber || ('UKY' + o.id.slice(-6).toUpperCase() + 'PH');
             const totalAmt = o.price * (o.quantity || 1);
             const isCod = String(o.paymentMethod || '').toUpperCase().includes('COD');
             return `
-              <div class="bg-white rounded-2xl border-2 border-[#070D17] p-3.5 shadow-xs space-y-2.5">
-                <div class="flex items-center justify-between border-b-2 border-[#070D17] pb-2">
+              <div class="bg-white rounded-2xl border-2 border-[#0D9488] p-3.5 shadow-xs space-y-2.5">
+                <div class="flex items-center justify-between border-b-2 border-[#0D9488] pb-2">
                   <div>
-                    <span class="px-2 py-0.5 rounded bg-[#070D17] text-white text-[10px] font-extrabold uppercase">${escapeHtml(o.courier || 'J&T Express')}</span>
+                    <span class="px-2 py-0.5 rounded bg-[#0D9488] text-white text-[10px] font-extrabold uppercase">${escapeHtml(o.courier || 'J&T Express')}</span>
                     <span class="ml-1.5 text-[10px] font-bold text-slate-500">A6 Waybill</span>
                   </div>
-                  <span class="text-[10px] font-extrabold text-[#070D17]">${escapeHtml(trk)}</span>
+                  <span class="text-[10px] font-extrabold text-[#132A2E]">${escapeHtml(trk)}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-[11px]">
-                  <div class="p-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                  <div class="p-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE]">
                     <div class="text-[9px] font-extrabold uppercase text-slate-400">Sender (Tindahan)</div>
-                    <div class="font-extrabold text-[#070D17] truncate">${escapeHtml(scState.shopName)}</div>
+                    <div class="font-extrabold text-[#132A2E] truncate">${escapeHtml(scState.shopName)}</div>
                     <div class="text-[10px] text-slate-600 line-clamp-2">${escapeHtml(scState.city)}</div>
                   </div>
-                  <div class="p-2 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0]">
+                  <div class="p-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE]">
                     <div class="text-[9px] font-extrabold uppercase text-slate-400">Recipient (Miner)</div>
-                    <div class="font-extrabold text-[#070D17] truncate">${escapeHtml(o.buyerName)}</div>
+                    <div class="font-extrabold text-[#132A2E] truncate">${escapeHtml(o.buyerName)}</div>
                     <div class="text-[10px] text-slate-600 line-clamp-2">${escapeHtml(o.buyerAddress || 'Philippines')}</div>
                   </div>
                 </div>
-                <div class="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] flex items-center justify-between gap-2">
+                <div class="p-2.5 rounded-xl bg-[#F4FAF8] border border-[#CBD5E1] flex items-center justify-between gap-2">
                   <div class="min-w-0">
-                    <div class="text-[10px] font-bold text-[#070D17] truncate">Item: ${escapeHtml(o.title)} (x${o.quantity || 1})</div>
+                    <div class="text-[10px] font-bold text-[#132A2E] truncate">Item: ${escapeHtml(o.title)} (x${o.quantity || 1})</div>
                   </div>
                   <div class="text-right shrink-0">
-                    <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price">${isCod ? '₱' + totalAmt.toLocaleString() : 'PAID'}</div>
+                    <div class="text-sm font-display font-extrabold text-[#132A2E] tabular-price">${isCod ? '₱' + totalAmt.toLocaleString() : 'PAID'}</div>
                   </div>
                 </div>
-                <button onclick="downloadSingleWaybillA6PDF('${o.id}')" class="w-full py-2.5 rounded-xl bg-[#070D17] hover:bg-[#111827] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer">
-                  <i data-lucide="printer" class="w-4 h-4 text-[#10B981]"></i>
+                <button onclick="downloadSingleWaybillA6PDF('${o.id}')" class="w-full py-2.5 rounded-xl bg-[#0D9488] hover:bg-[#111827] text-white text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer">
+                  <i data-lucide="printer" class="w-4 h-4 text-[#0D9488]"></i>
                   <span>Download A6 Waybill PDF (105 × 148 mm)</span>
                 </button>
               </div>
@@ -2234,41 +2251,39 @@
         : scState.orders.filter(o => o.stage === scState.orderFilter);
 
       if (!filtered.length) {
-        list.innerHTML = `<div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">No orders in this tab yet. When buyers tap <strong>MINE NA!</strong> and checkout in the Marketplace, orders appear here automatically.</div>`;
+        list.innerHTML = `<div class="bg-white rounded-2xl border border-[#E2F2EE] p-6 text-center text-xs text-slate-500">No orders in this tab yet. When buyers tap <strong>MINE NA!</strong> and checkout in the Marketplace, orders appear here automatically.</div>`;
         return;
       }
 
       list.innerHTML = filtered.map(o => `
-        <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3 shadow-2xs space-y-2.5">
+        <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs space-y-2.5">
           <div class="flex items-center justify-between gap-2 text-[10px]">
-            <span class="font-extrabold text-[#070D17]">Miner: ${escapeHtml(o.buyerName)}</span>
+            <span class="font-extrabold text-[#132A2E]">Miner: ${escapeHtml(o.buyerName)}</span>
             <span class="px-2 py-0.5 rounded-full font-extrabold ${
-              o.stage === 'TO_PAY' ? 'bg-[#F59E0B]/20 text-[#070D17]' :
+              o.stage === 'TO_PAY' ? 'bg-[#F59E0B]/20 text-[#132A2E]' :
               o.stage === 'TO_SHIP' ? 'bg-[#EF4444]/10 text-[#EF4444]' :
-              'bg-[#10B981]/15 text-[#10B981]'
+              'bg-[#2DD4BF]/15 text-[#0D9488]'
             }">${escapeHtml(o.status)}</span>
           </div>
 
           <div class="flex items-center gap-3">
-            <img src="${o.image}" alt="${escapeHtml(o.title)}" class="w-14 h-14 rounded-xl object-cover bg-[#F4F6F9] shrink-0" />
+            <img src="${o.image}" alt="${escapeHtml(o.title)}" class="w-14 h-14 rounded-xl object-cover bg-[#F4FAF8] shrink-0" />
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(o.title)}</div>
+              <div class="text-xs font-extrabold text-[#132A2E] truncate">${escapeHtml(o.title)}</div>
               <div class="text-[10px] text-slate-500">Qty: ${o.quantity || 1} • ${escapeHtml(o.courier)} • ${escapeHtml(o.paymentMethod)}</div>
-              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">₱${(o.price * (o.quantity || 1)).toLocaleString()}</div>
+              <div class="text-sm font-display font-extrabold text-[#0D9488] tabular-price mt-0.5">₱${(o.price * (o.quantity || 1)).toLocaleString()}</div>
             </div>
           </div>
 
-          <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+          <div class="flex items-center gap-2 pt-2 border-t border-[#E2F2EE]">
             ${
-              o.stage === 'TO_PAY'
-                ? `<button onclick="sendPaymentReminder('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#F59E0B] text-[#070D17] text-[11px] font-extrabold cursor-pointer">Send Payment Reminder</button>`
-                : o.stage === 'TO_SHIP'
-                ? `<button onclick="arrangeShipment('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#10B981] text-white text-[11px] font-extrabold cursor-pointer">Arrange Shipment &amp; Print Waybill</button>`
+              o.stage === 'TO_PAY' || o.stage === 'TO_SHIP'
+                ? `<button onclick="arrangeShipment('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#2DD4BF] hover:bg-[#0D9488] text-white text-[11px] font-extrabold cursor-pointer">Arrange Shipment &amp; Print Waybill</button>`
                 : o.stage === 'TO_RECEIVE'
-                ? `<button onclick="markOrderDelivered('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer">Mark Delivered</button>`
-                : `<span class="flex-1 py-1.5 text-center text-[11px] font-bold text-[#10B981]">✓ Completed &amp; Paid Out</span>`
+                ? `<button onclick="markOrderDelivered('${o.id}')" class="flex-1 py-2 rounded-xl bg-[#0D9488] text-white text-[11px] font-extrabold cursor-pointer">Mark Delivered</button>`
+                : `<span class="flex-1 py-1.5 text-center text-[11px] font-bold text-[#0D9488]">✓ Completed &amp; Paid Out</span>`
             }
-            <button onclick="switchSellerTab('chat')" class="px-3 py-2 rounded-xl bg-[#F4F6F9] text-[#070D17] text-[11px] font-bold cursor-pointer">Chat</button>
+            <button onclick="switchSellerTab('chat')" class="px-3 py-2 rounded-xl bg-[#F4FAF8] text-[#132A2E] text-[11px] font-bold cursor-pointer">Chat</button>
           </div>
         </div>
       `).join('');
@@ -2283,7 +2298,7 @@
         if (view) view.classList.toggle('hidden', !active);
         if (btn) {
           btn.className = active
-            ? 'py-2 px-2 rounded-xl bg-[#070D17] text-white text-[11px] font-extrabold cursor-pointer transition'
+            ? 'py-2 px-2 rounded-xl bg-[#0D9488] text-white text-[11px] font-extrabold cursor-pointer transition'
             : 'py-2 px-2 rounded-xl text-[#1E293B] text-[11px] font-bold cursor-pointer transition';
         }
       });
@@ -2343,17 +2358,17 @@
       if (summaryBox) {
         summaryBox.innerHTML = `
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-display font-extrabold text-[#070D17]">Platform Money &amp; Deductions Summary</h3>
-            <span class="px-2 py-0.5 rounded-full bg-[#070D17] text-white text-[9px] font-extrabold">6.0% Flat</span>
+            <h3 class="text-xs font-display font-extrabold text-[#132A2E]">Platform Money &amp; Deductions Summary</h3>
+            <span class="px-2 py-0.5 rounded-full bg-[#0D9488] text-white text-[9px] font-extrabold">6.0% Flat</span>
           </div>
           <div class="grid grid-cols-2 gap-2">
-            <div class="p-2.5 rounded-2xl bg-[#F4F6F9] border border-[#E2E8F0]">
+            <div class="p-2.5 rounded-2xl bg-[#F4FAF8] border border-[#E2F2EE]">
               <div class="text-[9px] font-bold uppercase text-slate-500">Gross Merchandise Value (GMV)</div>
-              <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price mt-0.5">${fmt(totalGmv)}</div>
+              <div class="text-sm font-display font-extrabold text-[#132A2E] tabular-price mt-0.5">${fmt(totalGmv)}</div>
             </div>
-            <div class="p-2.5 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/30">
+            <div class="p-2.5 rounded-2xl bg-[#2DD4BF]/10 border border-[#2DD4BF]/30">
               <div class="text-[9px] font-bold uppercase text-[#065F46]">Seller Net Earnings</div>
-              <div class="text-sm font-display font-extrabold text-[#10B981] tabular-price mt-0.5">${fmt(totalNetSeller)}</div>
+              <div class="text-sm font-display font-extrabold text-[#0D9488] tabular-price mt-0.5">${fmt(totalNetSeller)}</div>
             </div>
             <div class="p-2.5 rounded-2xl bg-[#EF4444]/10 border border-[#EF4444]/25">
               <div class="text-[9px] font-bold uppercase text-[#991B1B]">Total Deductions</div>
@@ -2361,7 +2376,7 @@
             </div>
             <div class="p-2.5 rounded-2xl bg-[#F59E0B]/15 border border-[#F59E0B]/30">
               <div class="text-[9px] font-bold uppercase text-[#92400E]">Pending Unpaid Escrow</div>
-              <div class="text-sm font-display font-extrabold text-[#070D17] tabular-price mt-0.5">${fmt(pendingEscrowNet)}</div>
+              <div class="text-sm font-display font-extrabold text-[#132A2E] tabular-price mt-0.5">${fmt(pendingEscrowNet)}</div>
             </div>
           </div>
         `;
@@ -2370,10 +2385,10 @@
       const ledger = document.getElementById('sc-finance-ledger');
       if (ledger) {
         ledger.innerHTML = orderRows.length ? orderRows.map(o => `
-          <div class="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1 text-xs">
+          <div class="p-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] space-y-1 text-xs">
             <div class="flex items-center justify-between gap-2">
-              <span class="font-extrabold text-[#070D17] truncate">${escapeHtml(o.title)}</span>
-              <span class="font-display font-extrabold ${o.stage === 'TO_PAY' ? 'text-[#F59E0B]' : 'text-[#10B981]'} tabular-price shrink-0">
+              <span class="font-extrabold text-[#132A2E] truncate">${escapeHtml(o.title)}</span>
+              <span class="font-display font-extrabold ${o.stage === 'TO_PAY' ? 'text-[#F59E0B]' : 'text-[#0D9488]'} tabular-price shrink-0">
                 ${o.stage === 'TO_PAY' ? 'Unpaid (' + fmt(o.netEarn) + ')' : '+' + fmt(o.netEarn)}
               </span>
             </div>
@@ -2388,12 +2403,12 @@
       const relHist = document.getElementById('sc-release-history-list');
       if (relHist) {
         relHist.innerHTML = scState.fundReleaseRequests.length ? scState.fundReleaseRequests.map(r => `
-          <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2 text-xs">
+          <div class="p-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] flex items-center justify-between gap-2 text-xs">
             <div>
-              <div class="font-extrabold text-[#070D17] tabular-price">${fmt(r.amount)} <span class="text-[10px] font-normal text-slate-500">• ${escapeHtml(r.id)}</span></div>
+              <div class="font-extrabold text-[#132A2E] tabular-price">${fmt(r.amount)} <span class="text-[10px] font-normal text-slate-500">• ${escapeHtml(r.id)}</span></div>
               <div class="text-[10px] text-slate-500">${escapeHtml(r.channel)} • ${escapeHtml(r.date)}</div>
             </div>
-            <span class="px-2 py-0.5 rounded-full ${r.status === 'Released' ? 'bg-[#10B981]/15 text-[#10B981]' : 'bg-[#F59E0B]/20 text-[#070D17]'} text-[9px] font-extrabold">${escapeHtml(r.status)}</span>
+            <span class="px-2 py-0.5 rounded-full ${r.status === 'Released' ? 'bg-[#2DD4BF]/15 text-[#0D9488]' : 'bg-[#F59E0B]/20 text-[#132A2E]'} text-[9px] font-extrabold">${escapeHtml(r.status)}</span>
           </div>
         `).join('') : `<div class="text-center text-xs text-slate-500 py-3">No fund release requests yet.</div>`;
       }
@@ -2446,10 +2461,10 @@
       if (revV) revV.classList.toggle('hidden', isChat);
       if (bChat && bRev) {
         bChat.className = isChat
-          ? 'px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer'
+          ? 'px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer'
           : 'px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer';
         bRev.className = !isChat
-          ? 'px-2.5 py-1 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer'
+          ? 'px-2.5 py-1 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer'
           : 'px-2.5 py-1 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer';
       }
       renderChatTab();
@@ -2473,12 +2488,12 @@
           const isSelected = activeThread && t.id === activeThread.id;
           const lastMsg = t.messages[t.messages.length - 1];
           return `
-            <button type="button" onclick="selectChatThread('${t.id}')" class="w-full p-2.5 text-left transition cursor-pointer ${isSelected ? 'bg-white border-l-4 border-[#10B981]' : 'hover:bg-white/70'}">
+            <button type="button" onclick="selectChatThread('${t.id}')" class="w-full p-2.5 text-left transition cursor-pointer ${isSelected ? 'bg-white border-l-4 border-[#2DD4BF]' : 'hover:bg-white/70'}">
               <div class="flex items-center justify-between gap-1">
-                <span class="text-[11px] font-extrabold text-[#070D17] truncate">${escapeHtml(t.buyerName)}</span>
-                ${t.isSupport ? `<span class="px-1.5 py-0.2 rounded bg-[#10B981]/20 text-[#065F46] text-[8px] font-extrabold shrink-0">ADMIN</span>` : ''}
+                <span class="text-[11px] font-extrabold text-[#132A2E] truncate">${escapeHtml(t.buyerName)}</span>
+                ${t.isSupport ? `<span class="px-1.5 py-0.2 rounded bg-[#2DD4BF]/20 text-[#065F46] text-[8px] font-extrabold shrink-0">ADMIN</span>` : ''}
               </div>
-              <div class="text-[9px] font-bold text-[#10B981] truncate">${escapeHtml(t.itemTag)}</div>
+              <div class="text-[9px] font-bold text-[#0D9488] truncate">${escapeHtml(t.itemTag)}</div>
               <div class="text-[10px] text-slate-500 truncate mt-0.5">${lastMsg ? escapeHtml(lastMsg.text) : ''}</div>
             </button>
           `;
@@ -2501,12 +2516,12 @@
             ? `YOU (SELLER • ${scState.shopName || 'Shop'})`
             : `🛍️ BUYER • ${m.senderName || activeThread.buyerName || 'Miner'}`;
           const bubbleStyle = isMineSeller
-            ? 'bg-[#070D17] text-white rounded-br-xs'
+            ? 'bg-[#0D9488] text-white rounded-br-xs'
             : isCustomerService
-            ? 'bg-[#ECFDF5] border-2 border-[#10B981] text-[#070D17] rounded-bl-xs'
-            : 'bg-white border-2 border-[#3B82F6] text-[#070D17] rounded-bl-xs';
+            ? 'bg-[#ECFDF5] border-2 border-[#2DD4BF] text-[#132A2E] rounded-bl-xs'
+            : 'bg-white border-2 border-[#3B82F6] text-[#132A2E] rounded-bl-xs';
           const badgeColor = isMineSeller
-            ? 'text-[#10B981]'
+            ? 'text-[#0D9488]'
             : isCustomerService
             ? 'text-[#065F46]'
             : 'text-[#1D4ED8]';
@@ -2526,17 +2541,17 @@
       const revList = document.getElementById('sc-reviews-comments-list');
       if (revList) {
         if (!scState.reviewsAndComments.length) {
-          revList.innerHTML = `<div class="bg-white rounded-2xl border border-[#E2E8F0] p-6 text-center text-xs text-slate-500">No feed comments or buyer reviews yet.</div>`;
+          revList.innerHTML = `<div class="bg-white rounded-2xl border border-[#E2F2EE] p-6 text-center text-xs text-slate-500">No feed comments or buyer reviews yet.</div>`;
           return;
         }
         revList.innerHTML = scState.reviewsAndComments.map(rc => `
-          <div class="bg-white rounded-2xl border border-[#E2E8F0] p-3.5 space-y-2 shadow-2xs">
+          <div class="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 space-y-2 shadow-2xs">
             <div class="flex items-center justify-between text-[10px]">
-              <span class="font-extrabold text-[#070D17]">${escapeHtml(rc.buyerName)} <span class="ml-1 px-2 py-0.5 rounded-full bg-[#F59E0B]/20 text-[#070D17] font-extrabold">${escapeHtml(rc.kind)}</span></span>
+              <span class="font-extrabold text-[#132A2E]">${escapeHtml(rc.buyerName)} <span class="ml-1 px-2 py-0.5 rounded-full bg-[#F59E0B]/20 text-[#132A2E] font-extrabold">${escapeHtml(rc.kind)}</span></span>
               <span class="text-slate-400">${escapeHtml(rc.time)}</span>
             </div>
-            <div class="text-[10px] font-bold text-[#10B981]">Item: ${escapeHtml(rc.itemTitle)}</div>
-            <p class="text-xs text-[#1E293B] bg-[#F4F6F9] p-2.5 rounded-xl border border-[#E2E8F0]">"${escapeHtml(rc.text)}"</p>
+            <div class="text-[10px] font-bold text-[#0D9488]">Item: ${escapeHtml(rc.itemTitle)}</div>
+            <p class="text-xs text-[#1E293B] bg-[#F4FAF8] p-2.5 rounded-xl border border-[#E2F2EE]">"${escapeHtml(rc.text)}"</p>
           </div>
         `).join('');
       }
@@ -2624,21 +2639,21 @@
       const vList = document.getElementById('sc-vouchers-list');
       if (!vList) return;
       if (!scState.vouchers.length) {
-        vList.innerHTML = `<div class="p-3 rounded-xl bg-[#F4F6F9] text-center text-[11px] text-slate-500">No active seller vouchers. Tap <strong>+ Create Voucher</strong> above.</div>`;
+        vList.innerHTML = `<div class="p-3 rounded-xl bg-[#F4FAF8] text-center text-[11px] text-slate-500">No active seller vouchers. Tap <strong>+ Create Voucher</strong> above.</div>`;
         return;
       }
       vList.innerHTML = scState.vouchers.map((v, idx) => {
         const discLabel = v.discount || `₱${v.amount} OFF ${v.type === 'Shipping' ? 'Ship' : ''}`;
         const minLabel = typeof v.minSpend === 'number' ? `₱${v.minSpend.toLocaleString()}` : v.minSpend;
         return `
-        <div class="p-2.5 rounded-xl bg-[#F4F6F9] border border-[#E2E8F0] flex items-center justify-between gap-2">
+        <div class="p-2.5 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <div class="text-xs font-extrabold text-[#070D17] truncate">${escapeHtml(v.code)} <span class="text-[#10B981]">(${escapeHtml(discLabel)})</span></div>
+            <div class="text-xs font-extrabold text-[#132A2E] truncate">${escapeHtml(v.code)} <span class="text-[#0D9488]">(${escapeHtml(discLabel)})</span></div>
             <div class="text-[10px] text-slate-500">Min. ${escapeHtml(minLabel)} • ${v.used}/${v.limit || 50} claimed</div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] text-[9px] font-extrabold">Active</span>
-            <button type="button" onclick="deleteShopVoucher(${idx})" class="p-1.5 rounded-lg bg-white border border-[#E2E8F0] text-slate-400 hover:text-[#EF4444] cursor-pointer transition" title="Delete Voucher">
+            <span class="px-2 py-0.5 rounded-full bg-[#2DD4BF]/15 text-[#0D9488] text-[9px] font-extrabold">Active</span>
+            <button type="button" onclick="deleteShopVoucher(${idx})" class="p-1.5 rounded-lg bg-white border border-[#E2F2EE] text-slate-400 hover:text-[#EF4444] cursor-pointer transition" title="Delete Voucher">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
@@ -2668,6 +2683,34 @@
         buyerApp.liveChat.push(pinMsg);
         scState.liveChat = buyerApp.liveChat;
         saveSharedAppState(buyerApp);
+
+        if (window.publishSellerLiveFrame && scState.ownSellerId) {
+          const liveItemObj = {
+            id: `live_${pinned.id}`,
+            sellerId: scState.ownSellerId,
+            code: pinned.code || 'A01',
+            title: pinned.title,
+            price: Number(pinned.price) || 250,
+            size: pinned.size || 'Free Size',
+            condition: pinned.condition || '9.5/10 Preloved',
+            image: pinned.image || '',
+            pinned: true,
+            winner: pinned.status && String(pinned.status).startsWith('Mined by ')
+              ? String(pinned.status).replace('Mined by ', '')
+              : null,
+            steals: []
+          };
+          window.publishSellerLiveFrame({
+            sellerId: scState.ownSellerId,
+            sellerName: scState.shopName || 'Ukay Seller',
+            isCameraLive: Boolean(hostCamStream),
+            frameDataUrl: pinned.image || '',
+            pinnedItemId: liveItemObj.id,
+            pinnedItem: liveItemObj,
+            liveTitle: scState.liveTitle || '',
+            updatedAt: Date.now()
+          });
+        }
       }
       renderAllSellerCenter();
       if (pinned) showScToast(`Pinned [${pinned.code}] ${pinned.title} to Buyer LIVE Room!`);
@@ -2870,8 +2913,8 @@
       const row = document.createElement('div');
       row.className = 'grid grid-cols-12 gap-1.5 items-center variant-row';
       row.innerHTML = `
-        <input type="text" placeholder="Variant (e.g. XL / Bale 45kg)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-semibold" />
-        <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2E8F0] text-xs font-extrabold tabular-price" />
+        <input type="text" placeholder="Variant (e.g. XL / Bale 45kg)" class="var-name col-span-7 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2F2EE] text-xs font-semibold" />
+        <input type="number" placeholder="₱ Price" min="1" class="var-price col-span-4 px-2.5 py-1.5 rounded-lg bg-white border border-[#E2F2EE] text-xs font-extrabold tabular-price" />
         <button type="button" onclick="this.parentElement.remove()" class="col-span-1 text-slate-400 hover:text-[#EF4444] text-xs font-bold cursor-pointer">✕</button>
       `;
       list.appendChild(row);
@@ -3039,10 +3082,10 @@
       const bCod = document.getElementById('calc-pay-COD');
       if (bBayad && bCod) {
         bBayad.className = pay === 'BAYAD_AGAD'
-          ? 'py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition'
+          ? 'py-1.5 px-2 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer transition'
           : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
         bCod.className = pay === 'COD'
-          ? 'py-1.5 px-2 rounded-lg bg-[#070D17] text-white text-[10px] font-extrabold cursor-pointer transition'
+          ? 'py-1.5 px-2 rounded-lg bg-[#0D9488] text-white text-[10px] font-extrabold cursor-pointer transition'
           : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
       }
 
@@ -3050,10 +3093,10 @@
       const bWh = document.getElementById('calc-bir-WITHHELD');
       if (bEx && bWh) {
         bEx.className = bir === 'EXEMPT'
-          ? 'py-1.5 px-2 rounded-lg bg-[#10B981] text-white text-[10px] font-extrabold cursor-pointer transition'
+          ? 'py-1.5 px-2 rounded-lg bg-[#2DD4BF] text-white text-[10px] font-extrabold cursor-pointer transition'
           : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
         bWh.className = bir === 'WITHHELD'
-          ? 'py-1.5 px-2 rounded-lg bg-[#F59E0B] text-[#070D17] text-[10px] font-extrabold cursor-pointer transition'
+          ? 'py-1.5 px-2 rounded-lg bg-[#F59E0B] text-[#132A2E] text-[10px] font-extrabold cursor-pointer transition'
           : 'py-1.5 px-2 rounded-lg text-[#1E293B] text-[10px] font-bold cursor-pointer transition';
       }
 
@@ -3061,7 +3104,7 @@
       const elNet = document.getElementById('calc-out-net');
       if (elNet) {
         elNet.textContent = fmt(net);
-        elNet.className = `text-xl font-display font-extrabold tabular-price ${net < 0 ? 'text-[#EF4444]' : 'text-[#10B981]'}`;
+        elNet.className = `text-xl font-display font-extrabold tabular-price ${net < 0 ? 'text-[#EF4444]' : 'text-[#0D9488]'}`;
       }
       const elPct = document.getElementById('calc-out-pct');
       if (elPct) elPct.textContent = `${pct.toFixed(1)}%`;
@@ -3150,19 +3193,40 @@
 
     let hostCamBroadcastTimer = null;
 
+    function buildScPinnedLiveItemObj() {
+      const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+      if (!pinned) return null;
+      return {
+        id: `live_${pinned.id}`,
+        sellerId: scState.ownSellerId,
+        code: pinned.code || 'A01',
+        title: pinned.title,
+        price: Number(pinned.price) || 250,
+        size: pinned.size || 'Free Size',
+        condition: pinned.condition || '9.5/10 Preloved',
+        image: pinned.image || '',
+        pinned: true,
+        winner: pinned.status && String(pinned.status).startsWith('Mined by ')
+          ? String(pinned.status).replace('Mined by ', '')
+          : null,
+        steals: []
+      };
+    }
+
     function stopHostCamFrameBroadcast() {
       if (hostCamBroadcastTimer) {
         clearInterval(hostCamBroadcastTimer);
         hostCamBroadcastTimer = null;
       }
       if (window.publishSellerLiveFrame && scState.ownSellerId) {
-        const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+        const pinnedObj = buildScPinnedLiveItemObj();
         window.publishSellerLiveFrame({
           sellerId: scState.ownSellerId,
           sellerName: scState.shopName || 'Ukay Seller',
           isCameraLive: false,
           frameDataUrl: '',
-          pinnedItemId: pinned ? `live_${pinned.id}` : '',
+          pinnedItemId: pinnedObj ? pinnedObj.id : '',
+          pinnedItem: pinnedObj,
           liveTitle: scState.liveTitle || '',
           updatedAt: Date.now()
         });
@@ -3181,14 +3245,15 @@
         if (!scState.ownSellerId) return;
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
         const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
-        const pinned = scState.products.find(p => p.pinned) || scState.products[0];
+        const pinnedObj = buildScPinnedLiveItemObj();
         if (window.publishSellerLiveFrame) {
           window.publishSellerLiveFrame({
             sellerId: scState.ownSellerId,
             sellerName: scState.shopName || 'Ukay Seller',
             isCameraLive: true,
             frameDataUrl,
-            pinnedItemId: pinned ? `live_${pinned.id}` : '',
+            pinnedItemId: pinnedObj ? pinnedObj.id : '',
+            pinnedItem: pinnedObj,
             liveTitle: scState.liveTitle || '',
             updatedAt: Date.now()
           });
@@ -3202,75 +3267,19 @@
     let scAgoraAudioTrack = null;
     let scAgoraVideoTrack = null;
 
-    function getScAgoraChannelName(sellerId) {
-      const clean = String(sellerId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
-      return `ukayo_live_${clean}`;
+    function getScAgoraChannelName(_sellerId) {
+      return 'ukayo_live_room';
     }
 
-    function scCrc32(str) {
-      const bytes = new TextEncoder().encode(str);
-      let crc = 0 ^ -1;
-      for (let i = 0; i < bytes.length; i++) {
-        let c = (crc ^ bytes[i]) & 0xff;
-        for (let k = 0; k < 8; k++) {
-          c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-        }
-        crc = (crc >>> 8) ^ c;
-      }
-      return (crc ^ -1) >>> 0;
-    }
-
-    async function buildScAgoraToken006(appId, appCert, channelName, uid) {
+    async function fetchScAgoraToken(channelName, uid) {
       try {
-        if (!appCert || !window.crypto || !window.crypto.subtle) return null;
-        const uidStr = uid === 0 ? '' : String(uid >>> 0);
-        const nowSec = Math.floor(Date.now() / 1000);
-        const expireTs = nowSec + 24 * 3600;
-        const salt = Math.floor(Math.random() * 0xffffffff) >>> 0;
-        const ts = nowSec + 24 * 3600;
-
-        const putU16 = (arr, v) => arr.push(v & 0xff, (v >>> 8) & 0xff);
-        const putU32 = (arr, v) => arr.push(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
-        const putBytes = (arr, b) => { putU16(arr, b.length); for (let i = 0; i < b.length; i++) arr.push(b[i]); };
-
-        const msg = [];
-        putU32(msg, salt);
-        putU32(msg, ts);
-        putU16(msg, 4);
-        putU16(msg, 1); putU32(msg, expireTs);
-        putU16(msg, 2); putU32(msg, expireTs);
-        putU16(msg, 3); putU32(msg, expireTs);
-        putU16(msg, 4); putU32(msg, expireTs);
-        const rawMsg = new Uint8Array(msg);
-
-        const crcCh = scCrc32(channelName);
-        const crcU = scCrc32(uidStr);
-
-        const toSign = [];
-        putBytes(toSign, new TextEncoder().encode(appId));
-        putU32(toSign, crcCh);
-        putU32(toSign, crcU);
-        putBytes(toSign, rawMsg);
-
-        const key = await window.crypto.subtle.importKey(
-          'raw',
-          new TextEncoder().encode(appCert),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
+        const res = await fetch(
+          `/api/agora-token?channel=${encodeURIComponent(channelName)}&uid=${encodeURIComponent(String(uid))}&role=host`,
+          { cache: 'no-store' }
         );
-        const sigBuf = await window.crypto.subtle.sign('HMAC', key, new Uint8Array(toSign));
-        const sig = new Uint8Array(sigBuf);
-
-        const content = [];
-        putBytes(content, sig);
-        putU32(content, crcCh);
-        putU32(content, crcU);
-        putBytes(content, rawMsg);
-
-        let bin = '';
-        for (let i = 0; i < content.length; i++) bin += String.fromCharCode(content[i]);
-        return '006' + appId + btoa(bin);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data && typeof data.token === 'string' ? data.token : null;
       } catch (e) {
         return null;
       }
@@ -3296,7 +3305,76 @@
       } catch (e) {}
     }
 
-    async function toggleHostCamera() {
+    let scLiveStartedAt = null;
+    let scLiveDurationTimer = null;
+
+    function formatScLiveDuration(totalSecs) {
+      const hrs = Math.floor(totalSecs / 3600);
+      const mins = Math.floor((totalSecs % 3600) / 60);
+      const secs = totalSecs % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      if (hrs > 0) return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+      return `${pad(mins)}:${pad(secs)}`;
+    }
+
+    function startScLiveDurationCounter() {
+      scLiveStartedAt = Date.now();
+      if (scLiveDurationTimer) clearInterval(scLiveDurationTimer);
+      const badge = document.getElementById('sc-live-duration-badge');
+      const textEl = document.getElementById('sc-live-duration-text');
+      const topEndBtn = document.getElementById('sc-top-end-live-btn');
+      const bottomEndBtn = document.getElementById('sc-bottom-end-live-btn');
+      if (badge) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+      }
+      if (topEndBtn) {
+        topEndBtn.classList.remove('hidden');
+        topEndBtn.classList.add('flex');
+      }
+      if (bottomEndBtn) {
+        bottomEndBtn.classList.remove('hidden');
+        bottomEndBtn.classList.add('flex');
+      }
+      if (textEl) textEl.textContent = '00:00';
+      if (window.lucide) lucide.createIcons();
+      scLiveDurationTimer = setInterval(() => {
+        if (!scLiveStartedAt) return;
+        const elapsed = Math.max(0, Math.floor((Date.now() - scLiveStartedAt) / 1000));
+        if (textEl) textEl.textContent = formatScLiveDuration(elapsed);
+      }, 1000);
+    }
+
+    function stopScLiveDurationCounter() {
+      if (scLiveDurationTimer) {
+        clearInterval(scLiveDurationTimer);
+        scLiveDurationTimer = null;
+      }
+      const finalDuration = scLiveStartedAt
+        ? formatScLiveDuration(Math.max(0, Math.floor((Date.now() - scLiveStartedAt) / 1000)))
+        : '00:00';
+      scLiveStartedAt = null;
+      const badge = document.getElementById('sc-live-duration-badge');
+      const textEl = document.getElementById('sc-live-duration-text');
+      const topEndBtn = document.getElementById('sc-top-end-live-btn');
+      const bottomEndBtn = document.getElementById('sc-bottom-end-live-btn');
+      if (badge) {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+      }
+      if (topEndBtn) {
+        topEndBtn.classList.add('hidden');
+        topEndBtn.classList.remove('flex');
+      }
+      if (bottomEndBtn) {
+        bottomEndBtn.classList.add('hidden');
+        bottomEndBtn.classList.remove('flex');
+      }
+      if (textEl) textEl.textContent = '00:00';
+      return finalDuration;
+    }
+
+    async function endScHostLiveStream() {
       const videoEl = document.getElementById('sc-live-video');
       const imgEl = document.getElementById('sc-live-preview-img');
       const btn = document.getElementById('sc-toggle-cam-btn');
@@ -3305,14 +3383,28 @@
       if (hostCamStream) {
         hostCamStream.getTracks().forEach(t => t.stop());
         hostCamStream = null;
-        await stopScAgoraHost();
-        stopHostCamFrameBroadcast();
+      }
+      await stopScAgoraHost();
+      stopHostCamFrameBroadcast();
+      const finalDuration = stopScLiveDurationCounter();
+      if (videoEl) {
         videoEl.srcObject = null;
         videoEl.classList.add('hidden');
-        imgEl.classList.remove('hidden');
-        btn.textContent = 'Start Camera';
-        statusPill.textContent = '● ON AIR — Marketplace Live';
-        showScToast('Host camera & Agora broadcast stopped.');
+      }
+      if (imgEl) imgEl.classList.remove('hidden');
+      if (btn) btn.textContent = 'Start Camera';
+      if (statusPill) statusPill.textContent = '● ON AIR — Marketplace Live';
+      showScToast(`Live stream ended (${finalDuration}).`);
+    }
+
+    async function toggleHostCamera() {
+      const videoEl = document.getElementById('sc-live-video');
+      const imgEl = document.getElementById('sc-live-preview-img');
+      const btn = document.getElementById('sc-toggle-cam-btn');
+      const statusPill = document.getElementById('sc-live-status-pill');
+
+      if (hostCamStream) {
+        await endScHostLiveStream();
         return;
       }
 
@@ -3329,12 +3421,9 @@
           await client.setClientRole('host');
           const channelName = getScAgoraChannelName(scState.ownSellerId);
           const uid = Math.floor(10000 + Math.random() * 89999);
-          const token = await buildScAgoraToken006(UKAYO_AGORA_APP_ID, UKAYO_AGORA_PRIMARY_CERT, channelName, uid);
-          try {
-            await client.join(UKAYO_AGORA_APP_ID, channelName, token, uid);
-          } catch (joinErr) {
-            await client.join(UKAYO_AGORA_APP_ID, channelName, null, uid);
-          }
+          const token = await fetchScAgoraToken(channelName, uid);
+          if (!token) throw new Error('Agora dynamic token unavailable');
+          await client.join(UKAYO_AGORA_APP_ID, channelName, token, uid);
           const [audioTrack, videoTrack] = await window.AgoraRTC.createMicrophoneAndCameraTracks(
             {},
             { encoderConfig: '480p_1' }
@@ -3350,6 +3439,7 @@
           imgEl.classList.add('hidden');
           btn.textContent = 'Stop Camera';
           statusPill.textContent = '● AGORA LIVE ON AIR (HD VIDEO + AUDIO)';
+          startScLiveDurationCounter();
           await client.publish([audioTrack, videoTrack]);
           pushUpdatesToSharedBuyerApp();
           startHostCamFrameBroadcast(videoEl);
@@ -3367,6 +3457,7 @@
         imgEl.classList.add('hidden');
         btn.textContent = 'Stop Camera';
         statusPill.textContent = '● CAMERA LIVE ON AIR';
+        startScLiveDurationCounter();
         pushUpdatesToSharedBuyerApp();
         startHostCamFrameBroadcast(videoEl);
         showScToast('LIVE Studio camera streaming to Buyer Marketplace!');
@@ -3393,7 +3484,7 @@
   <!-- Real-Time Cloud Bridge (Centralized Firestore Sync Across All 3 Apps) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, disableNetwork, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const rawConfig = typeof __firebase_config !== 'undefined'
       ? JSON.parse(__firebase_config)
@@ -3443,105 +3534,195 @@
       return result;
     }
 
+    const scLiveFrameChannel = typeof BroadcastChannel !== 'undefined'
+      ? new BroadcastChannel('ukayo_live_camera_channel')
+      : null;
+
+    window.publishSellerLiveFrame = async (payload) => {
+      if (!payload || !payload.sellerId) return;
+      try {
+        const cleanPayload = {
+          ...payload,
+          updatedAt: Date.now()
+        };
+        localStorage.setItem(`ukayo_live_frame_${payload.sellerId}`, JSON.stringify(cleanPayload));
+        if (scLiveFrameChannel) {
+          scLiveFrameChannel.postMessage(cleanPayload);
+        }
+        fetch('/api/live-frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanPayload)
+        }).catch(() => {});
+      } catch (e) {}
+    };
+
+    let applyingRemote = false;
+    let lastPushedJson = '';
+    let scQuotaExceeded = false;
+    let scDebounceTimer = null;
+    let scServerTimer = null;
+    let scUnsubscribe = null;
+
+    function applyIncomingPayloadJson(payloadJson) {
+      if (!payloadJson || payloadJson === lastPushedJson) return;
+      applyingRemote = true;
+      try {
+        const remote = JSON.parse(payloadJson);
+        const local = getSharedAppState();
+        const devSession = loadScDeviceSession();
+        const localUser = (devSession && devSession.user && devSession.user.email)
+          ? devSession.user
+          : (local.user || {});
+        const mergedDirectChats = { ...(remote.directChats || {}), ...(local.directChats || {}) };
+        Object.keys(mergedDirectChats).forEach(k => {
+          mergedDirectChats[k] = mergeMessagesList(
+            (local.directChats && local.directChats[k]) || [],
+            (remote.directChats && remote.directChats[k]) || []
+          );
+        });
+        const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
+        mergedSupport.forEach(t => {
+          const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
+          const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
+          t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
+        });
+
+        const merged = {
+          ...local,
+          ...remote,
+          isAuthenticated: Boolean(local.isAuthenticated || (devSession && devSession.isAuthenticated) || localUser.email),
+          role: local.role || (devSession && devSession.role) || 'seller',
+          user: localUser,
+          registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
+          sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
+          kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
+          liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
+          liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
+          directChats: mergedDirectChats,
+          supportThreads: mergedSupport,
+          feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
+          minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
+        };
+        lastPushedJson = payloadJson;
+        localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(merged));
+        syncFromSharedBuyerApp();
+        renderAllSellerCenter();
+      } catch (e) {} finally {
+        setTimeout(() => { applyingRemote = false; }, 80);
+      }
+    }
+
+    // 1. Server-Authoritative Cross-Device Sync (/api/sync-state & /api/sync-events)
+    fetch('/api/sync-state')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.payloadJson) {
+          applyIncomingPayloadJson(data.payloadJson);
+        } else {
+          const current = getSharedAppState();
+          if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(current);
+        }
+      })
+      .catch(() => {});
+
+    try {
+      const es = new EventSource('/api/sync-events');
+      es.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.type === 'sync_state' && msg.payloadJson) {
+            applyIncomingPayloadJson(msg.payloadJson);
+          }
+        } catch (_) {}
+      };
+    } catch (_) {}
+
     if (rawConfig && rawConfig.apiKey) {
       try {
+        try { setLogLevel('silent'); } catch (_) {}
         const app = initializeApp(rawConfig);
         const db = rawConfig.firestoreDatabaseId
           ? getFirestore(app, rawConfig.firestoreDatabaseId)
           : getFirestore(app);
         const docRef = doc(db, 'ukayo_sync', 'live_state');
-        let applyingRemote = false;
-        let lastPushedJson = '';
+        const todayUtc = new Date().toISOString().slice(0, 10);
+        if (localStorage.getItem('ukayo_firestore_quota_date_v1') === todayUtc) {
+          scQuotaExceeded = true;
+          try { disableNetwork(db).catch(() => {}); } catch (_) {}
+        }
 
-        window.publishSellerLiveFrame = async (payload) => {
-          if (!payload || !payload.sellerId) return;
-          try {
-            const streamRef = doc(db, 'ukayo_sync', `live_stream_${payload.sellerId}`);
-            await setDoc(streamRef, {
-              ...payload,
-              updatedAt: Date.now()
-            });
-          } catch (e) {}
-        };
+        function tripScQuotaBreaker(err) {
+          const msg = err && err.message ? String(err.message) : String(err || '');
+          const code = err && err.code ? String(err.code) : '';
+          if (code === 'resource-exhausted' || msg.includes('resource-exhausted') || msg.toLowerCase().includes('quota')) {
+            scQuotaExceeded = true;
+            try { localStorage.setItem('ukayo_firestore_quota_date_v1', todayUtc); } catch (_) {}
+            try { setLogLevel('silent'); } catch (_) {}
+            try { disableNetwork(db).catch(() => {}); } catch (_) {}
+            if (scUnsubscribe) {
+              try { scUnsubscribe(); } catch (_) {}
+              scUnsubscribe = null;
+            }
+          }
+        }
 
-        window.ukayoCloudSyncPush = async (nextSharedState) => {
+        window.ukayoCloudSyncPush = (nextSharedState) => {
           if (applyingRemote) return;
-          try {
-            // Strip device-local login session fields before writing to shared Firestore
-            const sharedCloudPayload = { ...nextSharedState };
-            delete sharedCloudPayload.isAuthenticated;
-            delete sharedCloudPayload.role;
-            delete sharedCloudPayload.user;
-            delete sharedCloudPayload.activeTab;
+          const sharedCloudPayload = { ...nextSharedState };
+          delete sharedCloudPayload.isAuthenticated;
+          delete sharedCloudPayload.role;
+          delete sharedCloudPayload.user;
+          delete sharedCloudPayload.activeTab;
 
-            const payloadJson = JSON.stringify(sharedCloudPayload);
-            if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+          const payloadJson = JSON.stringify(sharedCloudPayload);
+          if (!payloadJson || payloadJson === lastPushedJson || payloadJson.length > 940000) return;
+
+          if (scServerTimer) clearTimeout(scServerTimer);
+          scServerTimer = setTimeout(() => {
+            if (applyingRemote) return;
             lastPushedJson = payloadJson;
-            await setDoc(docRef, {
-              payloadJson,
-              updatedAt: new Date().toISOString(),
-              updatedBy: 'seller_center'
-            });
-          } catch (e) {
-            console.error('Seller Center Firestore sync error:', e);
-          }
+            fetch('/api/sync-state', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                payloadJson,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'seller_center'
+              })
+            }).catch(() => {});
+          }, 150);
+
+          if (scQuotaExceeded) return;
+          if (scDebounceTimer) clearTimeout(scDebounceTimer);
+          scDebounceTimer = setTimeout(async () => {
+            if (applyingRemote || scQuotaExceeded) return;
+            try {
+              await setDoc(docRef, {
+                payloadJson,
+                updatedAt: new Date().toISOString(),
+                updatedBy: 'seller_center'
+              });
+            } catch (e) {
+              tripScQuotaBreaker(e);
+            }
+          }, 2200);
         };
 
-        onSnapshot(docRef, (snap) => {
-          if (!snap.exists()) {
-            const current = getSharedAppState();
-            if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(current);
-            return;
-          }
-          const data = snap.data();
-          if (!data || !data.payloadJson || data.payloadJson === lastPushedJson) return;
-          applyingRemote = true;
-          try {
-            const remote = JSON.parse(data.payloadJson);
-            const local = getSharedAppState();
-            const devSession = loadScDeviceSession();
-            const localUser = (devSession && devSession.user && devSession.user.email)
-              ? devSession.user
-              : (local.user || {});
-            const mergedDirectChats = { ...(remote.directChats || {}), ...(local.directChats || {}) };
-            Object.keys(mergedDirectChats).forEach(k => {
-              mergedDirectChats[k] = mergeMessagesList(
-                (local.directChats && local.directChats[k]) || [],
-                (remote.directChats && remote.directChats[k]) || []
-              );
-            });
-            const mergedSupport = mergeByKey(local.supportThreads || [], remote.supportThreads || [], t => t.id || '');
-            mergedSupport.forEach(t => {
-              const lT = (local.supportThreads || []).find(x => x && x.id === t.id);
-              const rT = (remote.supportThreads || []).find(x => x && x.id === t.id);
-              t.messages = mergeMessagesList(lT ? lT.messages : [], rT ? rT.messages : []);
-            });
-
-            const merged = {
-              ...local,
-              ...remote,
-              // Never overwrite this device's active login session with another device's state
-              isAuthenticated: Boolean(local.isAuthenticated || (devSession && devSession.isAuthenticated) || localUser.email),
-              role: local.role || (devSession && devSession.role) || 'seller',
-              user: localUser,
-              registeredUsers: mergeByKey(local.registeredUsers || [], remote.registeredUsers || [], u => (u.email || u.id || '').toLowerCase()),
-              sellers: mergeByKey(local.sellers || [], remote.sellers || [], s => s.id || s.name || ''),
-              kycApplications: mergeByKey(local.kycApplications || [], remote.kycApplications || [], k => k.id || k.shopName || ''),
-              liveItems: mergeByKey(local.liveItems || [], remote.liveItems || [], i => i.id || ''),
-              liveChat: mergeMessagesList(local.liveChat || [], remote.liveChat || []).slice(-60),
-              directChats: mergedDirectChats,
-              supportThreads: mergedSupport,
-              feedPosts: mergeByKey(local.feedPosts || [], remote.feedPosts || [], p => p.id || ''),
-              minedOrders: mergeByKey(local.minedOrders || [], remote.minedOrders || [], o => o.id || '')
-            };
-            lastPushedJson = data.payloadJson;
-            localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(merged));
-            syncFromSharedBuyerApp();
-            renderAllSellerCenter();
-          } catch (e) {} finally {
-            setTimeout(() => { applyingRemote = false; }, 80);
-          }
-        }, () => {});
+        if (!scQuotaExceeded) {
+          scUnsubscribe = onSnapshot(docRef, (snap) => {
+            if (!snap.exists()) {
+              const current = getSharedAppState();
+              if (window.ukayoCloudSyncPush) window.ukayoCloudSyncPush(current);
+              return;
+            }
+            const data = snap.data();
+            if (!data || !data.payloadJson) return;
+            applyIncomingPayloadJson(data.payloadJson);
+          }, (err) => {
+            tripScQuotaBreaker(err);
+          });
+        }
       } catch (e) {}
     }
   </script>
