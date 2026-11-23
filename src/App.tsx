@@ -46,6 +46,7 @@ import {
   Trash2,
   Minus,
   Headset,
+  Headphones,
   Edit3,
   Volume2,
   VolumeX,
@@ -142,6 +143,17 @@ export interface Product {
   reviews: { user: string; text: string }[];
 }
 
+export interface SellerReview {
+  id: string;
+  buyerId?: string;
+  buyerName: string;
+  buyerAvatar?: string;
+  rating: number;
+  comment: string;
+  tags?: string[];
+  createdAt: string;
+}
+
 export interface Seller {
   id: string;
   name: string;
@@ -154,6 +166,7 @@ export interface Seller {
   followedBy?: string[];
   pinnedItemId?: string;
   rating: number;
+  reviews?: SellerReview[];
   isLive: boolean;
   liveCategory: string;
   liveTitle: string;
@@ -469,6 +482,13 @@ interface ToastItem {
 interface FloatingHeart {
   id: number;
   right: number;
+  driftX: number;
+  riseY: number;
+  scale: number;
+  rotation: number;
+  duration: number;
+  delay: number;
+  color: string;
 }
 
 export default function App() {
@@ -642,10 +662,14 @@ export default function App() {
   const [verifyIdPreview, setVerifyIdPreview] = useState('');
   const [verifySelfiePreview, setVerifySelfiePreview] = useState('');
 
-  // Inputs for Live Chat, Feed Comments, Direct Chat
+  // Inputs for Live Chat, Feed Comments, Direct Chat, and Seller Storefront Reviews
   const [liveChatInput, setLiveChatInput] = useState('');
   const [feedCommentInputs, setFeedCommentInputs] = useState<Record<string, string>>({});
   const [directChatInput, setDirectChatInput] = useState('');
+  const [sellerReviewRating, setSellerReviewRating] = useState<number>(5);
+  const [sellerReviewComment, setSellerReviewComment] = useState('');
+  const [sellerReviewTags, setSellerReviewTags] = useState<string[]>([]);
+  const [sellerReviewFilterStar, setSellerReviewFilterStar] = useState<number | 'ALL'>('ALL');
 
   // Camera stream refs & real-time remote camera broadcast viewer state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -811,12 +835,8 @@ export default function App() {
     }
   }, [state.directChats, state.supportThreads, state.activeChatSellerId, state.activeTab]);
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2700);
+  const showToast = (_message: string, _type: 'success' | 'error' = 'success') => {
+    // On-screen action prompts disabled per user preference
   };
 
   const switchTab = (tab: AppState['activeTab']) => {
@@ -1948,12 +1968,25 @@ export default function App() {
   };
 
   const triggerLiveReaction = () => {
-    const id = Date.now() + Math.random();
-    const right = 10 + Math.random() * 24;
-    setHearts((prev) => [...prev, { id, right }]);
+    const palette = ['#FF2D55', '#FB7185', '#2DD4BF', '#F43F5E', '#FF6B8B', '#F59E0B'];
+    const baseTime = Date.now();
+    const burstCount = 6;
+    const newParticles: FloatingHeart[] = Array.from({ length: burstCount }, (_, idx) => ({
+      id: baseTime + idx + Math.random(),
+      right: 8 + Math.random() * 24,
+      driftX: -52 + Math.random() * 74,
+      riseY: -(195 + Math.random() * 125),
+      scale: 0.85 + Math.random() * 0.55,
+      rotation: -24 + Math.random() * 48,
+      duration: 1.45 + Math.random() * 0.75,
+      delay: idx * 38,
+      color: palette[(idx + Math.floor(Math.random() * palette.length)) % palette.length],
+    }));
+    const ids = new Set(newParticles.map((p) => p.id));
+    setHearts((prev) => [...prev.slice(-30), ...newParticles]);
     setTimeout(() => {
-      setHearts((prev) => prev.filter((h) => h.id !== id));
-    }, 1700);
+      setHearts((prev) => prev.filter((h) => !ids.has(h.id)));
+    }, 2500);
   };
 
   const handleLiveCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2400,6 +2433,69 @@ export default function App() {
     showToast(nextFollowed ? `Following ${seller.name}` : `Unfollowed ${seller.name}`);
   };
 
+  const toggleSellerReviewTag = (tag: string) => {
+    setSellerReviewTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const submitSellerReview = (e: React.FormEvent, sellerId: string) => {
+    e.preventDefault();
+    if (!state.isAuthenticated && !state.user.email && !state.user.id) {
+      openAuthModal('login');
+      return;
+    }
+    const targetSeller = state.sellers.find((s) => s.id === sellerId);
+    if (!targetSeller) return;
+
+    const cleanComment = sellerReviewComment.trim();
+    if (!cleanComment && sellerReviewTags.length === 0) return;
+
+    const starValue = Math.min(5, Math.max(1, Number(sellerReviewRating) || 5));
+    const nowLabel = new Date().toLocaleDateString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const newReview: SellerReview = {
+      id: 'rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      buyerId: state.user.id || state.user.email || 'buyer',
+      buyerName: state.user.name || 'Verified Miner',
+      buyerAvatar: state.user.avatar || '',
+      rating: starValue,
+      comment:
+        cleanComment ||
+        `Rated ${starValue} stars (${sellerReviewTags.join(', ')})`,
+      tags: sellerReviewTags.length > 0 ? [...sellerReviewTags] : undefined,
+      createdAt: nowLabel,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      sellers: prev.sellers.map((s) => {
+        if (s.id !== sellerId) return s;
+        const existingReviews = Array.isArray(s.reviews) ? s.reviews : [];
+        const nextReviews = [newReview, ...existingReviews];
+        const avgRating = Number(
+          (
+            nextReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) /
+            nextReviews.length
+          ).toFixed(1)
+        );
+        return {
+          ...s,
+          reviews: nextReviews,
+          rating: avgRating,
+        };
+      }),
+    }));
+
+    setSellerReviewComment('');
+    setSellerReviewTags([]);
+    setSellerReviewRating(5);
+  };
+
   const claimStoreProduct = (sellerId: string, prodId: string) => {
     if (!state.isAuthenticated && !state.user.email && !state.user.id) {
       showToast('Please log in or register as a Buyer to Mine items!', 'error');
@@ -2725,18 +2821,12 @@ export default function App() {
     showToast('Philippine Primary ID submitted to Admin Ops for verification!');
   };
 
-  const openPerksModal = (kind: 'referral' | 'discounts' | 'vouchers') => {
-    showToast(
-      kind === 'referral'
-        ? 'Invite friends to UKAYO and earn 50 Referral Points per verified miner!'
-        : kind === 'discounts'
-        ? 'Ukay Bale Discounts apply automatically at Bayong Checkout!'
-        : 'Check Platform Vouchers in My Bayong Checkout.'
-    );
+  const openPerksModal = (_kind: 'referral' | 'discounts' | 'vouchers') => {
+    // Silent action without floating on-screen prompt
   };
 
   const openAppReleaseModal = () => {
-    showToast('UKAYO Mobile Web App ready! Tap "Add to Home Screen" on iOS or Android.');
+    // Silent action without floating on-screen prompt
   };
 
   const toggleLiveAudienceAudio = () => {
@@ -2998,29 +3088,7 @@ export default function App() {
 
   return (
     <div className="bg-[#F4FAF8] text-[#1E293B] antialiased selection:bg-[#2DD4BF]/20 min-h-[100dvh]">
-      {/* Toast Notification Container */}
-      <div
-        id="toast-box"
-        className="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-sm flex flex-col gap-1.5 pointer-events-none"
-      >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`px-3.5 py-2.5 rounded-2xl shadow-lg text-xs font-bold flex items-center gap-2 transition-all duration-300 ${
-              t.type === 'error'
-                ? 'bg-[#EF4444] text-white'
-                : 'bg-[#0D9488] text-white border border-slate-700'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                t.type === 'error' ? 'bg-white' : 'bg-[#2DD4BF]'
-              } shrink-0`}
-            />
-            <span>{t.message}</span>
-          </div>
-        ))}
-      </div>
+      {toasts.length > 0 && null}
 
       {/* Mobile App Shell */}
       <div
@@ -3093,7 +3161,7 @@ export default function App() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => switchTab('bag')}
-                  className="relative p-1.5 text-white hover:text-[#0D9488] shrink-0 cursor-pointer transition"
+                  className="relative p-1.5 text-white hover:text-[#2DD4BF] shrink-0 cursor-pointer transition"
                   title="My Bayong"
                 >
                   <ShoppingBag className="w-5 h-5" />
@@ -3107,7 +3175,7 @@ export default function App() {
 
                 <button
                   onClick={() => switchTab('chat')}
-                  className="relative p-1.5 text-white hover:text-[#0D9488] shrink-0 cursor-pointer transition"
+                  className="relative p-1.5 text-white hover:text-[#2DD4BF] shrink-0 cursor-pointer transition"
                   title="Messages & Customer Service"
                 >
                   <MessageCircle className="w-5 h-5" />
@@ -3259,8 +3327,8 @@ export default function App() {
                       onClick={handleBecomeSellerAction}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-200 text-orange-500 flex items-center justify-center group-active:scale-95 transition shadow-2xs">
-                        <Store className="w-5 h-5 text-orange-500" />
+                      <div className="w-11 h-11 rounded-2xl bg-[#0D9488] border border-[#0F766E] text-white flex items-center justify-center group-active:scale-95 transition shadow-2xs">
+                        <Store className="w-5 h-5 text-white stroke-[2.25]" />
                       </div>
                       <span
                         id="home-become-seller-label"
@@ -3286,8 +3354,8 @@ export default function App() {
                       onClick={openCustomerServiceChat}
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
-                      <div className="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-200 text-sky-500 flex items-center justify-center group-active:scale-95 transition">
-                        <Headset className="w-5 h-5 text-sky-500" />
+                      <div className="w-11 h-11 rounded-2xl bg-[#2DD4BF] border border-[#0D9488] text-[#132A2E] flex items-center justify-center group-active:scale-95 transition shadow-2xs">
+                        <Headphones className="w-5 h-5 text-[#132A2E] stroke-[2.25]" />
                       </div>
                       <span className="text-[10px] font-medium text-[#132A2E] leading-tight">
                         Customer
@@ -3316,9 +3384,9 @@ export default function App() {
                         onClick={() => switchTab('mine')}
                         className="rounded-xl bg-[#0D9488] text-white p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
                       >
-                        <Radio className="w-5 h-5 text-[#0D9488] mb-1" />
+                        <Radio className="w-5 h-5 text-[#2DD4BF] mb-1" />
                         <div className="text-[10px] font-extrabold">No Live Streams Yet</div>
-                        <div className="text-[9px] text-slate-400">
+                        <div className="text-[9px] text-slate-200">
                           Register as Seller to Go LIVE
                         </div>
                       </div>
@@ -3387,7 +3455,7 @@ export default function App() {
                               className="w-full h-full object-cover group-hover:scale-105 transition"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#0D9488]/80 text-[#0D9488] text-[8px] font-extrabold tabular-price">
+                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-[#0D9488]/90 text-white text-[8px] font-extrabold tabular-price">
                               ₱{p.price}
                             </span>
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
@@ -3481,7 +3549,7 @@ export default function App() {
                             )}
                           </div>
                           {s.isLive && (
-                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-[#0D9488] text-[#0D9488] text-[7px] font-extrabold uppercase border border-[#2DD4BF]">
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[7px] font-extrabold uppercase border border-[#2DD4BF]">
                               LIVE
                             </span>
                           )}
@@ -3911,7 +3979,7 @@ export default function App() {
                         }
                         className="flex items-center gap-2 text-left min-w-0 cursor-pointer"
                       >
-                        <div className="w-8 h-8 rounded-full bg-[#0D9488] border border-[#2DD4BF] text-[#0D9488] font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-8 h-8 rounded-full bg-[#0D9488] border border-[#2DD4BF] text-white font-display font-extrabold text-xs flex items-center justify-center shrink-0 overflow-hidden">
                           {activeLiveSeller?.avatar ? (
                             <img
                               src={activeLiveSeller.avatar}
@@ -4083,14 +4151,28 @@ export default function App() {
 
               {/* BOTTOM LIVE HUD — EXACT SPACING & ELEMENTS FROM REFERENCE IMAGE 7 */}
               <div className="relative z-10 px-3.5 pb-20 space-y-2.5">
-                <div id="floating-hearts-container" className="relative h-0">
+                <div
+                  id="floating-hearts-container"
+                  className="pointer-events-none absolute right-3 bottom-14 w-24 h-72 overflow-visible z-30"
+                >
                   {hearts.map((h) => (
                     <div
                       key={h.id}
-                      style={{ right: `${h.right}px` }}
-                      className="floating-heart text-[#0D9488] text-xl"
+                      style={
+                        {
+                          right: `${h.right}px`,
+                          color: h.color,
+                          '--heart-drift-x': `${h.driftX}px`,
+                          '--heart-rise-y': `${h.riseY}px`,
+                          '--heart-scale': h.scale,
+                          '--heart-rot': `${h.rotation}deg`,
+                          '--heart-dur': `${h.duration}s`,
+                          '--heart-delay': `${h.delay}ms`,
+                        } as React.CSSProperties
+                      }
+                      className="floating-heart"
                     >
-                      ❤️
+                      <Heart className="w-6 h-6 fill-current" />
                     </div>
                   ))}
                 </div>
@@ -4196,7 +4278,7 @@ export default function App() {
                         activePinnedItem.sellerId || activeLiveSeller?.id,
                         activeLiveSeller?.name || remoteLiveStream?.sellerName
                       ) ? (
-                        <span className="px-3 py-2 rounded-xl bg-[#0D9488] text-[#0D9488] text-[10px] font-extrabold shrink-0 text-center">
+                        <span className="px-3 py-2 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0 text-center">
                           {activePinnedItem.winner
                             ? `Locked: ${activePinnedItem.winner}`
                             : 'PINNED BY YOU'}
@@ -4290,7 +4372,7 @@ export default function App() {
                         type="button"
                         onClick={openSellerDropModal}
                         id="tiktok-seller-drop-btn"
-                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#0D9488] flex items-center justify-center shrink-0 cursor-pointer"
+                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#2DD4BF] flex items-center justify-center shrink-0 cursor-pointer"
                         title="Pin New Live Item"
                       >
                         <Plus className="w-4 h-4" />
@@ -4340,9 +4422,10 @@ export default function App() {
                   {/* Heart Reaction Circle Button on Far Right */}
                   <button
                     type="button"
+                    id="live-heart-reaction-btn"
                     onClick={triggerLiveReaction}
-                    className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:text-[#0D9488] flex items-center justify-center shrink-0 active:scale-90 transition cursor-pointer"
-                    title="Send Love"
+                    className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-600 border border-white/25 text-white flex items-center justify-center shrink-0 active:scale-75 transition cursor-pointer shadow-md"
+                    title="Send Heart Reaction"
                   >
                     <Heart className="w-4 h-4 fill-current" />
                   </button>
@@ -4560,8 +4643,19 @@ export default function App() {
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                            {activeStoreSeller.city} · {activeStoreSeller.rating} ★ Rating
+                          <div className="text-[11px] text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
+                            <span>{activeStoreSeller.city}</span>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-0.5 font-bold text-amber-600">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span>{Number(activeStoreSeller.rating || 5).toFixed(1)}</span>
+                              <span className="text-slate-400 font-normal">
+                                ({(activeStoreSeller.reviews || []).length}{' '}
+                                {(activeStoreSeller.reviews || []).length === 1
+                                  ? 'Review'
+                                  : 'Reviews'})
+                              </span>
+                            </span>
                           </div>
                           <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F4FAF8] border border-[#CBE7E0] text-[11px] font-extrabold text-[#132A2E]">
                             <User className="w-3 h-3 text-[#0D9488]" />
@@ -4599,10 +4693,13 @@ export default function App() {
                         <div className="text-[10px] text-slate-500">Products</div>
                       </div>
                       <div>
-                        <div className="text-xs font-display font-extrabold text-[#132A2E]">
-                          {activeStoreSeller.rating} ★
+                        <div className="text-xs font-display font-extrabold text-[#132A2E] inline-flex items-center justify-center gap-0.5">
+                          <span>{Number(activeStoreSeller.rating || 5).toFixed(1)}</span>
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                         </div>
-                        <div className="text-[10px] text-slate-500">Shop Rating</div>
+                        <div className="text-[10px] text-slate-500">
+                          Shop Rating ({(activeStoreSeller.reviews || []).length})
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 pt-1">
@@ -4618,6 +4715,262 @@ export default function App() {
                       >
                         Chat Seller
                       </button>
+                    </div>
+                  </div>
+
+                  {/* SELLER STAR-RATING & BUYER REVIEWS SECTION ON PROFILE PAGE */}
+                  <div
+                    id="seller-reviews-section"
+                    className="mt-2.5 bg-white border border-[#E2F2EE] text-[#132A2E] rounded-2xl p-4 space-y-3.5 shadow-2xs"
+                  >
+                    {/* Header + Aggregate Star Summary */}
+                    <div className="flex items-center justify-between gap-2 border-b border-[#E2F2EE] pb-3">
+                      <div>
+                        <h3 className="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">
+                          Shop Ratings &amp; Buyer Reviews
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          Verified buyer feedback for {activeStoreSeller.name}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="flex items-center justify-end gap-1">
+                          <span className="text-base font-display font-extrabold text-[#132A2E] tabular-nums">
+                            {Number(activeStoreSeller.rating || 5).toFixed(1)}
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-semibold">/ 5.0</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-0.5 mt-0.5">
+                          {[1, 2, 3, 4, 5].map((st) => (
+                            <Star
+                              key={st}
+                              className={`w-3 h-3 ${
+                                st <= Math.round(activeStoreSeller.rating || 5)
+                                  ? 'fill-amber-400 text-amber-400'
+                                  : 'text-slate-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Buyer Review Form */}
+                    {!isOwnSellerProduct(activeStoreSeller.id, activeStoreSeller.name) ? (
+                      <form
+                        onSubmit={(e) => submitSellerReview(e, activeStoreSeller.id)}
+                        className="bg-[#F4FAF8] border border-[#E2F2EE] rounded-xl p-3 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-extrabold text-[#132A2E]">
+                            Rate your shopping experience
+                          </span>
+                          <span className="text-[10px] font-bold text-[#0D9488]">
+                            {sellerReviewRating === 5
+                              ? '5.0 ★ Excellent'
+                              : sellerReviewRating === 4
+                              ? '4.0 ★ Good'
+                              : sellerReviewRating === 3
+                              ? '3.0 ★ Average'
+                              : sellerReviewRating === 2
+                              ? '2.0 ★ Fair'
+                              : '1.0 ★ Poor'}
+                          </span>
+                        </div>
+
+                        {/* 5-Star Interactive Selector */}
+                        <div className="flex items-center gap-1.5">
+                          {[1, 2, 3, 4, 5].map((star) => {
+                            const active = star <= sellerReviewRating;
+                            return (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setSellerReviewRating(star)}
+                                className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                                  active
+                                    ? 'bg-amber-50 border-amber-300 text-amber-500'
+                                    : 'bg-white border-[#E2F2EE] text-slate-300 hover:text-amber-300'
+                                }`}
+                                title={`Rate ${star} Star${star > 1 ? 's' : ''}`}
+                              >
+                                <Star
+                                  className={`w-4 h-4 ${
+                                    active ? 'fill-amber-400 text-amber-400' : ''
+                                  }`}
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Quick Experience Feedback Pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            'Fast Ship-Out',
+                            'Clean Bale Quality',
+                            'True to Size',
+                            'Friendly Live Host',
+                            'Well-Packaged',
+                          ].map((tag) => {
+                            const selected = sellerReviewTags.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => toggleSellerReviewTag(tag)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition cursor-pointer ${
+                                  selected
+                                    ? 'bg-[#0D9488] text-white border-[#0D9488]'
+                                    : 'bg-white text-slate-600 border-[#CBE7E0] hover:border-[#0D9488]'
+                                }`}
+                              >
+                                {selected ? `✓ ${tag}` : `+ ${tag}`}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Comment Input + Submit Button */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            id="seller-review-input"
+                            value={sellerReviewComment}
+                            onChange={(e) => setSellerReviewComment(e.target.value)}
+                            placeholder={`Write a review for ${activeStoreSeller.name}...`}
+                            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-white border border-[#CBE7E0] text-xs text-[#132A2E] placeholder-slate-400 focus:outline-none focus:border-[#0D9488]"
+                          />
+                          <button
+                            type="submit"
+                            id="seller-review-submit-btn"
+                            className="px-3.5 py-2 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-extrabold shrink-0 cursor-pointer transition"
+                          >
+                            Post Review
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="px-3 py-2 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] text-[11px] text-slate-500">
+                        You are viewing your own storefront. Buyer reviews and ratings appear below.
+                      </div>
+                    )}
+
+                    {/* Star Filter Pills */}
+                    {(activeStoreSeller.reviews || []).length > 0 && (
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        {(['ALL', 5, 4, 3, 2, 1] as const).map((filterVal) => {
+                          const active = sellerReviewFilterStar === filterVal;
+                          const count =
+                            filterVal === 'ALL'
+                              ? (activeStoreSeller.reviews || []).length
+                              : (activeStoreSeller.reviews || []).filter(
+                                  (r) => Math.round(r.rating) === filterVal
+                                ).length;
+                          return (
+                            <button
+                              key={String(filterVal)}
+                              type="button"
+                              onClick={() => setSellerReviewFilterStar(filterVal)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 border cursor-pointer transition ${
+                                active
+                                  ? 'bg-[#0D9488] text-white border-[#0D9488]'
+                                  : 'bg-[#F4FAF8] text-[#132A2E] border-[#CBE7E0]'
+                              }`}
+                            >
+                              {filterVal === 'ALL'
+                                ? `All (${count})`
+                                : `${filterVal} ★ (${count})`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Displayed Buyer Reviews List */}
+                    <div id="seller-reviews-list" className="space-y-2.5">
+                      {(() => {
+                        const allReviews = activeStoreSeller.reviews || [];
+                        const filteredReviews =
+                          sellerReviewFilterStar === 'ALL'
+                            ? allReviews
+                            : allReviews.filter(
+                                (r) => Math.round(r.rating) === sellerReviewFilterStar
+                              );
+                        if (filteredReviews.length === 0) {
+                          return (
+                            <div className="py-4 text-center text-xs text-slate-400">
+                              {allReviews.length === 0
+                                ? 'No buyer reviews yet. Be the first to rate this seller!'
+                                : `No ${sellerReviewFilterStar}-star reviews yet.`}
+                            </div>
+                          );
+                        }
+                        return filteredReviews.map((rev) => (
+                          <div
+                            key={rev.id}
+                            className="p-3 rounded-xl bg-[#F4FAF8] border border-[#E2F2EE] space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-[#0D9488] text-white text-[10px] font-extrabold flex items-center justify-center shrink-0 overflow-hidden">
+                                  {rev.buyerAvatar ? (
+                                    <img
+                                      src={rev.buyerAvatar}
+                                      alt={rev.buyerName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    (rev.buyerName || 'M').slice(0, 2).toUpperCase()
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-[#132A2E] truncate">
+                                      {rev.buyerName}
+                                    </span>
+                                    <span className="px-1.5 py-0.2 rounded bg-[#2DD4BF]/25 text-[#0D9488] text-[8px] font-extrabold uppercase shrink-0">
+                                      Verified Miner
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    {rev.createdAt || 'Just now'}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                {[1, 2, 3, 4, 5].map((st) => (
+                                  <Star
+                                    key={st}
+                                    className={`w-3 h-3 ${
+                                      st <= Math.round(rev.rating || 5)
+                                        ? 'fill-amber-400 text-amber-400'
+                                        : 'text-slate-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+
+                            {rev.tags && rev.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {rev.tags.map((t) => (
+                                  <span
+                                    key={t}
+                                    className="px-2 py-0.5 rounded-full bg-white border border-[#CBE7E0] text-[9px] font-semibold text-[#0D9488]"
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <p className="text-xs text-[#132A2E] leading-relaxed">
+                              {rev.comment}
+                            </p>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -5314,15 +5667,26 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Top-Right Settings Gear Icon (Matching Reference Image 3) */}
+                  {/* Top-Right Customer Service Headphone & Settings Gear Icons */}
                   {state.isAuthenticated ? (
-                    <button
-                      onClick={openEditProfileModal}
-                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer shrink-0"
-                      title="Edit Profile Settings"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={openCustomerServiceChat}
+                        className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer shrink-0"
+                        title="Customer Service & Help"
+                      >
+                        <Headphones className="w-4 h-4 text-white stroke-[2.25]" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openEditProfileModal}
+                        className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer shrink-0"
+                        title="Edit Profile Settings"
+                      >
+                        <Settings className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
@@ -5339,35 +5703,6 @@ export default function App() {
                       </button>
                     </div>
                   )}
-                </div>
-
-                {/* VIP / Verified Status Banner Strip Inside Header (Matching Reference Image 3 VIP Bar) */}
-                <div className="bg-white/10 border border-white/15 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="px-2 py-0.5 rounded bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold uppercase shrink-0">
-                      UKAYO
-                    </span>
-                    <span className="text-[11px] text-white truncate">
-                      {actualVerificationStatus === 'verified'
-                        ? 'Verified PH Primary ID · Priority Miner & Seller Protection'
-                        : 'Verify your PH Primary ID for Priority Miner & Seller Protection'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openIdVerifyModal}
-                    id="account-verified-badge"
-                    className="text-[11px] font-extrabold text-[#0D9488] shrink-0 inline-flex items-center gap-0.5 cursor-pointer"
-                  >
-                    <span>
-                      {actualVerificationStatus === 'verified'
-                        ? 'Verified'
-                        : actualVerificationStatus === 'pending'
-                        ? 'Pending'
-                        : 'Verify'}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
 
@@ -5495,13 +5830,22 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Expected Delivery / Tracking Banner (Matching Reference Image 5 Green Banner) */}
-                          <div className="px-3 py-2 rounded-lg bg-[#2DD4BF]/10 flex items-center justify-between text-[11px]">
+                          {/* Expected Delivery / Tracking Banner + Rate Seller Shop Action */}
+                          <div className="px-3 py-2 rounded-lg bg-[#2DD4BF]/10 flex items-center justify-between gap-2 text-[11px]">
                             <span className="text-[#132A2E] font-medium truncate">
                               {o.trackingEvents?.[0]?.title || 'Protected by UKAYO Escrow'} ·{' '}
                               {o.trackingEvents?.[0]?.desc || o.courier}
                             </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-[#0D9488] shrink-0" />
+                            {o.sellerId && (
+                              <button
+                                type="button"
+                                onClick={() => openSellerStore(o.sellerId)}
+                                className="px-2 py-0.5 rounded-md bg-white border border-[#CBE7E0] text-[10px] font-bold text-[#0D9488] shrink-0 inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>Rate Shop</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))
@@ -5553,7 +5897,7 @@ export default function App() {
                       <span className="text-[11px] font-medium text-[#132A2E]">
                         Points
                       </span>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[10px] text-[#0D9488] font-semibold">
                         Check in
                       </span>
                     </button>
@@ -5580,10 +5924,10 @@ export default function App() {
                       id="account-seller-banner-btn"
                       className="flex flex-col items-center gap-1.5 py-1.5 cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-full bg-[#0D9488] flex items-center justify-center text-[#0D9488]">
+                      <div className="w-10 h-10 rounded-full border border-[#CBE7E0] flex items-center justify-center text-[#132A2E]">
                         <Store className="w-5 h-5" />
                       </div>
-                      <span className="text-[11px] font-bold text-[#132A2E]">
+                      <span className="text-[11px] font-medium text-[#132A2E]">
                         {isSellerAccount ? 'Seller Hub' : 'Sell Now'}
                       </span>
                       <span className="text-[10px] text-[#0D9488] font-semibold">
@@ -5631,7 +5975,7 @@ export default function App() {
                           onClick={launchSellerLiveInApp}
                           className="py-2 px-3 rounded-xl bg-[#0D9488] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          <Radio className="w-3.5 h-3.5 text-[#0D9488]" />
+                          <Radio className="w-3.5 h-3.5 text-white" />
                           <span>Go LIVE Now</span>
                         </button>
                         <button
@@ -5659,7 +6003,12 @@ export default function App() {
                           onClick={() => openSellerStore(state.user.ownSellerId)}
                           className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                         >
-                          <span>My Nasa Tindahan Shop</span>
+                          <span className="inline-flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-lg bg-[#0D9488] text-white flex items-center justify-center shrink-0">
+                              <Store className="w-4 h-4 text-white" />
+                            </span>
+                            <span>My Nasa Tindahan Shop</span>
+                          </span>
                           <ChevronRight className="w-4 h-4 text-slate-400" />
                         </button>
                         <button
@@ -5667,7 +6016,12 @@ export default function App() {
                           onClick={openSellerCenterPortal}
                           className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-bold text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                         >
-                          <span>UKAYO Seller Center Portal</span>
+                          <span className="inline-flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-lg bg-[#2DD4BF] text-[#132A2E] flex items-center justify-center shrink-0">
+                              <LayoutDashboard className="w-4 h-4 text-[#132A2E]" />
+                            </span>
+                            <span>UKAYO Seller Center Portal</span>
+                          </span>
                           <ExternalLink className="w-4 h-4 text-[#0D9488]" />
                         </button>
                       </>
@@ -5676,14 +6030,24 @@ export default function App() {
                       onClick={openEditProfileModal}
                       className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                     >
-                      <span>Account &amp; Profile Information</span>
+                      <span className="inline-flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-lg bg-[#F4FAF8] border border-[#CBE7E0] text-[#0D9488] flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-[#0D9488]" />
+                        </span>
+                        <span>Account &amp; Profile Information</span>
+                      </span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </button>
                     <button
                       onClick={openIdVerifyModal}
                       className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                     >
-                      <span>Identity Verification (PH Primary ID)</span>
+                      <span className="inline-flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-lg bg-[#F4FAF8] border border-[#CBE7E0] text-[#0D9488] flex items-center justify-center shrink-0">
+                          <ShieldCheck className="w-4 h-4 text-[#0D9488]" />
+                        </span>
+                        <span>Identity Verification (PH Primary ID)</span>
+                      </span>
                       <div className="flex items-center gap-1.5">
                         <span
                           id="settings-verify-subtext"
@@ -5697,9 +6061,14 @@ export default function App() {
                     {!isSellerAccount && (
                       <button
                         onClick={goToSellerRegistrationPage}
-                        className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
+                        className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-bold text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                       >
-                        <span>Register as a UKAYO Seller</span>
+                        <span className="inline-flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-lg bg-[#0D9488] text-white flex items-center justify-center shrink-0">
+                            <Store className="w-4 h-4 text-white stroke-[2.25]" />
+                          </span>
+                          <span>Become a Seller (Register UKAYO Shop)</span>
+                        </span>
                         <ChevronRight className="w-4 h-4 text-slate-400" />
                       </button>
                     )}
@@ -5713,7 +6082,12 @@ export default function App() {
                       onClick={openCustomerServiceChat}
                       className="w-full px-4 py-3.5 flex items-center justify-between text-xs font-medium text-[#132A2E] hover:bg-[#F4FAF8] cursor-pointer text-left"
                     >
-                      <span>Help Centre &amp; Customer Service</span>
+                      <span className="inline-flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-lg bg-[#2DD4BF] text-[#132A2E] flex items-center justify-center shrink-0">
+                          <Headphones className="w-4 h-4 text-[#132A2E] stroke-[2.25]" />
+                        </span>
+                        <span>Help Centre &amp; Customer Service</span>
+                      </span>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </button>
                     <button
@@ -6773,7 +7147,7 @@ export default function App() {
                   />
                 </label>
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <label className="block text-[9px] font-extrabold uppercase tracking-wider text-[#0D9488]">
+                  <label className="block text-[9px] font-extrabold uppercase tracking-wider text-[#2DD4BF]">
                     Live Stream Title
                   </label>
                   <input
@@ -6915,7 +7289,7 @@ export default function App() {
             >
               <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-[#0D9488] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-white flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
@@ -7242,7 +7616,7 @@ export default function App() {
             <div className="bg-white w-full rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90dvh] overflow-y-auto">
               <div className="flex items-center justify-between border-b border-[#E2F2EE] pb-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-[#0D9488] flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-[#0D9488] text-white flex items-center justify-center shrink-0">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>

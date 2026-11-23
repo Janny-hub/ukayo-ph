@@ -240,6 +240,36 @@ function mergeByKey<T extends Record<string, any>>(
           ...(Array.isArray(item.steals) ? item.steals : []),
         ])
       );
+      const rawReviews = [
+        ...(Array.isArray(item.reviews) ? item.reviews : []),
+        ...(Array.isArray(prev.reviews) ? prev.reviews : []),
+      ];
+      const seenRev = new Set<string>();
+      const mergedReviews: any[] = [];
+      for (const r of rawReviews) {
+        if (!r || typeof r !== 'object') continue;
+        const rk = r.id
+          ? String(r.id)
+          : `${r.buyerName || r.user || ''}|${r.rating || 5}|${r.comment || r.text || ''}`;
+        if (!seenRev.has(rk)) {
+          seenRev.add(rk);
+          mergedReviews.push(r);
+        }
+      }
+      const computedRating =
+        mergedReviews.length > 0
+          ? Number(
+              (
+                mergedReviews.reduce(
+                  (sum, r) => sum + (typeof r.rating === 'number' ? r.rating : 5),
+                  0
+                ) / mergedReviews.length
+              ).toFixed(1)
+            )
+          : typeof item.rating === 'number'
+          ? item.rating
+          : prev.rating || 5.0;
+
       map.set(k, {
         ...prev,
         ...item,
@@ -274,6 +304,8 @@ function mergeByKey<T extends Record<string, any>>(
             : prev.sellerStatus || 'none',
         shopName: item.shopName || prev.shopName || '',
         ownSellerId: item.ownSellerId || prev.ownSellerId || '',
+        rating: computedRating,
+        reviews: mergedReviews,
         products:
           Array.isArray(item.products) && item.products.length > 0
             ? item.products
