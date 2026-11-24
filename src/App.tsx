@@ -126,6 +126,17 @@ export const DEFAULT_UKAY_CATEGORIES: UkayCategory[] = [
   },
 ];
 
+export interface UkayBundlePreview {
+  id: string;
+  code: string;
+  title: string;
+  price: number;
+  pieces: string;
+  sellerId: string;
+  sellerName: string;
+  image: string;
+}
+
 export interface Product {
   id: string;
   code?: string;
@@ -3649,6 +3660,121 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* UKAY BALES — 4 Previews in One Line (Directs to Tindahan under Bundle Bales) */}
+                <div
+                  id="home-ukay-bundles-section"
+                  className="bg-white rounded-2xl border border-[#E2F2EE] p-3.5 shadow-2xs space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-xs font-display font-extrabold uppercase tracking-wider text-[#132A2E]">
+                      UKAY BALES
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => browseUkayCategory('Bundle Bales')}
+                      className="text-[11px] font-bold text-[#0D9488] inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
+                    >
+                      <span>See All Bales</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const sellerBundleItems: UkayBundlePreview[] = [];
+                    state.sellers.forEach((s) => {
+                      (s.products || []).forEach((p) => {
+                        const catLower = (p.category || '').toLowerCase();
+                        const titleLower = (p.title || '').toLowerCase();
+                        if (
+                          catLower.includes('bundle') ||
+                          catLower.includes('bale') ||
+                          titleLower.includes('bundle') ||
+                          titleLower.includes('bale')
+                        ) {
+                          sellerBundleItems.push({
+                            id: p.id,
+                            code: p.code || 'BALE',
+                            title: p.title,
+                            price: p.price,
+                            pieces: p.size || 'Bale',
+                            sellerId: s.id,
+                            sellerName: s.name,
+                            image: p.image,
+                          });
+                        }
+                      });
+                    });
+                    state.feedPosts.forEach((post) => {
+                      const catLower = (post.category || '').toLowerCase();
+                      const titleLower = (post.itemTitle || '').toLowerCase();
+                      if (
+                        catLower.includes('bundle') ||
+                        catLower.includes('bale') ||
+                        titleLower.includes('bundle') ||
+                        titleLower.includes('bale')
+                      ) {
+                        sellerBundleItems.push({
+                          id: post.id,
+                          code: 'BALE',
+                          title: post.itemTitle,
+                          price: post.price,
+                          pieces: post.condition || 'Bale',
+                          sellerId: post.sellerId,
+                          sellerName: post.authorName,
+                          image: post.image,
+                        });
+                      }
+                    });
+                    const bundlesToDisplay = sellerBundleItems.slice(0, 4);
+
+                    if (bundlesToDisplay.length === 0) {
+                      return (
+                        <div
+                          onClick={() => browseUkayCategory('Bundle Bales')}
+                          className="rounded-xl bg-[#F4FAF8] border border-dashed border-[#CBE7E0] py-4 px-3 flex flex-col items-center justify-center text-center cursor-pointer"
+                        >
+                          <div className="text-[10px] font-extrabold text-[#132A2E]">
+                            No Ukay Bales Listed Yet
+                          </div>
+                          <div className="text-[9px] text-slate-500">
+                            Tap to view Bundle Bales in Tindahan
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div id="home-bundles-grid" className="grid grid-cols-4 gap-2">
+                        {bundlesToDisplay.map((bundle) => (
+                          <button
+                            key={bundle.id}
+                            type="button"
+                            onClick={() => browseUkayCategory('Bundle Bales')}
+                            className="rounded-xl border border-[#E2F2EE] bg-white hover:border-[#2DD4BF] overflow-hidden text-left group cursor-pointer transition flex flex-col"
+                          >
+                            <div className="relative aspect-square w-full overflow-hidden bg-[#F4FAF8]">
+                              <img
+                                src={bundle.image}
+                                alt={bundle.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                              <span className="absolute bottom-1 left-1.5 right-1.5 text-[10px] font-display font-extrabold text-white tabular-price truncate">
+                                ₱{bundle.price.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="p-1.5 bg-white">
+                              <div className="text-[10px] font-semibold text-[#132A2E] truncate">
+                                {bundle.title}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </section>
