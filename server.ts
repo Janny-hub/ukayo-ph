@@ -319,9 +319,24 @@ async function startServer() {
 
   // 2. Real-Time Live Camera Frame + Pinned Item Broadcast API
   app.get('/api/live-frame', (req: Request, res: Response) => {
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     const sellerId = String(req.query.sellerId || '');
+    const bySeller =
+      sellerId && sellerId !== 'any'
+        ? liveStreamsBySeller.get(sellerId)
+        : undefined;
     const match =
-      (sellerId && liveStreamsBySeller.get(sellerId)) || latestLiveStream;
+      (bySeller && bySeller.isCameraLive ? bySeller : undefined) ||
+      (latestLiveStream && latestLiveStream.isCameraLive
+        ? latestLiveStream
+        : undefined) ||
+      bySeller ||
+      latestLiveStream;
     res.json({ stream: match || null });
   });
 
@@ -341,8 +356,15 @@ async function startServer() {
       liveTitle: String(body.liveTitle || ''),
       updatedAt: Date.now(),
     };
-    liveStreamsBySeller.set(clean.sellerId, clean);
-    latestLiveStream = clean.isCameraLive ? clean : null;
+    if (clean.isCameraLive) {
+      liveStreamsBySeller.set(clean.sellerId, clean);
+      latestLiveStream = clean;
+    } else {
+      liveStreamsBySeller.delete(clean.sellerId);
+      if (latestLiveStream && latestLiveStream.sellerId === clean.sellerId) {
+        latestLiveStream = null;
+      }
+    }
 
     if (!clean.isCameraLive && serverPayloadJson) {
       try {

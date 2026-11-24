@@ -1570,6 +1570,7 @@ export default function App() {
     setState((prev) => ({
       ...prev,
       isAuthenticated: true,
+      role: 'seller',
       activeLiveSellerId: targetSellerId,
       activeTab: 'mine',
     }));
@@ -1768,10 +1769,12 @@ export default function App() {
       state.sellers[0];
 
     if (
-      isOwnSellerProduct(
-        item.sellerId || seller?.id,
-        seller?.name || remoteLiveStream?.sellerName
-      )
+      isCameraStreaming ||
+      (state.role === 'seller' &&
+        isOwnSellerProduct(
+          item.sellerId || seller?.id,
+          seller?.name || remoteLiveStream?.sellerName
+        ))
     ) {
       showToast(
         'As the Seller, you cannot Mine or Lock your own pinned product. Only Buyers can Mine & Lock!',
@@ -2068,12 +2071,16 @@ export default function App() {
     if (agoraRes.success && agoraRes.mediaStream) {
       liveStreamRef.current = agoraRes.mediaStream;
       if (videoRef.current) {
-        videoRef.current.srcObject = agoraRes.mediaStream;
+        videoRef.current.muted = true;
+        videoRef.current.srcObject = new MediaStream(
+          agoraRes.mediaStream.getVideoTracks()
+        );
         videoRef.current.play().catch(() => {});
       }
       setIsCameraStreaming(true);
       setState((prev) => ({
         ...prev,
+        role: 'seller',
         activeTab: 'mine',
         activeLiveSellerId: hostSellerId,
         sellers: prev.sellers.map((s) =>
@@ -2103,12 +2110,14 @@ export default function App() {
       }
       liveStreamRef.current = stream;
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.muted = true;
+        videoRef.current.srcObject = new MediaStream(stream.getVideoTracks());
         videoRef.current.play().catch(() => {});
       }
       setIsCameraStreaming(true);
       setState((prev) => ({
         ...prev,
+        role: 'seller',
         activeTab: 'mine',
         activeLiveSellerId: hostSellerId,
         sellers: prev.sellers.map((s) =>
@@ -2270,6 +2279,7 @@ export default function App() {
 
       return {
         ...prev,
+        role: 'seller',
         activeTab: 'mine',
         user: {
           ...prev.user,
@@ -2940,11 +2950,30 @@ export default function App() {
     liveSellers.find((s) => s.id === state.activeLiveSellerId) ||
     liveSellers[0];
 
+  // Strict distinction between the Seller actively hosting this Live Room vs a Buyer watching
+  const isWatchingRemoteLive = Boolean(
+    !isCameraStreaming &&
+      (isAgoraRemoteVideoPlaying ||
+        remoteLiveStream?.isCameraLive ||
+        (activeLiveSeller?.isLive &&
+          !isOwnSellerProduct(activeLiveSeller.id, activeLiveSeller.name)))
+  );
+  const isLiveHostView = Boolean(
+    isCameraStreaming ||
+      (isSellerAccount &&
+        state.role === 'seller' &&
+        !isWatchingRemoteLive &&
+        (!activeLiveSeller ||
+          isOwnSellerProduct(activeLiveSeller.id, activeLiveSeller.name)))
+  );
+
   // Re-attach active seller MediaStream to videoRef whenever the Live tab mounts
   useEffect(() => {
     if (isCameraStreaming && liveStreamRef.current && videoRef.current) {
-      if (videoRef.current.srcObject !== liveStreamRef.current) {
-        videoRef.current.srcObject = liveStreamRef.current;
+      const videoTracks = liveStreamRef.current.getVideoTracks();
+      if (videoTracks.length > 0) {
+        videoRef.current.muted = true;
+        videoRef.current.srcObject = new MediaStream(videoTracks);
       }
       videoRef.current.play().catch(() => {});
     }
@@ -3056,7 +3085,8 @@ export default function App() {
       ? state.liveItems.find((i) => i.sellerId === activeLiveSeller.id)
       : undefined);
 
-  // Broadcast live camera frames every 600ms while hosting camera live in Marketplace
+  // Broadcast live camera frames every 350ms while hosting camera live in Marketplace.
+  // Reads directly from videoRef.current (no duplicate offscreenVideo that stalls mobile phone cameras).
   useEffect(() => {
     if (!isCameraStreaming) return;
     const canvas = document.createElement('canvas');
@@ -3064,36 +3094,38 @@ export default function App() {
     canvas.height = 420;
     const ctx = canvas.getContext('2d');
 
-    const offscreenVideo = document.createElement('video');
-    offscreenVideo.muted = true;
-    offscreenVideo.playsInline = true;
-    offscreenVideo.autoplay = true;
-    if (liveStreamRef.current) {
-      offscreenVideo.srcObject = liveStreamRef.current;
-      offscreenVideo.play().catch(() => {});
-    }
+    let isPostingFrame = false;
+    let lastPreviewStateSync = 0;
 
-    let capturedPreviewOnce = false;
-
-    const captureAndPublishFrame = () => {
-      if (
-        liveStreamRef.current &&
-        offscreenVideo.srcObject !== liveStreamRef.current
-      ) {
-        offscreenVideo.srcObject = liveStreamRef.current;
-        offscreenVideo.play().catch(() => {});
-      }
-      const activeVid =
-        videoRef.current && videoRef.current.readyState >= 2
-          ? videoRef.current
-          : offscreenVideo.readyState >= 2
-          ? offscreenVideo
-          : null;
+    const captureAndPublishFrame = async () => {
+      if (isPostingFrame) return;
+      const activeVid = videoRef.current;
       if (!activeVid || !ctx) return;
 
+      if (!activeVid.srcObject && liveStreamRef.current) {
+        const vTracks = liveStreamRef.current.getVideoTracks();
+        if (vTracks.length > 0) {
+          activeVid.muted = true;
+          activeVid.srcObject = new MediaStream(vTracks);
+        }
+      }
+      if (activeVid.paused) {
+        activeVid.play().catch(() => {});
+      }
+      if (activeVid.readyState < 2) return;
+
+      const vw = activeVid.videoWidth || 320;
+      const vh = activeVid.videoHeight || 420;
+      const targetW = 320;
+      const targetH = vw > 0 && vh > 0 ? Math.round((targetW * vh) / vw) : 420;
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
       const hostSellerId =
-        stateRef.current.user.ownSellerId ||
         stateRef.current.activeLiveSellerId ||
+        stateRef.current.user.ownSellerId ||
         'seller_' + (stateRef.current.user.id || 'host');
       ctx.drawImage(activeVid, 0, 0, canvas.width, canvas.height);
       const frameDataUrl = canvas.toDataURL('image/jpeg', 0.56);
@@ -3109,23 +3141,29 @@ export default function App() {
         stateRef.current.liveItems[0] ||
         null;
 
-      publishLiveCameraFrame({
-        sellerId: hostSellerId,
-        sellerName:
-          stateRef.current.user.shopName ||
-          stateRef.current.user.name ||
-          'Ukay Live Host',
-        isCameraLive: true,
-        frameDataUrl,
-        pinnedItemId:
-          currentPinned?.id || stateRef.current.activePinnedItemId || '',
-        pinnedItem: currentPinned,
-        liveTitle: liveSetupTitle || '',
-        updatedAt: Date.now(),
-      });
+      isPostingFrame = true;
+      try {
+        await publishLiveCameraFrame({
+          sellerId: hostSellerId,
+          sellerName:
+            stateRef.current.user.shopName ||
+            stateRef.current.user.name ||
+            'Ukay Live Host',
+          isCameraLive: true,
+          frameDataUrl,
+          pinnedItemId:
+            currentPinned?.id || stateRef.current.activePinnedItemId || '',
+          pinnedItem: currentPinned,
+          liveTitle: liveSetupTitle || '',
+          updatedAt: Date.now(),
+        });
+      } finally {
+        isPostingFrame = false;
+      }
 
-      if (!capturedPreviewOnce) {
-        capturedPreviewOnce = true;
+      const now = Date.now();
+      if (now - lastPreviewStateSync > 3000) {
+        lastPreviewStateSync = now;
         setState((prev) => ({
           ...prev,
           sellers: prev.sellers.map((s) =>
@@ -3133,7 +3171,7 @@ export default function App() {
               ? {
                   ...s,
                   isLive: true,
-                  liveUpdatedAt: Date.now(),
+                  liveUpdatedAt: now,
                   liveStreamPreview: frameDataUrl,
                 }
               : s
@@ -3142,14 +3180,10 @@ export default function App() {
       }
     };
 
-    offscreenVideo.onloadeddata = () => {
-      captureAndPublishFrame();
-    };
-    const interval = window.setInterval(captureAndPublishFrame, 600);
+    const interval = window.setInterval(captureAndPublishFrame, 350);
 
     return () => {
       window.clearInterval(interval);
-      offscreenVideo.srcObject = null;
     };
   }, [isCameraStreaming, liveSetupTitle]);
 
@@ -4102,14 +4136,14 @@ export default function App() {
             </section>
           )}
 
-          {/* TAB 3: "MINE NA!" LIVE SELLING ROOM (MATCHING REFERENCE IMAGE 7 SPACING + DURATION COUNTER + END LIVE ICON) */}
+          {/* TAB 3: "MINE NA!" LIVE SELLING ROOM (RIGHT-SIDE VERTICAL HOST CONTROLS + STRICT BUYER WATCHING VIEW) */}
           {state.activeTab === 'mine' && (
             <section
               id="tab-mine"
               onTouchStart={handleLiveTouchStart}
               onTouchEnd={handleLiveTouchEnd}
               onWheel={handleLiveWheel}
-              className="fixed top-0 left-0 right-0 bottom-[62px] z-20 max-w-md mx-auto bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
+              className="fixed top-0 left-0 right-0 bottom-[68px] z-20 max-w-md mx-auto bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
               {/* Video / Visual Backdrop (Local Camera -> Agora Remote WebRTC Video -> Server/Cloud Frame Stream -> Pinned Product / Cover) */}
               {(activeLiveSeller ||
@@ -4131,7 +4165,7 @@ export default function App() {
                     remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
                       ? 'opacity-100'
                       : 'opacity-85'
-                  } ${isCameraStreaming ? 'hidden' : ''}`}
+                  } ${isCameraStreaming ? 'opacity-0 pointer-events-none' : ''}`}
                 />
               )}
               <div
@@ -4149,15 +4183,17 @@ export default function App() {
                 autoPlay
                 playsInline
                 muted
-                className={`absolute inset-0 w-full h-full object-cover z-[3] ${
-                  isCameraStreaming ? '' : 'hidden'
+                className={`absolute inset-0 w-full h-full object-cover z-[3] transition-opacity ${
+                  isCameraStreaming
+                    ? 'opacity-100'
+                    : 'opacity-0 pointer-events-none'
                 }`}
               />
               <div className="absolute inset-0 z-[4] bg-gradient-to-b from-black/60 via-transparent to-black/85 pointer-events-none" />
 
-              {/* TOP LIVE OVERLAY — EXACT LAYOUT & SPACING FROM REFERENCE IMAGE 7 */}
+              {/* TOP LIVE OVERLAY */}
               <div className="relative z-10 px-3.5 pt-3 space-y-2.5">
-                {/* Row 1: Top Navigation Bar (Profile & Search on Left | Video • Live • Tindahan • For You in Center | End Live / Live Studio Icon on Right) */}
+                {/* Row 1: Top Navigation Bar */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 shrink-0">
                     <button
@@ -4200,7 +4236,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Right Slot: Seller End Live Icon or Start Live / Exit Icon */}
+                  {/* Right Slot: Seller End Live Icon (ONLY for active Seller Host) or Buyer Exit Icon */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {isCameraStreaming ? (
                       <button
@@ -4213,11 +4249,11 @@ export default function App() {
                         <Power className="w-3.5 h-3.5" />
                         <span>End Live</span>
                       </button>
-                    ) : isSellerAccount ? (
+                    ) : isLiveHostView ? (
                       <button
                         type="button"
                         onClick={openLiveSetupModal}
-                        className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#0D9488] cursor-pointer"
+                        className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-md border border-white/20 flex items-center justify-center text-[#2DD4BF] cursor-pointer"
                         title="Start Seller Live Stream"
                       >
                         <Video className="w-4 h-4" />
@@ -4235,7 +4271,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Row 2: Host Pill + Follow Button on Left | Seller Duration Counter + End Live Icon / Explore Pill on Right */}
+                {/* Row 2: Host Pill + Follow Button on Left | Seller Duration Counter / LIVE Pill + Explore on Right */}
                 <div className="flex items-center justify-between gap-2">
                   {activeLiveSeller || remoteLiveStream?.sellerName ? (
                     <div className="flex items-center gap-2 bg-black/45 backdrop-blur-md rounded-full pl-1 pr-2 py-1 border border-white/15 min-w-0">
@@ -4280,27 +4316,23 @@ export default function App() {
                           </div>
                         </div>
                       </button>
-                      {activeLiveSeller &&
-                        !isOwnSellerProduct(
-                          activeLiveSeller.id,
-                          activeLiveSeller.name
-                        ) && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFollowCurrentLiveSeller();
-                            }}
-                            id="live-follow-btn"
-                            className={`px-3 py-1 rounded-full text-[10px] font-extrabold shrink-0 cursor-pointer transition ${
-                              isFollowingActiveLiveSeller
-                                ? 'bg-white/20 text-white'
-                                : 'bg-[#2DD4BF] text-[#132A2E] hover:bg-emerald-400'
-                            }`}
-                          >
-                            {isFollowingActiveLiveSeller ? '✓ Following' : '+ Follow'}
-                          </button>
-                        )}
+                      {activeLiveSeller && !isLiveHostView && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFollowCurrentLiveSeller();
+                          }}
+                          id="live-follow-btn"
+                          className={`px-3 py-1 rounded-full text-[10px] font-extrabold shrink-0 cursor-pointer transition ${
+                            isFollowingActiveLiveSeller
+                              ? 'bg-white/20 text-white'
+                              : 'bg-[#2DD4BF] text-[#132A2E] hover:bg-emerald-400'
+                          }`}
+                        >
+                          {isFollowingActiveLiveSeller ? '✓ Following' : '+ Follow'}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="px-3 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-extrabold">
@@ -4308,13 +4340,9 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* Right Side of Row 2: Active Seller Duration Counter + End Live Icon OR Buyer Explore / Report */}
+                  {/* Right Side of Row 2 */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {(isCameraStreaming ||
-                      isOwnSellerProduct(
-                        activeLiveSeller?.id,
-                        activeLiveSeller?.name
-                      )) && (
+                    {isLiveHostView && isCameraStreaming && (
                       <div
                         id="seller-live-duration-counter"
                         className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-[#2DD4BF]/60 text-white text-[10px] font-mono font-extrabold inline-flex items-center gap-1.5 shadow-sm"
@@ -4348,7 +4376,7 @@ export default function App() {
                       <ChevronRight className="w-3 h-3 text-white/70" />
                     </button>
 
-                    {activeLiveSeller && !isCameraStreaming && (
+                    {activeLiveSeller && !isLiveHostView && (
                       <button
                         type="button"
                         onClick={() =>
@@ -4385,26 +4413,19 @@ export default function App() {
                       No Active Live Streams Right Now
                     </h3>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      {isSellerAccount
+                      {isSellerAccount && state.role === 'seller'
                         ? 'Start your Seller Live Stream right here in the Marketplace and pin ukay drops for buyers to Mine & Lock!'
-                        : 'Waiting for a Verified UKAYO Seller to go live. Want to host your own live selling room? Register as a Seller in My Account!'}
+                        : 'Waiting for a Verified UKAYO Seller to go live. Browse Tindahan or Ukay Feed while waiting!'}
                     </p>
                     <div className="flex flex-col gap-2 pt-1">
-                      {isSellerAccount ? (
+                      {isSellerAccount && state.role === 'seller' ? (
                         <button
                           onClick={openLiveSetupModal}
                           className="w-full py-3 rounded-2xl bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
                         >
                           Start My Seller Live Stream Now
                         </button>
-                      ) : (
-                        <button
-                          onClick={handleBecomeSellerAction}
-                          className="w-full py-3 rounded-2xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold uppercase tracking-wider cursor-pointer"
-                        >
-                          Register as a UKAYO Seller to Go Live
-                        </button>
-                      )}
+                      ) : null}
                       <button
                         onClick={() => switchTab('feed')}
                         className="w-full py-2.5 rounded-2xl bg-white/10 text-white text-xs font-bold cursor-pointer"
@@ -4415,11 +4436,134 @@ export default function App() {
                   </div>
                 )}
 
+              {/* RIGHT-SIDE VERTICAL FLOATING ACTION RAIL — POSITIONED HIGH ABOVE NAVIGATION & PINNED CARD */}
+              <div
+                id="live-right-action-rail"
+                className="absolute right-3 bottom-36 z-30 flex flex-col items-center gap-2.5"
+              >
+                {/* Seller Host Controls (ONLY shown when this user is actively hosting in Seller Mode) */}
+                {isLiveHostView && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={toggleCameraLive}
+                      id="tiktok-cam-btn"
+                      className="flex flex-col items-center gap-0.5 cursor-pointer group"
+                      title={
+                        isCameraStreaming
+                          ? 'Camera Active'
+                          : 'Start Seller Live Camera'
+                      }
+                    >
+                      <span
+                        className={`w-10 h-10 rounded-full ${
+                          isCameraStreaming
+                            ? 'bg-[#2DD4BF] text-[#132A2E]'
+                            : 'bg-black/55 text-white'
+                        } backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg`}
+                      >
+                        <Video className="w-4 h-4" />
+                      </span>
+                      <span className="text-[9px] font-extrabold text-white drop-shadow">
+                        {isCameraStreaming ? 'Live Cam' : 'Go Live'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={flipLiveCamera}
+                      className="flex flex-col items-center gap-0.5 cursor-pointer"
+                      title="Flip Front / Rear Camera"
+                    >
+                      <span className="w-10 h-10 rounded-full bg-black/55 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-lg">
+                        <RefreshCw className="w-4 h-4" />
+                      </span>
+                      <span className="text-[9px] font-extrabold text-white drop-shadow">
+                        Flip
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openSellerDropModal}
+                      id="tiktok-seller-drop-btn"
+                      className="flex flex-col items-center gap-0.5 cursor-pointer"
+                      title="Pin New Live Item"
+                    >
+                      <span className="w-10 h-10 rounded-full bg-[#0D9488] backdrop-blur-md border-2 border-[#2DD4BF] text-white flex items-center justify-center shadow-lg">
+                        <Plus className="w-4 h-4" />
+                      </span>
+                      <span className="text-[9px] font-extrabold text-[#2DD4BF] drop-shadow">
+                        Pin Item
+                      </span>
+                    </button>
+
+                    {isCameraStreaming && (
+                      <button
+                        type="button"
+                        onClick={endSellerLiveStream}
+                        id="seller-end-live-btn"
+                        className="flex flex-col items-center gap-0.5 cursor-pointer"
+                        title="End Live Stream"
+                      >
+                        <span className="w-10 h-10 rounded-full bg-[#EF4444] border border-white/25 text-white flex items-center justify-center shadow-lg">
+                          <Power className="w-4 h-4" />
+                        </span>
+                        <span className="text-[9px] font-extrabold text-rose-300 drop-shadow">
+                          End
+                        </span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Audio Mute/Unmute Button */}
+                <button
+                  type="button"
+                  onClick={toggleLiveAudienceAudio}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer"
+                  title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
+                >
+                  <span
+                    className={`w-10 h-10 rounded-full ${
+                      !isLiveAudioMuted && isAgoraRemoteAudioPlaying
+                        ? 'bg-[#2DD4BF] text-[#132A2E]'
+                        : 'bg-black/55 text-white'
+                    } backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg`}
+                  >
+                    {isLiveAudioMuted ? (
+                      <VolumeX className="w-4 h-4" />
+                    ) : (
+                      <Volume2 className="w-4 h-4" />
+                    )}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-white drop-shadow">
+                    {isLiveAudioMuted ? 'Muted' : 'Audio'}
+                  </span>
+                </button>
+
+                {/* Heart Reaction Button */}
+                <button
+                  type="button"
+                  id="live-heart-reaction-btn"
+                  onClick={triggerLiveReaction}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-75 transition"
+                  title="Send Heart Reaction"
+                >
+                  <span className="w-10 h-10 rounded-full bg-rose-500 hover:bg-rose-600 border border-white/25 text-white flex items-center justify-center shadow-lg">
+                    <Heart className="w-4 h-4 fill-current" />
+                  </span>
+                  <span className="text-[9px] font-extrabold text-white drop-shadow">
+                    Like
+                  </span>
+                </button>
+              </div>
+
               {/* BOTTOM LIVE HUD — POSITIONED CLEANLY ABOVE BOTTOM NAVIGATION BAR */}
-              <div className="relative z-10 px-3 pb-2.5 pt-1 space-y-1.5 shrink-0">
+              <div className="relative z-10 px-3 pb-3.5 pt-1 space-y-2 shrink-0">
                 <div
                   id="floating-hearts-container"
-                  className="pointer-events-none absolute right-3 bottom-12 w-24 h-72 overflow-visible z-30"
+                  className="pointer-events-none absolute right-3 bottom-36 w-24 h-72 overflow-visible z-30"
                 >
                   {hearts.map((h) => (
                     <div
@@ -4443,8 +4587,8 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Safe Transaction Notice & Live Chat Stream */}
-                <div className="space-y-1 max-w-[90%]">
+                {/* Safe Transaction Notice & Live Chat Stream (left side, clear of right-side vertical rail) */}
+                <div className="space-y-1 max-w-[78%]">
                   <div className="bg-black/40 backdrop-blur-xs rounded-xl px-2.5 py-1 text-[10px] text-white/95 leading-snug flex items-start gap-1.5">
                     <span className="px-1.5 py-0.5 rounded-md bg-[#2DD4BF] text-[#132A2E] text-[8px] font-extrabold shrink-0 mt-0.5">
                       SAFE
@@ -4504,7 +4648,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Pinned Item Card (Buyers see MINE NA!; Seller sees PINNED BY YOU) */}
+                {/* Pinned Item Card (Buyers watching ALWAYS see MINE NA!; Active Seller Host sees PINNED BY YOU) */}
                 {(activeLiveSeller ||
                   isCameraStreaming ||
                   remoteLiveStream?.isCameraLive) &&
@@ -4543,19 +4687,20 @@ export default function App() {
                           )}
                         </div>
                       </div>
-                      {isOwnSellerProduct(
-                        activePinnedItem.sellerId || activeLiveSeller?.id,
-                        activeLiveSeller?.name || remoteLiveStream?.sellerName
-                      ) ? (
-                        <span className="px-2.5 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0 text-center">
+                      {isLiveHostView ? (
+                        <button
+                          type="button"
+                          onClick={openSellerDropModal}
+                          className="px-2.5 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0 text-center cursor-pointer"
+                        >
                           {activePinnedItem.winner
                             ? `Locked: ${activePinnedItem.winner}`
-                            : 'PINNED BY YOU'}
-                        </span>
+                            : 'PINNED • CHANGE'}
+                        </button>
                       ) : (
                         <button
                           onClick={() => claimLiveItem(activePinnedItem.id)}
-                          className={`px-3 py-1.5 rounded-xl ${
+                          className={`px-3.5 py-2 rounded-xl ${
                             activePinnedItem.winner
                               ? 'bg-[#0D9488] text-white'
                               : 'bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E]'
@@ -4571,30 +4716,30 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  isSellerAccount &&
+                  isLiveHostView &&
                   isCameraStreaming && (
                     <button
                       onClick={openSellerDropModal}
-                      className="w-full py-1.5 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer shadow-sm"
+                      className="w-full py-2 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer shadow-sm"
                     >
                       + Pin First Item to Live Rack
                     </button>
                   )
                 )}
 
-                {/* Bottom Action Row — All Icons Visible Above Bottom Navigation */}
+                {/* Bottom Comment Bar — Spacious & Clean Above Bottom Navigation */}
                 <form
                   onSubmit={sendLiveChat}
-                  className="flex items-center gap-1.5 pt-0.5"
+                  className="flex items-center gap-2 pt-0.5"
                 >
                   {/* Shopping Bag Badge Button on Left */}
                   <button
                     type="button"
                     onClick={() => switchTab('bag')}
-                    className="relative w-9 h-9 rounded-xl bg-[#2DD4BF] text-[#132A2E] flex flex-col items-center justify-center shrink-0 cursor-pointer shadow-md"
+                    className="relative w-10 h-10 rounded-xl bg-[#2DD4BF] text-[#132A2E] flex flex-col items-center justify-center shrink-0 cursor-pointer shadow-md"
                     title="My Bayong & Live Rack"
                   >
-                    <ShoppingBag className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
                     <span className="text-[8px] font-extrabold leading-none mt-0.5 tabular-nums">
                       {bayongTotalQty || state.liveItems.length}
                     </span>
@@ -4606,98 +4751,16 @@ export default function App() {
                     id="live-chat-input"
                     value={liveChatInput}
                     onChange={(e) => setLiveChatInput(e.target.value)}
-                    placeholder="Comment"
-                    className="flex-1 min-w-[72px] px-3 py-2 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs text-white placeholder-white/70 focus:outline-none"
+                    placeholder="Write a live comment or Mine..."
+                    className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-xs text-white placeholder-white/75 focus:outline-none"
                   />
 
-                  {/* Seller Host Controls (Only for Registered Sellers: Camera, Flip, Pin, End Live Icon) */}
-                  {isSellerAccount && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={toggleCameraLive}
-                        id="tiktok-cam-btn"
-                        className={`w-8 h-8 rounded-full ${
-                          isCameraStreaming
-                            ? 'bg-[#2DD4BF] text-[#132A2E]'
-                            : 'bg-black/45 text-white'
-                        } backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 cursor-pointer`}
-                        title={
-                          isCameraStreaming
-                            ? 'Camera Active'
-                            : 'Start Seller Live Camera'
-                        }
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={flipLiveCamera}
-                        className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
-                        title="Flip Camera"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openSellerDropModal}
-                        id="tiktok-seller-drop-btn"
-                        className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#2DD4BF] flex items-center justify-center shrink-0 cursor-pointer"
-                        title="Pin New Live Item"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      {isCameraStreaming && (
-                        <button
-                          type="button"
-                          onClick={endSellerLiveStream}
-                          id="seller-end-live-btn"
-                          className="w-8 h-8 rounded-full bg-[#EF4444] text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
-                          title="End Live Stream"
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  {/* Mute/Unmute Audio Circle Button */}
+                  {/* Send Comment Button */}
                   <button
-                    type="button"
-                    onClick={toggleLiveAudienceAudio}
-                    className={`w-8 h-8 rounded-full ${
-                      !isLiveAudioMuted && isAgoraRemoteAudioPlaying
-                        ? 'bg-[#2DD4BF] text-[#132A2E]'
-                        : 'bg-black/45 text-white'
-                    } backdrop-blur-md border border-white/15 flex items-center justify-center shrink-0 cursor-pointer`}
-                    title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
+                    type="submit"
+                    className="px-3.5 py-2.5 rounded-full bg-[#0D9488] hover:bg-[#2DD4BF] hover:text-[#132A2E] text-white text-xs font-extrabold shrink-0 cursor-pointer shadow-md transition"
                   >
-                    {isLiveAudioMuted ? (
-                      <VolumeX className="w-3.5 h-3.5" />
-                    ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-
-                  {/* Share / Next Live Room Circle Button */}
-                  <button
-                    type="button"
-                    onClick={switchToNextRelatedLive}
-                    className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
-                    title="Next Live Room"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Heart Reaction Circle Button on Far Right */}
-                  <button
-                    type="button"
-                    id="live-heart-reaction-btn"
-                    onClick={triggerLiveReaction}
-                    className="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 border border-white/25 text-white flex items-center justify-center shrink-0 active:scale-75 transition cursor-pointer shadow-md"
-                    title="Send Heart Reaction"
-                  >
-                    <Heart className="w-3.5 h-3.5 fill-current" />
+                    Send
                   </button>
                 </form>
               </div>

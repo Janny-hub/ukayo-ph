@@ -1120,18 +1120,22 @@ export async function publishLiveCameraFrame(
       liveTitle: payload.liveTitle || '',
       updatedAt: Date.now(),
     };
-    localStorage.setItem(
-      `${LIVE_FRAME_STORAGE_PREFIX}${payload.sellerId}`,
-      JSON.stringify(cleanPayload)
-    );
-    localStorage.setItem(
-      `${LIVE_FRAME_STORAGE_PREFIX}latest`,
-      JSON.stringify(cleanPayload)
-    );
+    try {
+      localStorage.setItem(
+        `${LIVE_FRAME_STORAGE_PREFIX}${payload.sellerId}`,
+        JSON.stringify(cleanPayload)
+      );
+      localStorage.setItem(
+        `${LIVE_FRAME_STORAGE_PREFIX}latest`,
+        JSON.stringify(cleanPayload)
+      );
+    } catch {
+      // ignore localStorage quota on mobile
+    }
     if (liveFrameChannel) {
       liveFrameChannel.postMessage(cleanPayload);
     }
-    fetch('/api/live-frame', {
+    await fetch('/api/live-frame', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cleanPayload),
@@ -1147,9 +1151,6 @@ export function subscribeToLiveCameraStream(
 ) {
   const parseAndEmit = (raw: LiveCameraBroadcastState | null) => {
     if (!raw) return;
-    if (sellerId && raw.sellerId && raw.sellerId !== sellerId && sellerId !== 'any') {
-      // Still allow if buyer doesn't have an active stream yet or matches latest live seller
-    }
     const isFresh =
       Boolean(raw.isCameraLive) &&
       Boolean(raw.frameDataUrl) &&
@@ -1177,21 +1178,32 @@ export function subscribeToLiveCameraStream(
     // ignore
   }
 
+  let isPolling = false;
   const pollFrame = () => {
-    fetch(`/api/live-frame?sellerId=${encodeURIComponent(sellerId || '')}`, {
-      cache: 'no-store',
-    })
+    if (isPolling) return;
+    isPolling = true;
+    fetch(
+      `/api/live-frame?sellerId=${encodeURIComponent(
+        sellerId || ''
+      )}&_t=${Date.now()}`,
+      {
+        cache: 'no-store',
+      }
+    )
       .then((r) => r.json())
       .then((data) => {
         if (data && data.stream) {
           parseAndEmit(data.stream);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        isPolling = false;
+      });
   };
 
   pollFrame();
-  const framePollTimer = window.setInterval(pollFrame, 800);
+  const framePollTimer = window.setInterval(pollFrame, 400);
 
   const onStorage = (ev: StorageEvent) => {
     if (

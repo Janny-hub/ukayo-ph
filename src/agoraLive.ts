@@ -111,14 +111,15 @@ export async function startAgoraHostBroadcast(
     localAudioTrack = audioTrack;
     localVideoTrack = videoTrack;
 
-    const mediaTracks: MediaStreamTrack[] = [videoTrack.getMediaStreamTrack()];
-    if (audioTrack) {
-      mediaTracks.push(audioTrack.getMediaStreamTrack());
-    }
-    const combinedStream = new MediaStream(mediaTracks);
+    const previewVideoStream = new MediaStream([
+      videoTrack.getMediaStreamTrack(),
+    ]);
 
     if (videoElement) {
-      videoElement.srcObject = combinedStream;
+      videoElement.muted = true;
+      videoElement.setAttribute('playsinline', 'true');
+      videoElement.setAttribute('webkit-playsinline', 'true');
+      videoElement.srcObject = previewVideoStream;
       videoElement.play().catch(() => {});
     }
 
@@ -127,7 +128,7 @@ export async function startAgoraHostBroadcast(
     } else {
       await client.publish([videoTrack]);
     }
-    return { success: true, mediaStream: combinedStream };
+    return { success: true, mediaStream: previewVideoStream };
   } catch {
     await stopAgoraHostBroadcast();
     return { success: false, mediaStream: null };
@@ -180,6 +181,30 @@ export function joinAgoraAudienceChannel(
   let activeRemoteAudio: IRemoteAudioTrack | null = null;
   let audioMuted = false;
   let joinPromise: Promise<void> | null = null;
+  let lastVideoCurrentTime = -1;
+
+  // Watchdog checks every 850ms that the WebRTC <video> is actively advancing frames.
+  // If WebRTC UDP freezes between a phone and laptop, it sets onRemoteVideoStateChange(false)
+  // so the continuously moving /api/live-frame stream at z-[1] is immediately visible.
+  const watchdogTimer = setInterval(() => {
+    if (cancelled || !remoteContainer) return;
+    const vid = remoteContainer.querySelector('video');
+    if (!vid || vid.readyState < 2 || vid.videoWidth === 0) {
+      lastVideoCurrentTime = -1;
+      callbacks.onRemoteVideoStateChange(false);
+      return;
+    }
+    if (vid.paused) {
+      vid.play().catch(() => {});
+    }
+    const cur = vid.currentTime || 0;
+    if (lastVideoCurrentTime >= 0 && cur > lastVideoCurrentTime + 0.02) {
+      callbacks.onRemoteVideoStateChange(true);
+    } else if (lastVideoCurrentTime >= 0 && cur <= lastVideoCurrentTime + 0.005) {
+      callbacks.onRemoteVideoStateChange(false);
+    }
+    lastVideoCurrentTime = cur;
+  }, 850);
 
   const start = async () => {
     if (!sellerId || !remoteContainer || cancelled) return;
@@ -200,6 +225,7 @@ export function joinAgoraAudienceChannel(
 
           if (mediaType === 'video' && user.videoTrack && remoteContainer) {
             remoteContainer.innerHTML = '';
+            lastVideoCurrentTime = -1;
             user.videoTrack.play(remoteContainer, { fit: 'cover' });
             const attachRemoteVideoListeners = () => {
               const vid = remoteContainer.querySelector('video');
@@ -211,17 +237,7 @@ export function joinAgoraAudienceChannel(
                 vid.style.width = '100%';
                 vid.style.height = '100%';
                 vid.style.objectFit = 'cover';
-                const markPlayingIfValid = () => {
-                  if (!cancelled && vid.videoWidth > 0) {
-                    callbacks.onRemoteVideoStateChange(true);
-                  }
-                };
-                vid.addEventListener('loadeddata', markPlayingIfValid);
-                vid.addEventListener('playing', markPlayingIfValid);
                 vid.play().catch(() => {});
-                if (vid.readyState >= 2 && vid.videoWidth > 0) {
-                  callbacks.onRemoteVideoStateChange(true);
-                }
               }
             };
             attachRemoteVideoListeners();
@@ -248,6 +264,7 @@ export function joinAgoraAudienceChannel(
 
       c.on('user-unpublished', (user, mediaType) => {
         if (mediaType === 'video') {
+          lastVideoCurrentTime = -1;
           callbacks.onRemoteVideoStateChange(false);
         }
         if (mediaType === 'audio') {
@@ -259,6 +276,7 @@ export function joinAgoraAudienceChannel(
       });
 
       c.on('user-left', () => {
+        lastVideoCurrentTime = -1;
         callbacks.onRemoteVideoStateChange(false);
         callbacks.onRemoteAudioStateChange(false);
       });
@@ -309,6 +327,7 @@ export function joinAgoraAudienceChannel(
     leave: async () => {
       cancelled = true;
       clearTimeout(startTimer);
+      clearInterval(watchdogTimer);
       callbacks.onRemoteVideoStateChange(false);
       callbacks.onRemoteAudioStateChange(false);
       if (activeRemoteAudio) {

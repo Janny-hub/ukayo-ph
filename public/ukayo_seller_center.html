@@ -3231,26 +3231,45 @@
       canvas.width = 320;
       canvas.height = 420;
       const ctx = canvas.getContext('2d');
+      let isPostingScFrame = false;
 
-      hostCamBroadcastTimer = setInterval(() => {
-        if (!hostCamStream || !videoEl || videoEl.readyState < 2 || !ctx) return;
+      hostCamBroadcastTimer = setInterval(async () => {
+        if (isPostingScFrame) return;
+        if (!hostCamStream || !videoEl || !ctx) return;
+        if (videoEl.paused) {
+          videoEl.play().catch(() => {});
+        }
+        if (videoEl.readyState < 2) return;
         if (!scState.ownSellerId) return;
+        const vw = videoEl.videoWidth || 320;
+        const vh = videoEl.videoHeight || 420;
+        const targetW = 320;
+        const targetH = vw > 0 && vh > 0 ? Math.round((targetW * vh) / vw) : 420;
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
+        const frameDataUrl = canvas.toDataURL('image/jpeg', 0.55);
         const pinnedObj = buildScPinnedLiveItemObj();
         if (window.publishSellerLiveFrame) {
-          window.publishSellerLiveFrame({
-            sellerId: scState.ownSellerId,
-            sellerName: scState.shopName || 'Ukay Seller',
-            isCameraLive: true,
-            frameDataUrl,
-            pinnedItemId: pinnedObj ? pinnedObj.id : '',
-            pinnedItem: pinnedObj,
-            liveTitle: scState.liveTitle || '',
-            updatedAt: Date.now()
-          });
+          isPostingScFrame = true;
+          try {
+            await window.publishSellerLiveFrame({
+              sellerId: scState.ownSellerId,
+              sellerName: scState.shopName || 'Ukay Seller',
+              isCameraLive: true,
+              frameDataUrl,
+              pinnedItemId: pinnedObj ? pinnedObj.id : '',
+              pinnedItem: pinnedObj,
+              liveTitle: scState.liveTitle || '',
+              updatedAt: Date.now()
+            });
+          } finally {
+            isPostingScFrame = false;
+          }
         }
-      }, 750);
+      }, 400);
     }
 
     const UKAYO_AGORA_APP_ID = 'df0c2affcab4490097fa942593e13a57';
@@ -3424,12 +3443,13 @@
           scAgoraAudioTrack = audioTrack;
           scAgoraVideoTrack = videoTrack;
           hostCamStream = new MediaStream([
-            videoTrack.getMediaStreamTrack(),
-            audioTrack.getMediaStreamTrack()
+            videoTrack.getMediaStreamTrack()
           ]);
-          videoEl.srcObject = hostCamStream;
           videoEl.classList.remove('hidden');
           imgEl.classList.add('hidden');
+          videoEl.muted = true;
+          videoEl.srcObject = hostCamStream;
+          await videoEl.play().catch(() => {});
           btn.textContent = 'Stop Camera';
           statusPill.textContent = '● AGORA LIVE ON AIR (HD VIDEO + AUDIO)';
           startScLiveDurationCounter();
@@ -3444,10 +3464,13 @@
       }
 
       try {
-        hostCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        videoEl.srcObject = hostCamStream;
+        const rawStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        hostCamStream = rawStream;
         videoEl.classList.remove('hidden');
         imgEl.classList.add('hidden');
+        videoEl.muted = true;
+        videoEl.srcObject = new MediaStream(rawStream.getVideoTracks());
+        await videoEl.play().catch(() => {});
         btn.textContent = 'Stop Camera';
         statusPill.textContent = '● CAMERA LIVE ON AIR';
         startScLiveDurationCounter();
