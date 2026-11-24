@@ -168,6 +168,7 @@ export interface Seller {
   rating: number;
   reviews?: SellerReview[];
   isLive: boolean;
+  liveUpdatedAt?: number;
   liveCategory: string;
   liveTitle: string;
   liveStreamPreview: string;
@@ -639,7 +640,7 @@ export default function App() {
   // Live Setup states
   const [liveSetupTitle, setLiveSetupTitle] = useState('');
   const [liveSetupCategory, setLiveSetupCategory] = useState('Jackets & Hoodies');
-  const [liveSetupCamera, setLiveSetupCamera] = useState<'environment' | 'user'>('environment');
+  const [liveSetupCamera, setLiveSetupCamera] = useState<'environment' | 'user'>('user');
   const [liveSetupPinnedId, setLiveSetupPinnedId] = useState('');
   const [liveSetupTimer, setLiveSetupTimer] = useState('First Tap Locks (Instant)');
   const [liveSetupRule, setLiveSetupRule] = useState(
@@ -685,7 +686,7 @@ export default function App() {
   const [isAgoraRemoteVideoPlaying, setIsAgoraRemoteVideoPlaying] = useState(false);
   const [isAgoraRemoteAudioPlaying, setIsAgoraRemoteAudioPlaying] = useState(false);
   const [isLiveAudioMuted, setIsLiveAudioMuted] = useState(false);
-  const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>('environment');
+  const [liveFacingMode, setLiveFacingMode] = useState<'environment' | 'user'>('user');
   const [remoteLiveStream, setRemoteLiveStream] = useState<LiveCameraBroadcastState | null>(null);
 
   // Touch & wheel refs for Mine Na! swipe
@@ -709,7 +710,7 @@ export default function App() {
       if (existingRaw) {
         try {
           const existingParsed = JSON.parse(existingRaw);
-          toSave = normalizeAndMergeUkayoState(state, existingParsed);
+          toSave = normalizeAndMergeUkayoState(existingParsed, state);
         } catch {
           // ignore
         }
@@ -1896,9 +1897,10 @@ export default function App() {
   };
 
   const toggleFollowCurrentLiveSeller = () => {
+    const activeLives = state.sellers.filter((s) => s.isLive);
     const seller =
-      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
-      state.sellers[0];
+      activeLives.find((s) => s.id === state.activeLiveSellerId) ||
+      activeLives[0];
     if (!seller) return;
 
     const followerKey = state.user.id || state.user.email || 'guest_device';
@@ -1935,12 +1937,13 @@ export default function App() {
   };
 
   const switchToNextRelatedLive = () => {
-    if (state.sellers.length <= 1) return;
+    const activeLives = state.sellers.filter((s) => s.isLive);
+    if (activeLives.length <= 1) return;
     const current =
-      state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
-      state.sellers[0];
+      activeLives.find((s) => s.id === state.activeLiveSellerId) ||
+      activeLives[0];
     if (!current) return;
-    const others = state.sellers.filter((s) => s.id !== current.id);
+    const others = activeLives.filter((s) => s.id !== current.id);
     if (!others.length) return;
     const related =
       others.find((s) => s.liveCategory === current.liveCategory) || others[0];
@@ -2053,7 +2056,21 @@ export default function App() {
     );
     if (agoraRes.success && agoraRes.mediaStream) {
       liveStreamRef.current = agoraRes.mediaStream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = agoraRes.mediaStream;
+        videoRef.current.play().catch(() => {});
+      }
       setIsCameraStreaming(true);
+      setState((prev) => ({
+        ...prev,
+        activeTab: 'mine',
+        activeLiveSellerId: hostSellerId,
+        sellers: prev.sellers.map((s) =>
+          s.id === hostSellerId
+            ? { ...s, isLive: true, liveUpdatedAt: Date.now() }
+            : s
+        ),
+      }));
       showToast(
         `LIVE on Agora Channel (${getAgoraChannelName(hostSellerId)}) — HD Video + Voice Active!`
       );
@@ -2061,15 +2078,34 @@ export default function App() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
-        audio: true,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
+          audio: true,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
       liveStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
       }
       setIsCameraStreaming(true);
+      setState((prev) => ({
+        ...prev,
+        activeTab: 'mine',
+        activeLiveSellerId: hostSellerId,
+        sellers: prev.sellers.map((s) =>
+          s.id === hostSellerId
+            ? { ...s, isLive: true, liveUpdatedAt: Date.now() }
+            : s
+        ),
+      }));
       showToast('You are now LIVE on Mine Na!');
     } catch {
       setIsCameraStreaming(true);
@@ -2090,6 +2126,7 @@ export default function App() {
     setIsCameraStreaming(false);
     setLiveStreamStartedAt(null);
     setLiveElapsedSeconds(0);
+    setRemoteLiveStream(null);
 
     const hostSellerId =
       state.user.ownSellerId ||
@@ -2099,6 +2136,12 @@ export default function App() {
       state.user.shopName || state.user.name || 'Ukay Host';
 
     if (hostSellerId) {
+      try {
+        localStorage.removeItem(`ukayo_live_frame_${hostSellerId}`);
+        localStorage.removeItem('ukayo_live_frame_latest');
+      } catch {
+        // ignore
+      }
       publishLiveCameraFrame({
         sellerId: hostSellerId,
         sellerName: hostDisplayName,
@@ -2110,27 +2153,35 @@ export default function App() {
       });
     }
 
-    setState((prev) => ({
-      ...prev,
-      sellers: prev.sellers.map((s) =>
-        s.id === hostSellerId ? { ...s, isLive: false } : s
-      ),
-      liveChat: [
-        ...prev.liveChat,
-        {
-          id: 'lc_' + Date.now(),
-          sellerId: hostSellerId,
-          sender: hostDisplayName,
-          badge: 'HOST',
-          text: `Live stream ended (Duration: ${finalDuration}). Thank you for mining!`,
-          isHost: true,
-          time: new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        },
-      ],
-    }));
+    const endedAtTs = Date.now();
+    setState((prev) => {
+      const updatedSellers = prev.sellers.map((s) =>
+        s.id === hostSellerId
+          ? { ...s, isLive: false, liveUpdatedAt: endedAtTs }
+          : s
+      );
+      const nextLiveSeller = updatedSellers.find((s) => s.isLive);
+      return {
+        ...prev,
+        activeLiveSellerId: nextLiveSeller ? nextLiveSeller.id : '',
+        sellers: updatedSellers,
+        liveChat: [
+          ...prev.liveChat,
+          {
+            id: 'lc_' + endedAtTs,
+            sellerId: hostSellerId,
+            sender: hostDisplayName,
+            badge: 'HOST',
+            text: `Live stream ended (Duration: ${finalDuration}). Thank you for mining!`,
+            isHost: true,
+            time: new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          },
+        ],
+      };
+    });
 
     showToast(`Live stream ended • Total duration: ${finalDuration}`);
   };
@@ -2157,9 +2208,10 @@ export default function App() {
     const ruleText = liveSetupRule.trim();
     const defaultCover =
       'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80';
+    const startedTs = Date.now();
 
     setLiveFacingMode(cameraFacing);
-    setLiveStreamStartedAt(Date.now());
+    setLiveStreamStartedAt(startedTs);
     setLiveElapsedSeconds(0);
 
     setState((prev) => {
@@ -2169,6 +2221,7 @@ export default function App() {
               ? {
                   ...s,
                   isLive: true,
+                  liveUpdatedAt: startedTs,
                   liveTitle: title,
                   liveCategory: category,
                   pinnedItemId: pinnedId || s.pinnedItemId || prev.activePinnedItemId,
@@ -2194,6 +2247,7 @@ export default function App() {
               pinnedItemId: pinnedId || prev.activePinnedItemId,
               rating: 5.0,
               isLive: true,
+              liveUpdatedAt: startedTs,
               liveCategory: category,
               liveTitle: title,
               liveStreamPreview: pendingLiveCoverData || defaultCover,
@@ -2205,6 +2259,7 @@ export default function App() {
 
       return {
         ...prev,
+        activeTab: 'mine',
         user: {
           ...prev.user,
           ownSellerId: prev.user.ownSellerId || sellerId,
@@ -2215,7 +2270,7 @@ export default function App() {
         liveChat: [
           ...prev.liveChat,
           {
-            id: 'lc_' + Date.now(),
+            id: 'lc_' + startedTs,
             sellerId,
             sender: hostDisplayName,
             badge: 'HOST',
@@ -2328,7 +2383,10 @@ export default function App() {
             s.id === sellerId
               ? {
                   ...s,
-                  isLive: true,
+                  isLive: Boolean(s.isLive || isCameraStreaming),
+                  liveUpdatedAt: isCameraStreaming
+                    ? Date.now()
+                    : s.liveUpdatedAt || 0,
                   pinnedItemId: newItem.id,
                   liveStreamPreview: newItem.image || s.liveStreamPreview,
                   products: [
@@ -2351,7 +2409,8 @@ export default function App() {
               followedBy: [],
               pinnedItemId: newItem.id,
               rating: 5.0,
-              isLive: true,
+              isLive: Boolean(isCameraStreaming),
+              liveUpdatedAt: isCameraStreaming ? Date.now() : 0,
               liveCategory: 'Jackets & Hoodies',
               liveTitle: `${hostName} Live Drop!`,
               liveStreamPreview: newItem.image,
@@ -2865,14 +2924,27 @@ export default function App() {
   );
   const isSellerMode = isSellerAccount && state.role === 'seller';
 
+  const liveSellers = state.sellers.filter((s) => s.isLive);
   const activeLiveSeller: Seller | undefined =
-    state.sellers.find((s) => s.id === state.activeLiveSellerId) ||
-    state.sellers.find((s) => s.isLive) ||
-    state.sellers[0];
+    liveSellers.find((s) => s.id === state.activeLiveSellerId) ||
+    liveSellers[0];
+
+  // Re-attach active seller MediaStream to videoRef whenever the Live tab mounts
+  useEffect(() => {
+    if (isCameraStreaming && liveStreamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== liveStreamRef.current) {
+        videoRef.current.srcObject = liveStreamRef.current;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraStreaming, state.activeTab]);
 
   // Subscribe to Agora Interactive Live Streaming channel as Audience when watching a seller's live room
   useEffect(() => {
-    if (state.activeTab !== 'mine' || isCameraStreaming) {
+    const hasActiveRemoteRoom = Boolean(
+      activeLiveSeller?.isLive || remoteLiveStream?.isCameraLive
+    );
+    if (state.activeTab !== 'mine' || isCameraStreaming || !hasActiveRemoteRoom) {
       if (agoraAudienceCtrlRef.current) {
         agoraAudienceCtrlRef.current.leave();
         agoraAudienceCtrlRef.current = null;
@@ -2882,7 +2954,8 @@ export default function App() {
       return;
     }
 
-    const targetSellerId = activeLiveSeller?.id || 'ukayo_live_room';
+    const targetSellerId =
+      activeLiveSeller?.id || remoteLiveStream?.sellerId || 'ukayo_live_room';
     const ctrl = joinAgoraAudienceChannel(
       targetSellerId,
       agoraRemoteVideoRef.current,
@@ -2904,13 +2977,23 @@ export default function App() {
         agoraAudienceCtrlRef.current = null;
       }
     };
-  }, [state.activeTab, isCameraStreaming]);
+  }, [
+    state.activeTab,
+    isCameraStreaming,
+    activeLiveSeller?.id,
+    activeLiveSeller?.isLive,
+    remoteLiveStream?.isCameraLive,
+  ]);
 
   // Subscribe to real-time remote camera frames for the active live seller
   useEffect(() => {
     const sellerId = activeLiveSeller?.id || 'any';
     const unsub = subscribeToLiveCameraStream(sellerId, (streamData) => {
-      setRemoteLiveStream(streamData);
+      if (!streamData || !streamData.isCameraLive) {
+        setRemoteLiveStream(null);
+      } else {
+        setRemoteLiveStream(streamData);
+      }
     });
     return () => unsub();
   }, [activeLiveSeller?.id]);
@@ -2936,7 +3019,9 @@ export default function App() {
           (i) => i.sellerId === activeLiveSeller.id && i.pinned
         )
       : undefined) ||
-    state.liveItems.find((i) => i.id === state.activePinnedItemId) ||
+    (activeLiveSeller
+      ? state.liveItems.find((i) => i.id === state.activePinnedItemId)
+      : undefined) ||
     (sellerPinnedProduct && activeLiveSeller
       ? {
           id: 'live_' + sellerPinnedProduct.id,
@@ -2958,10 +3043,9 @@ export default function App() {
       : undefined) ||
     (activeLiveSeller
       ? state.liveItems.find((i) => i.sellerId === activeLiveSeller.id)
-      : undefined) ||
-    state.liveItems[0];
+      : undefined);
 
-  // Broadcast live camera frames every 750ms while hosting camera live in Marketplace
+  // Broadcast live camera frames every 600ms while hosting camera live in Marketplace
   useEffect(() => {
     if (!isCameraStreaming) return;
     const canvas = document.createElement('canvas');
@@ -2969,15 +3053,41 @@ export default function App() {
     canvas.height = 420;
     const ctx = canvas.getContext('2d');
 
-    const interval = window.setInterval(() => {
-      const video = videoRef.current;
-      if (!video || video.readyState < 2 || !ctx) return;
+    const offscreenVideo = document.createElement('video');
+    offscreenVideo.muted = true;
+    offscreenVideo.playsInline = true;
+    offscreenVideo.autoplay = true;
+    if (liveStreamRef.current) {
+      offscreenVideo.srcObject = liveStreamRef.current;
+      offscreenVideo.play().catch(() => {});
+    }
+
+    let capturedPreviewOnce = false;
+
+    const captureAndPublishFrame = () => {
+      if (
+        liveStreamRef.current &&
+        offscreenVideo.srcObject !== liveStreamRef.current
+      ) {
+        offscreenVideo.srcObject = liveStreamRef.current;
+        offscreenVideo.play().catch(() => {});
+      }
+      const activeVid =
+        videoRef.current && videoRef.current.readyState >= 2
+          ? videoRef.current
+          : offscreenVideo.readyState >= 2
+          ? offscreenVideo
+          : null;
+      if (!activeVid || !ctx) return;
+
       const hostSellerId =
-        stateRef.current.activeLiveSellerId ||
         stateRef.current.user.ownSellerId ||
+        stateRef.current.activeLiveSellerId ||
         'seller_' + (stateRef.current.user.id || 'host');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.52);
+      ctx.drawImage(activeVid, 0, 0, canvas.width, canvas.height);
+      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.56);
+      if (!frameDataUrl || frameDataUrl.length < 100) return;
+
       const currentPinned =
         stateRef.current.liveItems.find(
           (i) => i.id === stateRef.current.activePinnedItemId
@@ -2987,6 +3097,7 @@ export default function App() {
         ) ||
         stateRef.current.liveItems[0] ||
         null;
+
       publishLiveCameraFrame({
         sellerId: hostSellerId,
         sellerName:
@@ -2995,14 +3106,40 @@ export default function App() {
           'Ukay Live Host',
         isCameraLive: true,
         frameDataUrl,
-        pinnedItemId: currentPinned?.id || stateRef.current.activePinnedItemId || '',
+        pinnedItemId:
+          currentPinned?.id || stateRef.current.activePinnedItemId || '',
         pinnedItem: currentPinned,
         liveTitle: liveSetupTitle || '',
         updatedAt: Date.now(),
       });
-    }, 750);
 
-    return () => window.clearInterval(interval);
+      if (!capturedPreviewOnce) {
+        capturedPreviewOnce = true;
+        setState((prev) => ({
+          ...prev,
+          sellers: prev.sellers.map((s) =>
+            s.id === hostSellerId
+              ? {
+                  ...s,
+                  isLive: true,
+                  liveUpdatedAt: Date.now(),
+                  liveStreamPreview: frameDataUrl,
+                }
+              : s
+          ),
+        }));
+      }
+    };
+
+    offscreenVideo.onloadeddata = () => {
+      captureAndPublishFrame();
+    };
+    const interval = window.setInterval(captureAndPublishFrame, 600);
+
+    return () => {
+      window.clearInterval(interval);
+      offscreenVideo.srcObject = null;
+    };
   }, [isCameraStreaming, liveSetupTitle]);
 
   const currentFollowerKey =
@@ -3379,27 +3516,35 @@ export default function App() {
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-                    {state.sellers.length === 0 ? (
+                    {liveSellers.length === 0 ? (
                       <div
                         onClick={() => switchTab('mine')}
                         className="rounded-xl bg-[#0D9488] text-white p-3 aspect-[8/5] flex flex-col items-center justify-center text-center cursor-pointer"
                       >
                         <Radio className="w-5 h-5 text-[#2DD4BF] mb-1" />
-                        <div className="text-[10px] font-extrabold">No Live Streams Yet</div>
+                        <div className="text-[10px] font-extrabold">No Live Streams Right Now</div>
                         <div className="text-[9px] text-slate-200">
-                          Register as Seller to Go LIVE
+                          {isSellerAccount
+                            ? 'Tap to Start Your Live Stream'
+                            : 'Tap to check Live Room'}
                         </div>
                       </div>
                     ) : (
                       <div id="home-live-previews" className="grid grid-cols-2 gap-1.5">
-                        {state.sellers.slice(0, 2).map((s) => (
+                        {liveSellers.slice(0, 2).map((s) => (
                           <button
                             key={s.id}
                             onClick={() => openLiveRoomForSeller(s.id)}
                             className="relative rounded-xl overflow-hidden aspect-[3/4] bg-[#0D9488] text-left group cursor-pointer"
                           >
                             <img
-                              src={s.liveStreamPreview}
+                              src={
+                                remoteLiveStream?.isCameraLive &&
+                                remoteLiveStream.sellerId === s.id &&
+                                remoteLiveStream.frameDataUrl
+                                  ? remoteLiveStream.frameDataUrl
+                                  : s.liveStreamPreview
+                              }
                               alt={s.name}
                               className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition"
                             />
@@ -3512,8 +3657,8 @@ export default function App() {
           {/* TAB 2: "UKAY FEED" */}
           {state.activeTab === 'feed' && (
             <section id="tab-feed" className="px-3 pt-3 space-y-2.5 pb-4">
-              {/* Compact Live Stories Strip */}
-              {state.sellers.length > 0 && (
+              {/* Compact Live Stories Strip (Only Currently Active Live Streams) */}
+              {liveSellers.length > 0 && (
                 <div className="bg-white rounded-2xl border border-[#E2F2EE] p-3 shadow-2xs">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-extrabold text-[#132A2E]">
@@ -3530,7 +3675,7 @@ export default function App() {
                     id="feed-stories-strip"
                     className="flex items-center gap-3.5 overflow-x-auto no-scrollbar pb-0.5"
                   >
-                    {state.sellers.map((s) => (
+                    {liveSellers.map((s) => (
                       <button
                         key={s.id}
                         onClick={() => openLiveRoomForSeller(s.id)}
@@ -3548,11 +3693,9 @@ export default function App() {
                               s.name.slice(0, 2).toUpperCase()
                             )}
                           </div>
-                          {s.isLive && (
-                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[7px] font-extrabold uppercase border border-[#2DD4BF]">
-                              LIVE
-                            </span>
-                          )}
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[7px] font-extrabold uppercase border border-[#2DD4BF]">
+                            LIVE
+                          </span>
                         </div>
                         <span className="text-[10px] font-medium text-[#132A2E] max-w-[64px] truncate">
                           {s.name.split(' ')[0]}
@@ -3840,12 +3983,11 @@ export default function App() {
               onTouchStart={handleLiveTouchStart}
               onTouchEnd={handleLiveTouchEnd}
               onWheel={handleLiveWheel}
-              className="fixed inset-0 z-20 max-w-md mx-auto bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
+              className="fixed top-0 left-0 right-0 bottom-[62px] z-20 max-w-md mx-auto bg-slate-950 text-white flex flex-col justify-between overflow-hidden select-none overscroll-none touch-none"
             >
               {/* Video / Visual Backdrop (Local Camera -> Agora Remote WebRTC Video -> Server/Cloud Frame Stream -> Pinned Product / Cover) */}
               {(activeLiveSeller ||
-                (remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl) ||
-                activePinnedItem) && (
+                (remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl)) && (
                 <img
                   id="live-fallback-bg"
                   src={
@@ -3859,13 +4001,11 @@ export default function App() {
                         'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=800&q=80'
                   }
                   alt="Live Ukay Stream"
-                  className={`absolute inset-0 w-full h-full object-cover ${
+                  className={`absolute inset-0 w-full h-full object-cover z-[1] ${
                     remoteLiveStream?.isCameraLive && remoteLiveStream.frameDataUrl
                       ? 'opacity-100'
                       : 'opacity-85'
-                  } ${
-                    isCameraStreaming || isAgoraRemoteVideoPlaying ? 'hidden' : ''
-                  }`}
+                  } ${isCameraStreaming ? 'hidden' : ''}`}
                 />
               )}
               <div
@@ -4149,11 +4289,11 @@ export default function App() {
                   </div>
                 )}
 
-              {/* BOTTOM LIVE HUD — EXACT SPACING & ELEMENTS FROM REFERENCE IMAGE 7 */}
-              <div className="relative z-10 px-3.5 pb-20 space-y-2.5">
+              {/* BOTTOM LIVE HUD — POSITIONED CLEANLY ABOVE BOTTOM NAVIGATION BAR */}
+              <div className="relative z-10 px-3 pb-2.5 pt-1 space-y-1.5 shrink-0">
                 <div
                   id="floating-hearts-container"
-                  className="pointer-events-none absolute right-3 bottom-14 w-24 h-72 overflow-visible z-30"
+                  className="pointer-events-none absolute right-3 bottom-12 w-24 h-72 overflow-visible z-30"
                 >
                   {hearts.map((h) => (
                     <div
@@ -4177,10 +4317,10 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Safe Transaction Notice & Live Chat Stream (Matching Reference Image 7 Bottom-Left) */}
-                <div className="space-y-1.5 max-w-[88%]">
-                  <div className="bg-black/40 backdrop-blur-xs rounded-xl px-2.5 py-1.5 text-[11px] text-white/95 leading-snug flex items-start gap-2">
-                    <span className="px-1.5 py-0.5 rounded-md bg-[#2DD4BF] text-[#132A2E] text-[9px] font-extrabold shrink-0 mt-0.5">
+                {/* Safe Transaction Notice & Live Chat Stream */}
+                <div className="space-y-1 max-w-[90%]">
+                  <div className="bg-black/40 backdrop-blur-xs rounded-xl px-2.5 py-1 text-[10px] text-white/95 leading-snug flex items-start gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#2DD4BF] text-[#132A2E] text-[8px] font-extrabold shrink-0 mt-0.5">
                       SAFE
                     </span>
                     <span>
@@ -4191,12 +4331,12 @@ export default function App() {
                   <div
                     ref={liveChatBoxRef}
                     id="live-chat-messages"
-                    className="max-h-32 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1 pr-1"
+                    className="max-h-24 overflow-y-auto no-scrollbar touch-pan-y flex flex-col gap-1 pr-1"
                   >
                     {state.liveChat.slice(-16).map((m, idx) => (
                       <div
                         key={m.id || idx}
-                        className="inline-flex items-start gap-1.5 bg-black/35 backdrop-blur-xs rounded-xl px-2.5 py-1 text-xs max-w-full"
+                        className="inline-flex items-start gap-1.5 bg-black/35 backdrop-blur-xs rounded-xl px-2.5 py-1 text-[11px] max-w-full"
                       >
                         {m.badge && (
                           <span
@@ -4219,7 +4359,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Quick Comment Greeting Pills (Matching "Hello, ShopeeFam! ❤️❤️❤️" | "Powertap po..." in Image 7) */}
+                  {/* Quick Comment Greeting Pills */}
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
                     {[
                       'Hello, UkayoFam! ❤️❤️❤️',
@@ -4230,7 +4370,7 @@ export default function App() {
                         key={quickText}
                         type="button"
                         onClick={() => setLiveChatInput(quickText)}
-                        className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-[11px] font-medium text-white whitespace-nowrap shrink-0 cursor-pointer hover:bg-black/60"
+                        className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-[10px] font-medium text-white whitespace-nowrap shrink-0 cursor-pointer hover:bg-black/60"
                       >
                         {quickText}
                       </button>
@@ -4239,16 +4379,19 @@ export default function App() {
                 </div>
 
                 {/* Pinned Item Card (Buyers see MINE NA!; Seller sees PINNED BY YOU) */}
-                {activePinnedItem ? (
+                {(activeLiveSeller ||
+                  isCameraStreaming ||
+                  remoteLiveStream?.isCameraLive) &&
+                activePinnedItem ? (
                   <div id="live-pinned-item-card">
-                    <div className="bg-white rounded-2xl p-2.5 shadow-lg flex items-center gap-2.5">
-                      <div className="relative w-13 h-13 rounded-xl overflow-hidden bg-[#F4FAF8] shrink-0">
+                    <div className="bg-white rounded-2xl p-2 shadow-lg flex items-center gap-2">
+                      <div className="relative w-11 h-11 rounded-xl overflow-hidden bg-[#F4FAF8] shrink-0">
                         <img
                           src={activePinnedItem.image}
                           alt={activePinnedItem.title}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-1 left-1 px-1.5 py-0.2 rounded bg-[#0D9488] text-white text-[8px] font-extrabold">
+                        <span className="absolute top-0.5 left-0.5 px-1 py-0.2 rounded bg-[#0D9488] text-white text-[8px] font-extrabold">
                           {activePinnedItem.code}
                         </span>
                       </div>
@@ -4260,7 +4403,7 @@ export default function App() {
                           {activePinnedItem.size} · {activePinnedItem.condition}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-sm font-display font-extrabold text-[#0D9488] tabular-price">
+                          <span className="text-xs font-display font-extrabold text-[#0D9488] tabular-price">
                             ₱{activePinnedItem.price.toLocaleString()}
                           </span>
                           {activePinnedItem.winner ? (
@@ -4278,7 +4421,7 @@ export default function App() {
                         activePinnedItem.sellerId || activeLiveSeller?.id,
                         activeLiveSeller?.name || remoteLiveStream?.sellerName
                       ) ? (
-                        <span className="px-3 py-2 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0 text-center">
+                        <span className="px-2.5 py-1.5 rounded-xl bg-[#0D9488] text-white text-[10px] font-extrabold shrink-0 text-center">
                           {activePinnedItem.winner
                             ? `Locked: ${activePinnedItem.winner}`
                             : 'PINNED BY YOU'}
@@ -4286,7 +4429,7 @@ export default function App() {
                       ) : (
                         <button
                           onClick={() => claimLiveItem(activePinnedItem.id)}
-                          className={`px-3.5 py-2 rounded-xl ${
+                          className={`px-3 py-1.5 rounded-xl ${
                             activePinnedItem.winner
                               ? 'bg-[#0D9488] text-white'
                               : 'bg-[#2DD4BF] hover:bg-[#0D9488] text-[#132A2E]'
@@ -4302,30 +4445,31 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  isSellerAccount && (
+                  isSellerAccount &&
+                  isCameraStreaming && (
                     <button
                       onClick={openSellerDropModal}
-                      className="w-full py-2 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer shadow-sm"
+                      className="w-full py-1.5 rounded-xl bg-[#2DD4BF] text-[#132A2E] text-xs font-extrabold cursor-pointer shadow-sm"
                     >
                       + Pin First Item to Live Rack
                     </button>
                   )
                 )}
 
-                {/* Bottom Action Row — Matching Reference Image 7: Bag w/ Count Badge | Comment Pill | Circular Action Icons */}
+                {/* Bottom Action Row — All Icons Visible Above Bottom Navigation */}
                 <form
                   onSubmit={sendLiveChat}
-                  className="flex items-center gap-2 pt-0.5"
+                  className="flex items-center gap-1.5 pt-0.5"
                 >
-                  {/* Shopping Bag Badge Button on Left (Matches Orange/Emerald Bag with Number in Image 7) */}
+                  {/* Shopping Bag Badge Button on Left */}
                   <button
                     type="button"
                     onClick={() => switchTab('bag')}
-                    className="relative w-10 h-10 rounded-xl bg-[#2DD4BF] text-[#132A2E] flex flex-col items-center justify-center shrink-0 cursor-pointer shadow-md"
+                    className="relative w-9 h-9 rounded-xl bg-[#2DD4BF] text-[#132A2E] flex flex-col items-center justify-center shrink-0 cursor-pointer shadow-md"
                     title="My Bayong & Live Rack"
                   >
-                    <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
-                    <span className="text-[9px] font-extrabold leading-none mt-0.5 tabular-nums">
+                    <ShoppingBag className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span className="text-[8px] font-extrabold leading-none mt-0.5 tabular-nums">
                       {bayongTotalQty || state.liveItems.length}
                     </span>
                   </button>
@@ -4337,7 +4481,7 @@ export default function App() {
                     value={liveChatInput}
                     onChange={(e) => setLiveChatInput(e.target.value)}
                     placeholder="Comment"
-                    className="flex-1 min-w-0 px-4 py-2.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs text-white placeholder-white/70 focus:outline-none"
+                    className="flex-1 min-w-[72px] px-3 py-2 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs text-white placeholder-white/70 focus:outline-none"
                   />
 
                   {/* Seller Host Controls (Only for Registered Sellers: Camera, Flip, Pin, End Live Icon) */}
@@ -4347,7 +4491,7 @@ export default function App() {
                         type="button"
                         onClick={toggleCameraLive}
                         id="tiktok-cam-btn"
-                        className={`w-9 h-9 rounded-full ${
+                        className={`w-8 h-8 rounded-full ${
                           isCameraStreaming
                             ? 'bg-[#2DD4BF] text-[#132A2E]'
                             : 'bg-black/45 text-white'
@@ -4358,34 +4502,34 @@ export default function App() {
                             : 'Start Seller Live Camera'
                         }
                       >
-                        <Video className="w-4 h-4" />
+                        <Video className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={flipLiveCamera}
-                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
+                        className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
                         title="Flip Camera"
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={openSellerDropModal}
                         id="tiktok-seller-drop-btn"
-                        className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#2DD4BF] flex items-center justify-center shrink-0 cursor-pointer"
+                        className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-[#2DD4BF] text-[#2DD4BF] flex items-center justify-center shrink-0 cursor-pointer"
                         title="Pin New Live Item"
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
                       </button>
                       {isCameraStreaming && (
                         <button
                           type="button"
                           onClick={endSellerLiveStream}
                           id="seller-end-live-btn"
-                          className="w-9 h-9 rounded-full bg-[#EF4444] text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
+                          className="w-8 h-8 rounded-full bg-[#EF4444] text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
                           title="End Live Stream"
                         >
-                          <Power className="w-4 h-4" />
+                          <Power className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </>
@@ -4395,7 +4539,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={toggleLiveAudienceAudio}
-                    className={`w-9 h-9 rounded-full ${
+                    className={`w-8 h-8 rounded-full ${
                       !isLiveAudioMuted && isAgoraRemoteAudioPlaying
                         ? 'bg-[#2DD4BF] text-[#132A2E]'
                         : 'bg-black/45 text-white'
@@ -4403,9 +4547,9 @@ export default function App() {
                     title={isLiveAudioMuted ? 'Unmute Live Audio' : 'Mute Live Audio'}
                   >
                     {isLiveAudioMuted ? (
-                      <VolumeX className="w-4 h-4" />
+                      <VolumeX className="w-3.5 h-3.5" />
                     ) : (
-                      <Volume2 className="w-4 h-4" />
+                      <Volume2 className="w-3.5 h-3.5" />
                     )}
                   </button>
 
@@ -4413,10 +4557,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={switchToNextRelatedLive}
-                    className="w-9 h-9 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
                     title="Next Live Room"
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Share2 className="w-3.5 h-3.5" />
                   </button>
 
                   {/* Heart Reaction Circle Button on Far Right */}
@@ -4424,10 +4568,10 @@ export default function App() {
                     type="button"
                     id="live-heart-reaction-btn"
                     onClick={triggerLiveReaction}
-                    className="w-9 h-9 rounded-full bg-rose-500 hover:bg-rose-600 border border-white/25 text-white flex items-center justify-center shrink-0 active:scale-75 transition cursor-pointer shadow-md"
+                    className="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 border border-white/25 text-white flex items-center justify-center shrink-0 active:scale-75 transition cursor-pointer shadow-md"
                     title="Send Heart Reaction"
                   >
-                    <Heart className="w-4 h-4 fill-current" />
+                    <Heart className="w-3.5 h-3.5 fill-current" />
                   </button>
                 </form>
               </div>

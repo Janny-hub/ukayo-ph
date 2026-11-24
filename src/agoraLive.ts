@@ -85,28 +85,48 @@ export async function startAgoraHostBroadcast(
     const channelName = getAgoraChannelName(sellerId);
     await joinChannelWithTokenOrFallback(client, channelName, 'host');
 
-    const [audioTrack, videoTrack] =
-      await AgoraRTC.createMicrophoneAndCameraTracks(
+    let audioTrack: IMicrophoneAudioTrack | null = null;
+    let videoTrack: ICameraVideoTrack | null = null;
+    try {
+      const tracks = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         {
           facingMode,
           encoderConfig: '480p_1',
         }
       );
+      audioTrack = tracks[0];
+      videoTrack = tracks[1];
+    } catch {
+      videoTrack = await AgoraRTC.createCameraVideoTrack({
+        encoderConfig: '480p_1',
+      });
+      try {
+        audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      } catch {
+        audioTrack = null;
+      }
+    }
 
     localAudioTrack = audioTrack;
     localVideoTrack = videoTrack;
 
-    const combinedStream = new MediaStream([
-      videoTrack.getMediaStreamTrack(),
-      audioTrack.getMediaStreamTrack(),
-    ]);
+    const mediaTracks: MediaStreamTrack[] = [videoTrack.getMediaStreamTrack()];
+    if (audioTrack) {
+      mediaTracks.push(audioTrack.getMediaStreamTrack());
+    }
+    const combinedStream = new MediaStream(mediaTracks);
 
     if (videoElement) {
       videoElement.srcObject = combinedStream;
+      videoElement.play().catch(() => {});
     }
 
-    await client.publish([audioTrack, videoTrack]);
+    if (audioTrack) {
+      await client.publish([audioTrack, videoTrack]);
+    } else {
+      await client.publish([videoTrack]);
+    }
     return { success: true, mediaStream: combinedStream };
   } catch {
     await stopAgoraHostBroadcast();
@@ -181,15 +201,31 @@ export function joinAgoraAudienceChannel(
           if (mediaType === 'video' && user.videoTrack && remoteContainer) {
             remoteContainer.innerHTML = '';
             user.videoTrack.play(remoteContainer, { fit: 'cover' });
-            setTimeout(() => {
+            const attachRemoteVideoListeners = () => {
               const vid = remoteContainer.querySelector('video');
               if (vid) {
+                vid.muted = true;
+                vid.playsInline = true;
+                vid.setAttribute('playsinline', 'true');
+                vid.setAttribute('webkit-playsinline', 'true');
                 vid.style.width = '100%';
                 vid.style.height = '100%';
                 vid.style.objectFit = 'cover';
+                const markPlayingIfValid = () => {
+                  if (!cancelled && vid.videoWidth > 0) {
+                    callbacks.onRemoteVideoStateChange(true);
+                  }
+                };
+                vid.addEventListener('loadeddata', markPlayingIfValid);
+                vid.addEventListener('playing', markPlayingIfValid);
+                vid.play().catch(() => {});
+                if (vid.readyState >= 2 && vid.videoWidth > 0) {
+                  callbacks.onRemoteVideoStateChange(true);
+                }
               }
-            }, 50);
-            callbacks.onRemoteVideoStateChange(true);
+            };
+            attachRemoteVideoListeners();
+            setTimeout(attachRemoteVideoListeners, 80);
           }
 
           if (mediaType === 'audio' && user.audioTrack) {

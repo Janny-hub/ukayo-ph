@@ -67,9 +67,21 @@ function mergeByKeyServer(
         ...(Array.isArray(item.followedBy) ? item.followedBy : []),
       ])
     );
+    const prevLiveTs = Number(prev.liveUpdatedAt || 0);
+    const itemLiveTs = Number(item.liveUpdatedAt || 0);
+    const latestLiveTs = Math.max(prevLiveTs, itemLiveTs);
+    const usePrevLive = prevLiveTs > itemLiveTs;
+    const resolvedIsLive =
+      latestLiveTs > 0
+        ? usePrevLive
+          ? Boolean(prev.isLive)
+          : Boolean(item.isLive)
+        : false;
     map.set(k, {
       ...prev,
       ...item,
+      isLive: resolvedIsLive,
+      liveUpdatedAt: latestLiveTs,
       isSeller: Boolean(prev.isSeller || item.isSeller),
       verified: Boolean(prev.verified || item.verified),
       followedBy: mergedFollowedBy,
@@ -135,6 +147,12 @@ function mergeIncomingStateOnServer(existingJson: string, incomingJson: string):
             (p) => String(p.id || p.code || '')
           );
         }
+        const liveTs = Number(s.liveUpdatedAt || 0);
+        s.isLive =
+          Boolean(s.isLive) &&
+          liveTs > 0 &&
+          Date.now() - liveTs < 2 * 60 * 60 * 1000;
+        s.liveUpdatedAt = liveTs;
         return s;
       });
 
@@ -324,7 +342,33 @@ async function startServer() {
       updatedAt: Date.now(),
     };
     liveStreamsBySeller.set(clean.sellerId, clean);
-    latestLiveStream = clean;
+    latestLiveStream = clean.isCameraLive ? clean : null;
+
+    if (!clean.isCameraLive && serverPayloadJson) {
+      try {
+        const parsed = JSON.parse(serverPayloadJson);
+        if (Array.isArray(parsed.sellers)) {
+          parsed.sellers = parsed.sellers.map((s: any) =>
+            s && s.id === clean.sellerId
+              ? { ...s, isLive: false, liveUpdatedAt: Date.now() }
+              : s
+          );
+          if (parsed.activeLiveSellerId === clean.sellerId) {
+            const nextLive = parsed.sellers.find((s: any) => s && s.isLive);
+            parsed.activeLiveSellerId = nextLive ? nextLive.id : '';
+          }
+          serverPayloadJson = JSON.stringify(parsed);
+          serverUpdatedAt = new Date().toISOString();
+          fs.writeFileSync(STATE_FILE_PATH, serverPayloadJson, 'utf-8');
+          broadcastSseEvent('sync', {
+            payloadJson: serverPayloadJson,
+            updatedAt: serverUpdatedAt,
+          });
+        }
+      } catch {
+        // ignore parse/write errors
+      }
+    }
 
     broadcastSseEvent('live_frame', clean);
     res.json({ ok: true });

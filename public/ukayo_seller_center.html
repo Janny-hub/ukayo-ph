@@ -1572,7 +1572,8 @@
           verified: scState.sellerStatus === 'approved',
           rating: 5.0,
           followers: scState.followers || 1,
-          isLive: true,
+          isLive: Boolean(hostCamStream),
+          liveUpdatedAt: Date.now(),
           liveTitle: scState.liveTitle || `${scState.shopName} Live Ukay Drop!`,
           liveCategory: scState.niche || 'Jackets',
           liveViewers: Math.max(1, scState.products.length * 12),
@@ -3378,13 +3379,14 @@
       await stopScAgoraHost();
       stopHostCamFrameBroadcast();
       const finalDuration = stopScLiveDurationCounter();
+      pushUpdatesToSharedBuyerApp();
       if (videoEl) {
         videoEl.srcObject = null;
         videoEl.classList.add('hidden');
       }
       if (imgEl) imgEl.classList.remove('hidden');
       if (btn) btn.textContent = 'Start Camera';
-      if (statusPill) statusPill.textContent = '● ON AIR — Marketplace Live';
+      if (statusPill) statusPill.textContent = '● Live Ended — Tap Start Camera to Go Live';
       showScToast(`Live stream ended (${finalDuration}).`);
     }
 

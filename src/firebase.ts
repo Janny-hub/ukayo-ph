@@ -270,9 +270,31 @@ function mergeByKey<T extends Record<string, any>>(
           ? item.rating
           : prev.rating || 5.0;
 
+      const prevLiveTs = Number(prev.liveUpdatedAt || 0);
+      const itemLiveTs = Number(item.liveUpdatedAt || 0);
+      const latestLiveTs = Math.max(prevLiveTs, itemLiveTs);
+      const usePrevLive = prevLiveTs > itemLiveTs;
+      const resolvedIsLive =
+        latestLiveTs > 0
+          ? usePrevLive
+            ? Boolean(prev.isLive)
+            : Boolean(item.isLive)
+          : false;
+
       map.set(k, {
         ...prev,
         ...item,
+        isLive: resolvedIsLive,
+        liveUpdatedAt: latestLiveTs,
+        liveTitle: usePrevLive
+          ? prev.liveTitle || item.liveTitle || ''
+          : item.liveTitle || prev.liveTitle || '',
+        liveCategory: usePrevLive
+          ? prev.liveCategory || item.liveCategory || 'Jackets'
+          : item.liveCategory || prev.liveCategory || 'Jackets',
+        liveStreamPreview: usePrevLive
+          ? prev.liveStreamPreview || item.liveStreamPreview || ''
+          : item.liveStreamPreview || prev.liveStreamPreview || '',
         isSeller: Boolean(prev.isSeller || item.isSeller),
         verified: Boolean(prev.verified || item.verified),
         followed:
@@ -558,7 +580,8 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
           followed: false,
           followedBy: [],
           rating: 5.0,
-          isLive: true,
+          isLive: false,
+          liveUpdatedAt: 0,
           liveCategory: 'Jackets',
           liveTitle: `${u.shopName} Live Ukay Drop!`,
           liveStreamPreview:
@@ -608,8 +631,15 @@ export function normalizeAndMergeUkayoState<T extends Record<string, any>>(
       Boolean(
         (localState.sellers || []).find((ls: any) => ls.id === s.id)?.followed
       );
+    const liveTs = Number(s.liveUpdatedAt || 0);
+    const stillActiveLive =
+      Boolean(s.isLive) &&
+      liveTs > 0 &&
+      Date.now() - liveTs < 2 * 60 * 60 * 1000;
     return {
       ...s,
+      isLive: stillActiveLive,
+      liveUpdatedAt: liveTs,
       followed: isFollowedByMe,
     };
   });
@@ -1147,14 +1177,21 @@ export function subscribeToLiveCameraStream(
     // ignore
   }
 
-  fetch(`/api/live-frame?sellerId=${encodeURIComponent(sellerId || '')}`)
-    .then((r) => r.json())
-    .then((data) => {
-      if (data && data.stream) {
-        parseAndEmit(data.stream);
-      }
+  const pollFrame = () => {
+    fetch(`/api/live-frame?sellerId=${encodeURIComponent(sellerId || '')}`, {
+      cache: 'no-store',
     })
-    .catch(() => {});
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.stream) {
+          parseAndEmit(data.stream);
+        }
+      })
+      .catch(() => {});
+  };
+
+  pollFrame();
+  const framePollTimer = window.setInterval(pollFrame, 800);
 
   const onStorage = (ev: StorageEvent) => {
     if (
@@ -1187,6 +1224,7 @@ export function subscribeToLiveCameraStream(
   liveFrameSubscribers.add(onServerFrame);
 
   return () => {
+    window.clearInterval(framePollTimer);
     window.removeEventListener('storage', onStorage);
     if (liveFrameChannel) {
       liveFrameChannel.removeEventListener('message', onChannelMsg);
